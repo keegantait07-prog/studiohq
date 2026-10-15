@@ -19,6 +19,19 @@ If `npm install` finishes but Electron won't launch with "Electron uninstall", r
 
 On first launch Studio HQ watches `~/Desktop/! BEATS` and looks for FL projects in `~/Documents/Image-Line/FL Studio/Projects`. Change both in **Settings (⌘,)**.
 
+## Install as a Mac app
+
+```bash
+npm run dist                 # builds release/mac-arm64/Studio HQ.app
+./scripts/install-app.sh     # copies it to ~/Applications and signs it there
+```
+
+Then open **Studio HQ** from Launchpad, Spotlight, or `~/Applications` (drag it to the Dock or into `/Applications` if you like). It uses the same data as the dev version, so nothing needs importing. To update after changing the code, run the two commands again.
+
+- The app is built for Apple Silicon and signed locally (ad-hoc), which is fine for running it on the Mac that built it. It isn't notarized, so a copy sent to another Mac would need right-click → Open the first time.
+- The install script copies to `~/Applications` instead of signing in place because this project may sit in iCloud-synced Desktop/Documents, where macOS keeps adding file attributes that break code signing.
+- macOS will ask once for access to Desktop, Documents and any external drives; say yes so it can read your beats, projects and sound folders.
+
 ## What M1 does
 
 - **Folder watching.** Every audio file (mp3, wav, flac, m4a, aif, ogg) in your beat folders is imported, and new bounces appear once they finish writing. Renamed or moved files are re-matched by size and date, so your tags and status survive. `Backup/` folders and folders named "ideas"/"scraps" are skipped (toggle in Settings).

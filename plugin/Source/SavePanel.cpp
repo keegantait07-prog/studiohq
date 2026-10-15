@@ -2,7 +2,7 @@
 
 using namespace juce;
 
-static const Colour kPanel (0xff14161a), kLine (0xff23262c), kText (0xffe7e8ea), kDim (0xff8b8f98), kAccent (0xffff6b3d), kGood (0xff4cc38a), kWarn (0xffe8b93a);
+static const Colour kPanel (0xff101015), kLine (0xff22222c), kText (0xffececf1), kDim (0xff8a8a99), kAccent (0xffc6ff4a), kGood (0xff7dffb0), kWarn (0xffe8b93a);
 
 SavePanel::SavePanel (BridgeProcessor& p) : proc (p)
 {
@@ -27,7 +27,7 @@ SavePanel::SavePanel (BridgeProcessor& p) : proc (p)
     addAndMakeVisible (refreshBtn);
 
     saveBtn.setColour (TextButton::buttonColourId, kAccent.withMultipliedBrightness (0.9f));
-    saveBtn.setColour (TextButton::textColourOffId, Colours::white);
+    saveBtn.setColour (TextButton::textColourOffId, Colour (0xff0c1004));
     saveBtn.onClick = [this]
     {
         String msg;
@@ -63,12 +63,13 @@ void SavePanel::timerCallback()
 void SavePanel::paint (Graphics& g)
 {
     g.setColour (kPanel);
-    g.fillRoundedRectangle (tempoArea.toFloat(), 10.0f);
+    g.setGradientFill (ColourGradient (Colour (0xff15151c), 0.0f, (float) tempoArea.getY(), kPanel, 0.0f, (float) tempoArea.getBottom(), false));
+    g.fillRoundedRectangle (tempoArea.toFloat(), 16.0f);
     g.setColour (kLine);
-    g.drawRoundedRectangle (tempoArea.toFloat().reduced (0.5f), 10.0f, 1.0f);
+    g.drawRoundedRectangle (tempoArea.toFloat().reduced (0.5f), 16.0f, 1.0f);
     const double bpm = proc.hostBpm.load();
     auto inner = tempoArea.reduced (16, 8);
-    g.setColour (kText);
+    g.setColour (bpm > 0 ? kAccent : kDim);
     g.setFont (FontOptions (30.0f, Font::bold));
     g.drawText (bpm > 0 ? String (bpm, 1) : String (u8 ("—")), inner.removeFromLeft (130), Justification::centredLeft);
     g.setColour (kDim);

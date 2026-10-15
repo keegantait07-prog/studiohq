@@ -2,14 +2,14 @@
 
 using namespace juce;
 
-static const Colour kPanel (0xff14161a), kLine (0xff23262c), kText (0xffe7e8ea), kDim (0xff8b8f98), kAccent (0xffff6b3d);
+static const Colour kPanel (0xff101015), kLine (0xff22222c), kText (0xffececf1), kDim (0xff8a8a99), kAccent (0xffc6ff4a);
 
 static Colour kindColour (const String& k)
 {
-    if (k == "kick" || k == "snare" || k == "clap" || k == "hat" || k == "perc" || k == "808") return Colour (0xffff6b3d);
+    if (k == "kick" || k == "snare" || k == "clap" || k == "hat" || k == "perc" || k == "808") return Colour (0xffc6ff4a);
     if (k == "bass" || k == "melody" || k == "vocal") return Colour (0xff3987e5);
     if (k == "midi") return Colour (0xffeda100);
-    return Colour (0xff8b8f98);
+    return Colour (0xff8a8a99);
 }
 
 // One row. Handles selection, double-click to restart, and dragging the file out into FL Studio.
@@ -26,7 +26,7 @@ struct SoundsPanel::RowComp : public Component
         auto* it = owner.itemAtRow (row);
         if (it == nullptr) return;
         auto r = getLocalBounds();
-        if (selected) { g.setColour (Colour (0xff1d1f25)); g.fillRect (r); g.setColour (kAccent); g.fillRect (r.removeFromLeft (2)); }
+        if (selected) { g.setColour (Colour (0xff1a1a22)); g.fillRect (r); g.setColour (kAccent); g.fillRect (r.removeFromLeft (2)); }
         else if (isMouseOver()) { g.setColour (Colour (0xff15171b)); g.fillRect (r); }
         r.reduce (12, 0);
         g.setColour (it->favorite ? Colour (0xffe8b93a) : kDim);
@@ -269,7 +269,7 @@ void SoundsPanel::timerCallback()
 
 void SoundsPanel::paint (Graphics& g)
 {
-    g.setColour (Colour (0xff1d2026));
+    g.setColour (Colour (0xff17171e));
     g.fillRoundedRectangle (progressArea.toFloat(), 2.0f);
     g.setColour (kAccent);
     g.fillRoundedRectangle (progressArea.toFloat().withWidth (progressArea.getWidth() * progress), 2.0f);

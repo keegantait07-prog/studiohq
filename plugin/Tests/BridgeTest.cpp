@@ -33,6 +33,10 @@ int main()
     const auto dir = File::getSpecialLocation (File::tempDirectory).getChildFile ("shq-bridge-test-" + String (Time::currentTimeMillis()));
     dir.createDirectory();
 
+    const auto tmpSupport = File::getSpecialLocation (File::tempDirectory).getChildFile ("shq-test-support-" + String (Time::currentTimeMillis()));
+    tmpSupport.createDirectory();
+    setenv ("SHQ_SUPPORT_DIR", tmpSupport.getFullPathName().toRawUTF8(), 1); // recordings must not drop inbox files into the real app folder
+
     BridgeProcessor proc;
     FakeHost host;
     proc.setPlayHead (&host);
@@ -135,11 +139,12 @@ int main()
     other.setStateInformation (mb.getData(), (int) mb.getSize());
     CHECK (other.bounceName == "Round trip" && other.vaultFolder == dir, "settings are saved with the project");
 
+    const File realDb = File::getSpecialLocation (File::userHomeDirectory).getChildFile ("Library/Application Support/Studio HQ/studio-hq.db"); // read-only
     // 9. the sound browser, against the real Studio HQ library (read-only)
-    if (LibraryDb::defaultDbFile().existsAsFile())
+    if (realDb.existsAsFile())
     {
         LibraryDb ldb; String err;
-        const bool ok = ldb.load (LibraryDb::defaultDbFile(), err);
+        const bool ok = ldb.load (realDb, err);
         CHECK (ok, "library database opens read-only (" + err + ")");
         std::cout << "      sounds: " << ldb.sounds.size() << "  projects: " << ldb.projects.size() << "  kinds: " << ldb.kinds.joinIntoString (",") << std::endl;
         CHECK (ldb.sounds.size() > 1000, "reads the sound library");
@@ -290,7 +295,7 @@ int main()
         sp.setBounds (0, 0, 660, 400);
         CHECK (sp.currentGuess().name == "untitled", "the panel shows what FL is working on");
 
-        unsetenv ("SHQ_SUPPORT_DIR");
+        setenv ("SHQ_SUPPORT_DIR", tmpSupport.getFullPathName().toRawUTF8(), 1);
         sup.deleteRecursively();
     }
 
@@ -339,6 +344,20 @@ int main()
     }
 
     dir.deleteRecursively();
+    if (auto* snapPath = std::getenv ("SHQ_SNAPSHOT"))
+    {
+        for (int t = 0; t < 3; ++t)
+        {
+            std::unique_ptr<AudioProcessorEditor> ed (proc.createEditor());
+            ed->setSize (700, 620);
+            if (auto* be = dynamic_cast<BridgeEditor*> (ed.get())) be->selectTab (t);
+            auto img = ed->createComponentSnapshot (ed->getLocalBounds(), true, 1.0f);
+            PNGImageFormat png;
+            File out (String (snapPath) + "/tab" + String (t) + ".png");
+            out.deleteFile();
+            if (auto os = out.createOutputStream()) png.writeImageToStream (img, *os);
+        }
+    }
     proc.prepareToPlay (sr, block); // clears the capture, so closing the test plugin doesn't save a loop into the real app folder
     std::cout << (failures == 0 ? "\nALL PASSED" : "\nSOME FAILED") << std::endl;
     return failures == 0 ? 0 : 1;

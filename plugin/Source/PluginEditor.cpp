@@ -2,17 +2,17 @@
 
 using namespace juce;
 
-static const Colour kBg (0xff0d0e11), kPanel (0xff14161a), kLine (0xff23262c), kText (0xffe7e8ea), kDim (0xff8b8f98), kAccent (0xffff6b3d), kGood (0xff4cc38a);
+static const Colour kBg (0xff08080b), kPanel (0xff101015), kLine (0xff22222c), kText (0xffececf1), kDim (0xff8a8a99), kAccent (0xffc6ff4a), kGood (0xff7dffb0);
 
 BridgeLookAndFeel::BridgeLookAndFeel()
 {
     setColour (ResizableWindow::backgroundColourId, kBg);
     setColour (Label::textColourId, kText);
-    setColour (TextEditor::backgroundColourId, Colour (0xff0f1013));
+    setColour (TextEditor::backgroundColourId, Colour (0xff0a0a0e));
     setColour (TextEditor::textColourId, kText);
     setColour (TextEditor::outlineColourId, kLine);
     setColour (TextEditor::focusedOutlineColourId, kAccent);
-    setColour (TextButton::buttonColourId, Colour (0xff1a1c21));
+    setColour (TextButton::buttonColourId, Colour (0xff17171e));
     setColour (TextButton::textColourOffId, kText);
     setColour (ToggleButton::textColourId, kText);
     setColour (ToggleButton::tickColourId, kAccent);
@@ -24,10 +24,16 @@ void BridgeLookAndFeel::drawButtonBackground (Graphics& g, Button& b, const Colo
     auto r = b.getLocalBounds().toFloat().reduced (0.5f);
     auto c = bg;
     if (down) c = c.brighter (0.15f); else if (highlighted) c = c.brighter (0.08f);
-    g.setColour (c);
-    g.fillRoundedRectangle (r, 8.0f);
-    g.setColour (kLine);
-    g.drawRoundedRectangle (r, 8.0f, 1.0f);
+    const float rad = jmin (r.getHeight() * 0.5f, 22.0f);
+    const bool lime = c.getHue() > 0.18f && c.getHue() < 0.3f && c.getSaturation() > 0.5f;
+    if (lime)
+    {
+        for (int i = 3; i >= 1; --i) { g.setColour (kAccent.withAlpha (0.05f * (float) (4 - i))); g.fillRoundedRectangle (r.expanded ((float) i * 2.0f), rad + (float) i * 2.0f); }
+    }
+    g.setGradientFill (ColourGradient (c.brighter (0.12f), 0.0f, r.getY(), c.darker (0.12f), 0.0f, r.getBottom(), false));
+    g.fillRoundedRectangle (r, rad);
+    g.setColour (lime ? c.brighter (0.3f) : kLine.brighter (0.15f));
+    g.drawRoundedRectangle (r, rad, 1.0f);
 }
 
 BridgeEditor::BridgeEditor (BridgeProcessor& p) : AudioProcessorEditor (&p), proc (p), sounds (p), savePanel (p)
@@ -76,8 +82,8 @@ BridgeEditor::BridgeEditor (BridgeProcessor& p) : AudioProcessorEditor (&p), pro
     {
         t->setClickingTogglesState (true);
         t->setRadioGroupId (7);
-        t->setColour (TextButton::buttonOnColourId, kAccent.withMultipliedBrightness (0.8f));
-        t->setColour (TextButton::textColourOnId, Colours::white);
+        t->setColour (TextButton::buttonOnColourId, kAccent);
+        t->setColour (TextButton::textColourOnId, Colour (0xff0c1004));
         addAndMakeVisible (*t);
     }
     saveTab.onClick = [this] { showTab (0); };
@@ -144,7 +150,7 @@ void BridgeEditor::timerCallback()
     const auto st = proc.state.load();
     const double secs = (double) proc.samplesWritten.load() / jmax (1.0, proc.currentRate.load());
     String txt;
-    Colour col = kAccent;
+    Colour col = Colour (0xffff7a45); // ember: the record button stays warm so it never reads as the lime "save" action
     switch (st)
     {
         case BridgeProcessor::State::Idle:      txt = proc.autoMode ? String ("Arm, then press play in FL") : String ("Record now"); break;
@@ -169,11 +175,27 @@ void BridgeEditor::timerCallback()
 void BridgeEditor::paint (Graphics& g)
 {
     g.fillAll (kBg);
+    g.setGradientFill (ColourGradient (kAccent.withAlpha (0.10f), (float) getWidth() * 0.85f, -40.0f, Colours::transparentBlack, (float) getWidth() * 0.35f, 220.0f, true));
+    g.fillRect (getLocalBounds().removeFromTop (260));
     auto b = getLocalBounds().reduced (20);
 
-    g.setColour (kAccent);
-    g.setFont (FontOptions (20.0f, Font::bold));
-    g.drawText ("Studio HQ Bridge", b.removeFromTop (28), Justification::centredLeft);
+    // logo: four level bars with a glow
+    {
+        auto lg = b.removeFromTop (28);
+        const float hs[4] = { 0.45f, 1.0f, 0.65f, 0.3f };
+        for (int i = 0; i < 4; ++i)
+        {
+            const float h = 20.0f * hs[i], x = (float) lg.getX() + (float) i * 6.0f, y = (float) lg.getBottom() - 4.0f - h;
+            g.setColour (kAccent.withAlpha (0.18f)); g.fillRoundedRectangle (x - 1.5f, y - 1.5f, 6.0f, h + 3.0f, 3.0f);
+            g.setColour (kAccent);                   g.fillRoundedRectangle (x, y, 3.0f, h, 1.5f);
+        }
+        g.setColour (kText);
+        g.setFont (FontOptions (17.0f, Font::bold));
+        g.drawText ("STUDIO HQ", lg.withTrimmedLeft (34).removeFromLeft (110), Justification::centredLeft);
+        g.setColour (kDim);
+        g.setFont (FontOptions (12.0f));
+        g.drawText ("BRIDGE", lg.withTrimmedLeft (34 + 108).removeFromLeft (70), Justification::centredLeft);
+    }
     g.setColour (kDim);
     g.setFont (FontOptions (12.5f));
     g.drawText (u8 ("Put this on the Master track. Save your beat to Studio HQ, or audition your sounds."), b.removeFromTop (20), Justification::centredLeft);
@@ -181,9 +203,10 @@ void BridgeEditor::paint (Graphics& g)
 
     // tempo + transport
     g.setColour (kPanel);
-    g.fillRoundedRectangle (tempoArea.toFloat(), 10.0f);
+    g.setGradientFill (ColourGradient (Colour (0xff15151c), 0.0f, (float) tempoArea.getY(), kPanel, 0.0f, (float) tempoArea.getBottom(), false));
+    g.fillRoundedRectangle (tempoArea.toFloat(), 16.0f);
     g.setColour (kLine);
-    g.drawRoundedRectangle (tempoArea.toFloat().reduced (0.5f), 10.0f, 1.0f);
+    g.drawRoundedRectangle (tempoArea.toFloat().reduced (0.5f), 16.0f, 1.0f);
 
     const double bpm = proc.hostBpm.load();
     g.setColour (kText);
@@ -202,7 +225,7 @@ void BridgeEditor::paint (Graphics& g)
     auto m = meterArea;
     auto bar = [&g] (Rectangle<int> r, float v)
     {
-        g.setColour (Colour (0xff1d2026));
+        g.setColour (Colour (0xff17171e));
         g.fillRoundedRectangle (r.toFloat(), 3.0f);
         const float w = jlimit (0.f, 1.f, std::pow (v, 0.5f)) * (float) r.getWidth();
         g.setColour (v > 0.98f ? Colour (0xffe34948) : kAccent);

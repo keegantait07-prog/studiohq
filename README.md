@@ -2,7 +2,7 @@
 
 A local-first desktop app for your whole producer workflow. Built with Electron, React and SQLite. Runs on macOS.
 
-**Status: Milestone 1 (Beat Vault).** Later milestones add Pitch CRM, Sales & Collabs, Content Machine, Sound Library, Feedback Links and the Daily Dashboard.
+**Status: Milestones 1–2 (Beat Vault, Pitch CRM).** Later milestones add Sales & Collabs, Content Machine, Sound Library, Feedback Links and the Daily Dashboard.
 
 ## Setup
 
@@ -40,7 +40,30 @@ On first launch Studio HQ watches `~/Desktop/! BEATS` and looks for FL projects 
 | `Cm`, `F#`, `key:Bb minor` | key |
 | anything else | text match on title, tags, folder, credits |
 
+## What M2 does (Pitch CRM)
+
+Open it from the sidebar or with **⌘2** (⌘1 returns to the Vault).
+
+- **Contacts.** Artists, managers, A&Rs and others, each with email, their sound, links, notes and an optional per-person follow-up interval.
+- **Pitch log.** Every pitch records who got which beats, when, how it was sent, and their response. Each beat in a pitch can be marked ♥ liked or ✕ passed. Status: sent → listened → replied → liked / passed / placed. The Vault's detail panel shows "Pitched to" for each beat.
+- **Follow-up reminders.** A pitch with no reply gets a follow-up date (default 7 days, set in Settings, overridable per contact). Due follow-ups show a badge on the sidebar, a "Follow-ups due" list in the CRM, and one macOS notification per day (toggle in Settings). Each due pitch has **Draft follow-up**, **Snooze 3d / 7d** and **They replied**.
+- **New pitch.** Pick a contact, pick beats (the search box accepts the same syntax as the Vault, and beats already sent to that person are flagged), choose a template, then continue. Logging a pitch marks the beats "sent" in your Vault, unless they are already sold.
+- **Private listening page.** Optionally builds a page with your intro, a waveform player per beat, BPM and key. Audio is a 128 kbps MP3 preview, never your WAV. The page has no tracking and no external requests.
+- **Email templates.** *First pitch* and *Follow-up* are included and editable under CRM → Templates. Placeholders such as `{{name}}`, `{{beats}}`, `{{link}}` and `{{days}}` fill in automatically, and a line containing `{{link}}` is dropped when there is no page. Studio HQ doesn't send email: **Open in Mail** creates a draft in your mail app, or copy the text.
+
+### Publishing pages to Netlify
+
+1. In Netlify: User settings → Applications → *New access token*.
+2. In Studio HQ: Settings → Netlify, paste the token. It's stored encrypted with the macOS Keychain (macOS may ask permission once).
+3. The next pitch with "Create a private listening page" publishes it and gives you a link.
+
+Pages go to one Netlify site that Studio HQ creates for you, each under a random unguessable path with `noindex` headers. The link is **unlisted, not password-protected**: anyone who has the link can listen. Every publish sends the whole local `pitch-site` folder, so existing links keep working, and only new or changed files are uploaded.
+
 ## Shortcuts
+
+| Key | Action |
+|---|---|
+| ⌘1 / ⌘2 | Beat Vault / Pitch CRM |
 
 | Key | Action |
 |---|---|
@@ -56,12 +79,14 @@ On first launch Studio HQ watches `~/Desktop/! BEATS` and looks for FL projects 
 
 ## Where your data is stored
 
-Everything is in one folder:
+Everything is in one folder. Contacts, pitches, templates and settings live in the same database as your beats, so one backup covers them all (the Netlify token is stored encrypted inside it).
 
 ```
 ~/Library/Application Support/Studio HQ/
   studio-hq.db       # your library: beats, tags, statuses, notes, links, settings
   backups/           # snapshots made by "Back up now"
+  pitch-site/        # the pitch pages and MP3 previews that get published
+  pitch-cache/       # cached MP3 previews, safe to delete
 ```
 
 Studio HQ never moves, renames or edits your audio and project files. The database only stores their paths and metadata. Nothing leaves your computer.
@@ -79,4 +104,5 @@ Your audio is not part of the backup. It stays in your own folders, so back thos
 - FL Studio `.flp` files are a closed format, so BPM and key come from the bounce, not the project.
 - Beat-detection can pick half or double tempo (common on trap and DnB). The amber warning and ×2 / ÷2 buttons cover this.
 - Version groups are automatic. A manual "move to group" control isn't built yet.
+- Netlify publishing was tested against a mock of the Netlify API, not yet against a live account. If it fails, the error is shown in the pitch dialog and the page is still built locally.
 - The app is run from source for now (`npm run dev`). Packaging as a `.app` comes at the end.

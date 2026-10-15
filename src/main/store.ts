@@ -13,7 +13,10 @@ const DEFAULTS: Settings = {
   watchFolders: [`${homedir()}/Desktop/! BEATS`],
   projectFolders: [`${homedir()}/Documents/Image-Line/FL Studio/Projects`],
   includeIdeas: false,
-  ownHandles: ['smalls', 'prodbysmalls']
+  ownHandles: ['smalls', 'prodbysmalls'],
+  producerName: '',
+  followupDays: 7,
+  notify: true
 }
 
 type Row = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -266,6 +269,7 @@ export class Store {
     this.dirty.add(id)
     this.flushTimer ??= setTimeout(() => this.flush(), 150)
   }
+  bumpAll(): void { this.touchAll() }
   private touchAll(): void {
     this.dirty.add(-1)
     this.flushTimer ??= setTimeout(() => this.flush(), 150)

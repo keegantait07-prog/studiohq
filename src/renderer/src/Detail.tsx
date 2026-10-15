@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { STATUSES, TAG_KINDS, type BeatDetail, type Status, type TagKind } from '@shared/types'
+import { STATUSES, TAG_KINDS, type BeatDetail, type Pitch, type Status, type TagKind } from '@shared/types'
 import { displayKey } from '@shared/key'
 import { fmtBpm, fmtDur } from './format'
 
@@ -42,9 +42,12 @@ interface Props {
   onSelect: (id: number) => void
   onPlay: (id: number) => void
   refresh: () => void
+  pitchedTo: { pitch: Pitch; contact: string; response: '' | 'liked' | 'passed' }[]
+  onPitch: () => void
+  onOpenContact: (id: number) => void
 }
 
-export function Detail({ beat, allTags, onSelect, onPlay, refresh }: Props) {
+export function Detail({ beat, allTags, onSelect, onPlay, refresh, pitchedTo, onPitch, onOpenContact }: Props) {
   const [title, setTitle] = useState(beat.title)
   const [bpm, setBpm] = useState(fmtBpm(beat.bpm).replace('–', ''))
   const [key, setKey] = useState(displayKey(beat.key))
@@ -125,6 +128,17 @@ export function Detail({ beat, allTags, onSelect, onPlay, refresh }: Props) {
           <label>This file’s version label</label>
           <input value={label} placeholder="v1, final, stems…" onChange={(e) => setLabel(e.target.value)} onBlur={() => label !== beat.versionLabel && save({ versionLabel: label })} />
         </div>
+      </div>
+
+      <div className="field">
+        <label>Pitched to ({pitchedTo.length})</label>
+        {pitchedTo.map(({ pitch, contact, response }) => (
+          <div key={pitch.id} className="ver" style={{ gridTemplateColumns: '1fr auto auto' }} onClick={() => onOpenContact(pitch.contactId)}>
+            <span>{contact}</span><span className="dim">{new Date(pitch.sentAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+            <span className={`pst ps-${pitch.status}`}>{response === 'liked' ? '♥ ' : response === 'passed' ? '✕ ' : ''}{pitch.status}</span>
+          </div>
+        ))}
+        <button className="wide" onClick={onPitch} disabled={beat.status === 'sold'}>{beat.status === 'sold' ? 'Sold. Can’t pitch' : 'Pitch this beat…'}</button>
       </div>
 
       <div className="actions">

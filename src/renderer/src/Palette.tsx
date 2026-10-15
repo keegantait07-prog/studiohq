@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { Beat } from '@shared/types'
+import type { Beat, Contact } from '@shared/types'
 import { displayKey } from '@shared/key'
 import { fmtBpm } from './format'
 
 export interface Command { id: string; label: string; hint?: string; run: () => void }
 
-export function Palette({ beats, commands, onPickBeat, onClose }: { beats: Beat[]; commands: Command[]; onPickBeat: (b: Beat) => void; onClose: () => void }) {
+export function Palette({ beats, contacts, commands, onPickBeat, onPickContact, onClose }: { beats: Beat[]; contacts: Contact[]; commands: Command[]; onPickBeat: (b: Beat) => void; onPickContact: (c: Contact) => void; onClose: () => void }) {
   const [q, setQ] = useState('')
   const [i, setI] = useState(0)
   const input = useRef<HTMLInputElement>(null)
@@ -17,17 +17,20 @@ export function Palette({ beats, commands, onPickBeat, onClose }: { beats: Beat[
     const hits = s
       ? beats.filter((b) => [b.title, b.filename, ...b.tags.vibe, ...b.tags.genre, ...b.tags.artist].join(' ').toLowerCase().includes(s)).slice(0, 8)
       : beats.slice(0, 6)
+    const people = s ? contacts.filter((c) => [c.name, c.email, c.sound].join(' ').toLowerCase().includes(s)).slice(0, 5) : []
     return [
       ...hits.map((b) => ({ kind: 'beat' as const, beat: b })),
+      ...people.map((c) => ({ kind: 'contact' as const, contact: c })),
       ...cmds.map((c) => ({ kind: 'cmd' as const, cmd: c }))
     ]
-  }, [q, beats, commands])
+  }, [q, beats, contacts, commands])
 
   const run = (idx: number) => {
     const it = items[idx]
     if (!it) return
     onClose()
     if (it.kind === 'beat') onPickBeat(it.beat)
+    else if (it.kind === 'contact') onPickContact(it.contact)
     else it.cmd.run()
   }
 
@@ -53,6 +56,10 @@ export function Palette({ beats, commands, onPickBeat, onClose }: { beats: Beat[
                 <>
                   <span className="rk">Beat</span><span className="rt">{it.beat.title}</span>
                   <span className="rh">{fmtBpm(it.beat.bpm)} · {displayKey(it.beat.key)} · {it.beat.status}</span>
+                </>
+              ) : it.kind === 'contact' ? (
+                <>
+                  <span className="rk contact">Contact</span><span className="rt">{it.contact.name}</span><span className="rh">{it.contact.role}</span>
                 </>
               ) : (
                 <>

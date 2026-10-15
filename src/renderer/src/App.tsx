@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { STATUSES, type Beat, type BeatDetail, type ScanStatus, type Status, type TagKind } from '@shared/types'
+import { STATUSES, type Beat, type BeatDetail, type CrmData, type ScanStatus, type Settings as AppSettings, type Status, type TagKind, type NetlifyStatus } from '@shared/types'
 import { displayKey } from '@shared/key'
 import { parseQuery } from './query'
 import { usePlayer } from './player'
@@ -7,6 +7,9 @@ import { Thumb, Waveform } from './Waveform'
 import { Detail } from './Detail'
 import { Palette, type Command } from './Palette'
 import { Settings } from './Settings'
+import { Crm } from './Crm'
+import { PitchDialog } from './PitchDialog'
+import { isDue } from './crmUtils'
 import { ago, fmtBpm, fmtDur } from './format'
 
 interface Row { beat: Beat; count: number }
@@ -32,6 +35,14 @@ export function App() {
   const [scan, setScan] = useState<ScanStatus>({ pending: 0, done: 0, total: 0 })
   const [palette, setPalette] = useState(false)
   const [settings, setSettings] = useState(false)
+  const [view, setView] = useState<'vault' | 'crm'>('vault')
+  const [crm, setCrm] = useState<CrmData | null>(null)
+  const [appSettings, setAppSettings] = useState<AppSettings | null>(null)
+  const [netlify, setNetlify] = useState<NetlifyStatus | null>(null)
+  const [crmSel, setCrmSel] = useState<number | null>(null)
+  const [pitchDlg, setPitchDlg] = useState<{ contactId?: number; beatIds?: number[] } | null>(null)
+  const [newContactSignal, setNewContactSignal] = useState(0)
+  const [tick, setTick] = useState(0)
   const search = useRef<HTMLInputElement>(null)
   const player = usePlayer()
 
@@ -48,6 +59,27 @@ export function App() {
     const off2 = window.api.onScanStatus(setScan)
     return () => { off1(); off2() }
   }, [reload])
+
+  const reloadCrm = useCallback(async () => {
+    setCrm(await window.api.crmAll())
+    setAppSettings(await window.api.getSettings())
+    setNetlify(await window.api.netlifyStatus())
+  }, [])
+  useEffect(() => {
+    reloadCrm()
+    const off = window.api.onCrmChanged(reloadCrm)
+    const offNav = window.api.onNavigate((v) => setView(v))
+    const iv = setInterval(() => setTick((t) => t + 1), 60000) // re-evaluate "due" as time passes
+    window.addEventListener('focus', reloadCrm)
+    return () => { off(); offNav(); clearInterval(iv); window.removeEventListener('focus', reloadCrm) }
+  }, [reloadCrm])
+  const dueCount = useMemo(() => (crm ? crm.pitches.filter((p) => isDue(p)).length : 0), [crm, tick])
+  const pitchedTo = useMemo(() => {
+    if (!crm || selectedId == null) return []
+    return crm.pitches.filter((p) => p.beats.some((b) => b.beatId === selectedId)).map((p) => ({
+      pitch: p, contact: crm.contacts.find((c) => c.id === p.contactId)?.name ?? '?', response: p.beats.find((b) => b.beatId === selectedId)!.response
+    }))
+  }, [crm, selectedId])
 
   useEffect(() => {
     if (selectedId == null) return setDetail(null)
@@ -97,6 +129,8 @@ export function App() {
       const t = e.target as HTMLElement
       const typing = t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable
       if (mod && e.key.toLowerCase() === 'k') { e.preventDefault(); setPalette((p) => !p); return }
+      if (mod && e.key === '1') { e.preventDefault(); setView('vault'); return }
+      if (mod && e.key === '2') { e.preventDefault(); setView('crm'); return }
       if (mod && e.key === ',') { e.preventDefault(); setSettings(true); return }
       if (mod && e.key.toLowerCase() === 'f') { e.preventDefault(); search.current?.focus(); search.current?.select(); return }
       if (e.key === 'Escape') {
@@ -105,7 +139,8 @@ export function App() {
         if (typing) { (t as HTMLInputElement).blur(); return }
         if (query) return setQuery('')
       }
-      if (typing || palette || settings || mod) return
+      if (typing || palette || settings || pitchDlg || mod) return
+      if (view !== 'vault') return
       if (e.key === '/') { e.preventDefault(); search.current?.focus() }
       else if (e.key === ' ') { e.preventDefault(); player.id == null && selectedId != null ? player.play(selectedId) : player.toggle() }
       else if (e.key === 'ArrowDown') { e.preventDefault(); move(1) }
@@ -121,6 +156,10 @@ export function App() {
   })
 
   const commands: Command[] = [
+    { id: 'go-vault', label: 'Go to Beat Vault', hint: '⌘1', run: () => setView('vault') },
+    { id: 'go-crm', label: 'Go to Pitch CRM', hint: '⌘2', run: () => setView('crm') },
+    { id: 'new-pitch', label: 'New pitch…', run: () => setPitchDlg({}) },
+    { id: 'new-contact', label: 'New contact…', run: () => { setView('crm'); setNewContactSignal((n) => n + 1) } },
     { id: 'settings', label: 'Open settings (folders, backup)', hint: '⌘,', run: () => setSettings(true) },
     { id: 'group', label: collapse ? 'Show every file (ungroup versions)' : 'Group versions of the same beat', hint: 'G', run: () => setCollapse((c) => !c) },
     { id: 'backup', label: 'Back up database now', run: () => { window.api.backup() } },
@@ -134,12 +173,19 @@ export function App() {
       <div className="titlebar" />
       <nav className="side">
         <div className="brand">Studio HQ</div>
-        <a className="nav on">Beat Vault <span>{beats.length}</span></a>
-        {['Sound Library', 'Pitch CRM', 'Sales & Collabs', 'Content', 'Feedback', 'Dashboard'].map((m) => <a key={m} className="nav soon">{m}<span>soon</span></a>)}
+        <a className={`nav ${view === 'vault' ? 'on' : ''}`} onClick={() => setView('vault')}>Beat Vault <span>{beats.length}</span></a>
+        <a className={`nav ${view === 'crm' ? 'on' : ''}`} onClick={() => setView('crm')}>Pitch CRM {dueCount > 0 ? <span className="badge">{dueCount}</span> : <span>{crm?.contacts.length ?? 0}</span>}</a>
+        {['Sound Library', 'Sales & Collabs', 'Content', 'Feedback', 'Dashboard'].map((m) => <a key={m} className="nav soon">{m}<span>soon</span></a>)}
         <div className="grow" />
         <button className="ghost" onClick={() => setSettings(true)}>Settings <kbd>⌘,</kbd></button>
       </nav>
 
+      {view === 'crm' && crm ? (
+        <Crm
+          crm={crm} myName={appSettings?.producerName ?? ''} selected={crmSel} onSelect={setCrmSel} onPitch={(id) => setPitchDlg({ contactId: id })}
+          onOpenBeat={(id) => { setView('vault'); setStatusTab('all'); setQuery(''); setSelectedId(id) }} reload={reloadCrm} newContactSignal={newContactSignal}
+        />
+      ) : (<>
       <main className="main">
         <header className="toolbar">
           <div className="searchbox">
@@ -195,10 +241,11 @@ export function App() {
       </main>
 
       {detail ? (
-        <Detail beat={detail} allTags={allTags} onSelect={setSelectedId} onPlay={playBeat} refresh={reload} />
+        <Detail beat={detail} allTags={allTags} onSelect={setSelectedId} onPlay={playBeat} refresh={reload} pitchedTo={pitchedTo} onPitch={() => setPitchDlg({ beatIds: [detail.id] })} onOpenContact={(id) => { setCrmSel(id); setView('crm') }} />
       ) : (
         <aside className="detail empty-detail"><p>Select a beat</p><p className="dim">↑ ↓ to move · Space to play · 1–5 sets status</p></aside>
       )}
+      </>)}
 
       <footer className="player">
         <button className="big-play" onClick={() => (player.id == null && selectedId != null ? player.play(selectedId) : player.toggle())}>{player.playing ? '❚❚' : '▶'}</button>
@@ -212,8 +259,15 @@ export function App() {
         {scanning && <div className="scan">Analyzing {scan.total - scan.pending}/{scan.total}<div className="bar"><div style={{ width: `${((scan.total - scan.pending) / Math.max(1, scan.total)) * 100}%` }} /></div></div>}
       </footer>
 
-      {palette && <Palette beats={beats} commands={commands} onPickBeat={(b) => playBeat(b.id)} onClose={() => setPalette(false)} />}
-      {settings && <Settings onClose={() => { setSettings(false); reload() }} />}
+      {palette && <Palette beats={beats} contacts={crm?.contacts ?? []} commands={commands} onPickBeat={(b) => { setView('vault'); playBeat(b.id) }} onPickContact={(c) => { setCrmSel(c.id); setView('crm') }} onClose={() => setPalette(false)} />}
+      {settings && <Settings onClose={() => { setSettings(false); reload(); reloadCrm() }} />}
+      {pitchDlg && crm && (
+        <PitchDialog
+          beats={beats} crm={crm} myName={appSettings?.producerName ?? ''} hasToken={!!netlify?.hasToken} contactId={pitchDlg.contactId} beatIds={pitchDlg.beatIds}
+          onClose={() => setPitchDlg(null)}
+          onLogged={(cid) => { setPitchDlg(null); setCrmSel(cid); setView('crm'); reloadCrm(); reload() }}
+        />
+      )}
     </div>
   )
 }

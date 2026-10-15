@@ -1,11 +1,13 @@
-import { app, BrowserWindow, ipcMain, dialog, shell, protocol, Menu } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, shell, protocol, Menu, Notification } from 'electron'
 import { join } from 'path'
 import { createReadStream, statSync, mkdirSync } from 'fs'
 import { Readable } from 'stream'
 import { openDb } from './db'
 import { Store } from './store'
 import { Watcher } from './watcher'
-import type { BeatPatch, Settings, TagKind } from '../shared/types'
+import { Crm } from './crm'
+import { Packs } from './packs'
+import type { BeatPatch, Settings, TagKind, LogPitchInput, PackRequest, Template, Contact, PitchStatus } from '../shared/types'
 
 app.setName('Studio HQ')
 app.setPath('userData', join(app.getPath('appData'), 'Studio HQ'))
@@ -17,6 +19,8 @@ protocol.registerSchemesAsPrivileged([
 let win: BrowserWindow | null = null
 let store: Store
 let watcher: Watcher
+let crm: Crm
+let packs: Packs
 
 const MIME: Record<string, string> = { mp3: 'audio/mpeg', wav: 'audio/wav', flac: 'audio/flac', m4a: 'audio/mp4', aif: 'audio/aiff', aiff: 'audio/aiff', ogg: 'audio/ogg' }
 
@@ -61,6 +65,26 @@ function backupNow(): Promise<string> {
   return store.db.backup(dest).then(() => dest)
 }
 
+function sendCrm(): void { win?.webContents.send('crm:changed') }
+
+function checkFollowups(): void {
+  sendCrm()
+  const s = store.getSettings()
+  const due = crm.due()
+  if (!due.length || !s.notify || !Notification.isSupported()) return
+  const today = new Date().toDateString()
+  const last = (store.db.prepare(`SELECT value FROM settings WHERE key='last_notified'`).get() as { value: string } | undefined)?.value
+  if (last === today) return
+  store.db.prepare(`INSERT INTO settings(key,value) VALUES('last_notified',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value`).run(today)
+  const names = [...new Set(due.map((d) => d.contact))]
+  const n = new Notification({
+    title: `${due.length} follow-up${due.length > 1 ? 's' : ''} due`,
+    body: names.slice(0, 3).join(', ') + (names.length > 3 ? ` +${names.length - 3} more` : '')
+  })
+  n.on('click', () => { win?.show(); win?.focus(); win?.webContents.send('nav', 'crm') })
+  n.show()
+}
+
 function registerIpc(): void {
   const h = ipcMain.handle.bind(ipcMain)
   h('beats:list', () => store.listBeats())
@@ -98,8 +122,27 @@ function registerIpc(): void {
   })
   h('settings:set', async (_, patch: Partial<Settings>) => {
     store.saveSettings({ ...store.getSettings(), ...patch })
-    await watcher.restart()
+    if ('includeIdeas' in patch || 'ownHandles' in patch) await watcher.restart()
+    else sendCrm()
   })
+
+  // ---- Pitch CRM ----
+  const mut = <A extends unknown[], R>(fn: (...a: A) => R) => (_: unknown, ...a: A): R => { const r = fn(...a); sendCrm(); return r }
+  h('crm:all', () => crm.all())
+  h('crm:saveContact', mut((c: Partial<Contact> & { name: string }) => crm.saveContact(c)))
+  h('crm:deleteContact', mut((id: number) => crm.deleteContact(id)))
+  h('crm:logPitch', mut((i: LogPitchInput) => crm.logPitch(i)))
+  h('crm:updatePitch', mut((id: number, p: { status?: PitchStatus; responseNote?: string; snoozeDays?: number }) => crm.updatePitch(id, p)))
+  h('crm:logFollowup', mut((id: number) => crm.logFollowup(id)))
+  h('crm:setBeatResponse', mut((pid: number, bid: number, r: '' | 'liked' | 'passed') => crm.setPitchBeatResponse(pid, bid, r)))
+  h('crm:deletePitch', mut((id: number) => crm.deletePitch(id)))
+  h('crm:saveTemplate', mut((t: Template) => crm.saveTemplate(t)))
+  h('crm:deleteTemplate', mut((id: number) => crm.deleteTemplate(id)))
+  h('packs:build', async (_, req: PackRequest) => packs.build(req))
+  h('packs:openLocal', (_, id: number) => { const p = packs.localIndex(id); if (p) return shell.openPath(p) })
+  h('netlify:status', () => packs.status())
+  h('netlify:setToken', (_, t: string | null) => packs.setToken(t))
+  h('app:openExternal', (_, url: string) => { if (/^(https?|mailto):/i.test(url)) return shell.openExternal(url) })
   h('app:backup', backupNow)
   h('app:dataPath', () => app.getPath('userData'))
 }
@@ -110,6 +153,8 @@ app.whenReady().then(async () => {
   const send = (ch: string, ...a: unknown[]) => win?.webContents.send(ch, ...a)
   store = new Store(db, (ids) => send('beats:changed', ids), (s) => send('scan:status', s))
   watcher = new Watcher(store)
+  crm = new Crm(db, () => store.getSettings().followupDays, () => store.bumpAll())
+  packs = new Packs(db, () => store.getSettings().producerName)
   registerIpc()
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     { role: 'appMenu' },
@@ -118,6 +163,8 @@ app.whenReady().then(async () => {
   ]))
   createWindow()
   watcher.restart()
+  setTimeout(checkFollowups, 6000)
+  setInterval(checkFollowups, 30 * 60 * 1000)
   app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow() })
 })
 

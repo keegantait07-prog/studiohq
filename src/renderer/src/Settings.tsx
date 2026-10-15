@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
-import type { Settings as S } from '@shared/types'
+import type { NetlifyStatus, Settings as S } from '@shared/types'
 
 export function Settings({ onClose }: { onClose: () => void }) {
   const [s, setS] = useState<S | null>(null)
   const [dataPath, setDataPath] = useState('')
   const [msg, setMsg] = useState('')
+  const [nl, setNl] = useState<NetlifyStatus | null>(null)
+  const [token, setToken] = useState('')
+  const [name, setName] = useState('')
   const load = () => window.api.getSettings().then(setS)
-  useEffect(() => { load(); window.api.dataPath().then(setDataPath) }, [])
+  useEffect(() => { load().then(); window.api.getSettings().then((x) => setName(x.producerName)); window.api.dataPath().then(setDataPath); window.api.netlifyStatus().then(setNl) }, [])
   if (!s) return null
 
   const list = (kind: 'watchFolders' | 'projectFolders', title: string, help: string) => (
@@ -32,6 +35,28 @@ export function Settings({ onClose }: { onClose: () => void }) {
           </label>
         </section>
         {list('projectFolders', 'FL Studio project folders', 'Searched for .flp files to link to your bounces. FL’s Backup folders are skipped.')}
+        <section>
+          <h3>Pitching</h3>
+          <div className="two">
+            <div className="field"><label>Your producer name (used in emails and pages)</label>
+              <input value={name} onChange={(e) => setName(e.target.value)} onBlur={() => window.api.setSetting({ producerName: name.trim() })} />
+            </div>
+            <div className="field"><label>Default follow-up after (days)</label>
+              <input defaultValue={s.followupDays} onBlur={(e) => { const n = parseInt(e.target.value, 10); if (n > 0) window.api.setSetting({ followupDays: n }) }} />
+            </div>
+          </div>
+          <label className="check"><input type="checkbox" checked={s.notify} onChange={async (e) => { await window.api.setSetting({ notify: e.target.checked }); load() }} /> Send a macOS notification when follow-ups are due</label>
+        </section>
+        <section>
+          <h3>Netlify (private pitch pages)</h3>
+          <p className="help">Pages and audio previews are published to your own Netlify site, under unguessable links. Create a personal access token in Netlify → User settings → Applications, and paste it here. It is stored encrypted with the macOS Keychain.</p>
+          {nl?.hasToken ? (
+            <div className="folder"><span>Token saved{nl.siteUrl ? ` · ${nl.siteUrl}` : ''}</span><button onClick={async () => { await window.api.setNetlifyToken(null); setNl(await window.api.netlifyStatus()) }}>Remove</button></div>
+          ) : (
+            <div className="folder"><input type="password" value={token} placeholder="Netlify personal access token" onChange={(e) => setToken(e.target.value)} />
+              <button disabled={!token.trim()} onClick={async () => { try { await window.api.setNetlifyToken(token); setToken(''); setNl(await window.api.netlifyStatus()) } catch (e) { setMsg(String((e as Error).message)) } }}>Save</button></div>
+          )}
+        </section>
         <section>
           <h3>Your data</h3>
           <p className="help">Everything lives in one local database:<br /><code>{dataPath}/studio-hq.db</code></p>

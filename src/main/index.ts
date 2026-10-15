@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, shell, protocol, Menu, Notification } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, shell, protocol, Menu, Notification, nativeImage } from 'electron'
 import { writeFileSync } from 'fs'
 import { join } from 'path'
 import { createReadStream, statSync, mkdirSync } from 'fs'
@@ -10,6 +10,10 @@ import { Crm } from './crm'
 import { Packs } from './packs'
 import { Sales } from './sales'
 import { Content } from './content'
+import { Sounds } from './sounds'
+import { ProjectIndex } from './flpindex'
+import { Feedback } from './feedback'
+import { Sessions } from './sessions'
 import { VideoExporter, coverData, pickCover, previewStill } from './video'
 import type { Post, VideoOptions } from '../shared/types'
 import { splitSheetHtml, writePdf } from './splitsheet'
@@ -20,7 +24,7 @@ app.setName('Studio HQ')
 app.setPath('userData', join(app.getPath('appData'), 'Studio HQ'))
 
 protocol.registerSchemesAsPrivileged([
-  { scheme: 'shqa', privileges: { stream: true, supportFetchAPI: true, bypassCSP: true, standard: true, secure: true } }
+  { scheme: 'shqa', privileges: { stream: true, supportFetchAPI: true, bypassCSP: true, standard: true, secure: true, corsEnabled: true } }
 ])
 
 let win: BrowserWindow | null = null
@@ -30,6 +34,10 @@ let crm: Crm
 let packs: Packs
 let sales: Sales
 let content: Content
+let sounds: Sounds
+let projectIndex: ProjectIndex
+let feedback: Feedback
+let sessions: Sessions
 let videos: VideoExporter
 
 const MIME: Record<string, string> = { mp3: 'audio/mpeg', wav: 'audio/wav', flac: 'audio/flac', m4a: 'audio/mp4', aif: 'audio/aiff', aiff: 'audio/aiff', ogg: 'audio/ogg' }
@@ -46,13 +54,14 @@ function createWindow(): void {
 }
 
 function serveAudio(req: Request): Response {
-  const id = Number(new URL(req.url).pathname.replace('/', ''))
-  const path = store.pathOf(id)
+  const u = new URL(req.url)
+  const id = Number(u.pathname.replace('/', ''))
+  const path = u.hostname === 'sound' ? sounds.pathOf(id) : store.pathOf(id)
   if (!path) return new Response('not found', { status: 404 })
   let size: number
   try { size = statSync(path).size } catch { return new Response('missing', { status: 404 }) }
   const ext = path.split('.').pop()!.toLowerCase()
-  const headers: Record<string, string> = { 'Content-Type': MIME[ext] ?? 'application/octet-stream', 'Accept-Ranges': 'bytes' }
+  const headers: Record<string, string> = { 'Content-Type': MIME[ext] ?? 'application/octet-stream', 'Accept-Ranges': 'bytes', 'Access-Control-Allow-Origin': '*' }
   const range = req.headers.get('range')?.match(/bytes=(\d*)-(\d*)/)
   let start = 0, end = size - 1, status = 200
   if (range) {
@@ -76,6 +85,28 @@ function backupNow(): Promise<string> {
 }
 
 function sendCrm(): void { win?.webContents.send('crm:changed') }
+/** Library scan, then read each FL project's samples and MIDI, then pick up the MIDI files it wrote. */
+async function scanLibrary(): Promise<void> {
+  await sounds.scan()
+  const changed = await projectIndex.index()
+  if (changed) await sounds.scan()
+  projectIndex.linkMidi()
+  win?.webContents.send('sounds:changed')
+}
+function sendFeedback(): void { win?.webContents.send('feedback:changed') }
+
+async function syncFeedback(quiet: boolean): Promise<{ added: number; error: string | null }> {
+  const r = await feedback.sync()
+  if (r.added) {
+    sendFeedback()
+    if (quiet && store.getSettings().notify && Notification.isSupported()) {
+      const n = new Notification({ title: `${r.added} new feedback comment${r.added > 1 ? 's' : ''}`, body: 'Open Feedback to see them pinned to the beat.' })
+      n.on('click', () => { win?.show(); win?.focus(); win?.webContents.send('nav', 'feedback') })
+      n.show()
+    }
+  }
+  return r
+}
 
 function checkFollowups(): void {
   sendCrm()
@@ -116,7 +147,7 @@ function registerIpc(): void {
     if (!r.canceled && r.filePaths[0]) store.updateBeat(id, { projectPath: r.filePaths[0] })
   })
   h('settings:get', () => store.getSettings())
-  h('settings:addFolder', async (_, kind: 'watchFolders' | 'projectFolders') => {
+  h('settings:addFolder', async (_, kind: 'watchFolders' | 'projectFolders' | 'soundFolders') => {
     const r = await dialog.showOpenDialog(win!, { properties: ['openDirectory', 'createDirectory'] })
     if (r.canceled || !r.filePaths[0]) return
     const s = store.getSettings()
@@ -124,7 +155,7 @@ function registerIpc(): void {
     store.saveSettings(s)
     await watcher.restart()
   })
-  h('settings:removeFolder', async (_, kind: 'watchFolders' | 'projectFolders', path: string) => {
+  h('settings:removeFolder', async (_, kind: 'watchFolders' | 'projectFolders' | 'soundFolders', path: string) => {
     const s = store.getSettings()
     s[kind] = s[kind].filter((f) => f !== path)
     store.saveSettings(s)
@@ -135,6 +166,36 @@ function registerIpc(): void {
     if ('includeIdeas' in patch || 'ownHandles' in patch) await watcher.restart()
     else sendCrm()
   })
+
+  // ---- Sound Library ----
+  h('sounds:list', () => sounds.list(projectIndex.list()))
+  h('sounds:scan', () => scanLibrary())
+  h('projects:open', (_, id: number) => { const p = (store.db.prepare('SELECT path FROM flp_projects WHERE id=?').get(id) as { path: string } | undefined)?.path; if (p) return shell.openPath(p) })
+  h('projects:reveal', (_, id: number) => { const p = (store.db.prepare('SELECT path FROM flp_projects WHERE id=?').get(id) as { path: string } | undefined)?.path; if (p) shell.showItemInFolder(p) })
+  h('sounds:tag', (_, ids: number[], add: string[], remove: string[]) => sounds.tag(ids, add, remove))
+  h('sounds:fav', (_, ids: number[], fav: boolean) => sounds.fav(ids, fav))
+  h('sounds:dupes', () => sounds.duplicates())
+  h('sounds:trash', (_, ids: number[]) => sounds.trash(ids))
+  h('sounds:reveal', (_, id: number) => { const p = sounds.pathOf(id); if (p) shell.showItemInFolder(p) })
+  ipcMain.on('app:startDrag', (e, kind: 'sound' | 'beat', ids: number[]) => {
+    const files = ids.slice(0, 60).map((id) => (kind === 'sound' ? sounds.pathOf(id) : store.pathOf(id))).filter((p): p is string => !!p)
+    if (!files.length) return
+    const px = Buffer.alloc(32 * 32 * 4)
+    for (let i = 0; i < 32 * 32; i++) { px[i * 4] = 0x3d; px[i * 4 + 1] = 0x6b; px[i * 4 + 2] = 0xff; px[i * 4 + 3] = 0xff } // BGRA accent square
+    e.sender.startDrag({ file: files[0], files, icon: nativeImage.createFromBitmap(px, { width: 32, height: 32 }) })
+  })
+
+  // ---- Feedback links ----
+  h('feedback:all', () => feedback.all())
+  h('feedback:build', async (_, r: { title: string; intro: string; beatIds: number[] }) => { const res = await packs.build({ contactId: null, title: r.title, intro: r.intro, beatIds: r.beatIds, deploy: !!packs.token_() }, { kind: 'feedback' }); sendFeedback(); return res })
+  h('feedback:sync', async () => syncFeedback(false))
+  h('feedback:update', (_, id: string, p: { seen?: boolean; resolved?: boolean }) => { feedback.update(id, p); sendFeedback() })
+  h('feedback:seenAll', () => { feedback.markAllSeen(); sendFeedback() })
+
+  // ---- Studio sessions ----
+  h('sessions:all', () => sessions.all())
+  h('sessions:start', () => { sessions.start(false); sendFeedback() })
+  h('sessions:stop', () => { sessions.stop(); sendFeedback() })
 
   // ---- Content Machine ----
   h('content:all', () => content.all())
@@ -225,6 +286,11 @@ app.whenReady().then(async () => {
   crm = new Crm(db, () => store.getSettings().followupDays, () => store.bumpAll())
   sales = new Sales(db)
   content = new Content(db)
+  const midiDir = join(app.getPath('userData'), 'FL project MIDI')
+  sounds = new Sounds(db, () => [...store.getSettings().soundFolders, midiDir], () => ({ midiRoot: midiDir, packsMidi: store.getSettings().includeMidiPacks }), (st) => win?.webContents.send('sounds:status', st), () => win?.webContents.send('sounds:changed'))
+  projectIndex = new ProjectIndex(db, sounds, () => [...store.getSettings().projectFolders, ...store.getSettings().soundFolders], midiDir, () => win?.webContents.send('sounds:changed'))
+  feedback = new Feedback(db, () => packs.token_(), () => packs.siteId())
+  sessions = new Sessions(db)
   videos = new VideoExporter(db, () => store.getSettings().exportDir)
   packs = new Packs(db, () => store.getSettings().producerName)
   registerIpc()
@@ -235,6 +301,10 @@ app.whenReady().then(async () => {
   ]))
   createWindow()
   watcher.restart()
+  setTimeout(() => { scanLibrary().catch((e) => console.error('library scan failed', e)) }, 3000)
+  setTimeout(() => { if (feedback.hasPublished()) syncFeedback(true) }, 9000)
+  setInterval(() => { if (feedback.hasPublished()) syncFeedback(true) }, 5 * 60 * 1000)
+  setInterval(async () => { if (store.getSettings().autoTrackFL && (await sessions.autoTrack())) sendFeedback() }, 20000)
   setTimeout(checkFollowups, 6000)
   setInterval(checkFollowups, 30 * 60 * 1000)
   app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow() })

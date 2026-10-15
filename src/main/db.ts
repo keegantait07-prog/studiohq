@@ -155,6 +155,79 @@ export function openDb(dir: string): Database.Database {
       path TEXT NOT NULL,
       created_at INTEGER NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS sounds (
+      id INTEGER PRIMARY KEY,
+      path TEXT NOT NULL UNIQUE,
+      dir TEXT NOT NULL,
+      name TEXT NOT NULL,
+      ext TEXT NOT NULL,
+      size INTEGER NOT NULL,
+      mtime INTEGER NOT NULL,
+      duration REAL,
+      kind TEXT NOT NULL DEFAULT 'other',
+      bpm REAL,
+      key TEXT,
+      favorite INTEGER NOT NULL DEFAULT 0,
+      missing INTEGER NOT NULL DEFAULT 0,
+      hash TEXT,
+      hash_size INTEGER,
+      hash_mtime INTEGER,
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS sounds_size ON sounds(size);
+    CREATE INDEX IF NOT EXISTS sounds_dir ON sounds(dir);
+    CREATE TABLE IF NOT EXISTS flp_projects (
+      id INTEGER PRIMARY KEY,
+      path TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      mtime INTEGER NOT NULL,
+      size INTEGER NOT NULL,
+      ppq INTEGER,
+      partial INTEGER NOT NULL DEFAULT 0,
+      error TEXT,
+      parsed_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS flp_samples (
+      project_id INTEGER NOT NULL REFERENCES flp_projects(id) ON DELETE CASCADE,
+      ref TEXT NOT NULL,
+      name TEXT NOT NULL,
+      channel TEXT NOT NULL DEFAULT '',
+      sound_id INTEGER,
+      how TEXT NOT NULL DEFAULT 'missing',
+      PRIMARY KEY (project_id, ref)
+    );
+    CREATE TABLE IF NOT EXISTS flp_midis (
+      id INTEGER PRIMARY KEY,
+      project_id INTEGER NOT NULL REFERENCES flp_projects(id) ON DELETE CASCADE,
+      pattern INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      notes INTEGER NOT NULL,
+      path TEXT NOT NULL,
+      sound_id INTEGER
+    );
+    CREATE TABLE IF NOT EXISTS sound_tags (
+      sound_id INTEGER NOT NULL REFERENCES sounds(id) ON DELETE CASCADE,
+      value TEXT NOT NULL,
+      PRIMARY KEY (sound_id, value)
+    );
+    CREATE TABLE IF NOT EXISTS feedback_comments (
+      id TEXT PRIMARY KEY,
+      slug TEXT NOT NULL,
+      beat_index INTEGER NOT NULL DEFAULT 0,
+      name TEXT NOT NULL DEFAULT '',
+      time REAL NOT NULL DEFAULT 0,
+      text TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      seen INTEGER NOT NULL DEFAULT 0,
+      resolved INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS fb_slug ON feedback_comments(slug);
+    CREATE TABLE IF NOT EXISTS studio_sessions (
+      id INTEGER PRIMARY KEY,
+      started_at INTEGER NOT NULL,
+      ended_at INTEGER,
+      auto INTEGER NOT NULL DEFAULT 0
+    );
     CREATE TABLE IF NOT EXISTS templates (
       id INTEGER PRIMARY KEY,
       name TEXT NOT NULL,
@@ -165,6 +238,8 @@ export function openDb(dir: string): Database.Database {
   `)
   const bcols = db.prepare('PRAGMA table_info(beats)').all() as { name: string }[]
   if (!bcols.some((c) => c.name === 'cover_path')) db.exec('ALTER TABLE beats ADD COLUMN cover_path TEXT')
+  const pcols = db.prepare('PRAGMA table_info(packs)').all() as { name: string }[]
+  if (!pcols.some((c) => c.name === 'kind')) db.exec("ALTER TABLE packs ADD COLUMN kind TEXT NOT NULL DEFAULT 'pitch'")
   const gcols = db.prepare('PRAGMA table_info(groups)').all() as { name: string }[]
   if (!gcols.some((c) => c.name === 'split_sheet_at')) db.exec('ALTER TABLE groups ADD COLUMN split_sheet_at INTEGER')
   seedTemplates(db)

@@ -20,7 +20,13 @@ const DEFAULTS: Settings = {
   storeUrl: '',
   contactEmail: '',
   hashtags: '#typebeat #producer #instrumental',
-  exportDir: `${homedir()}/Movies/Studio HQ`
+  exportDir: `${homedir()}/Movies/Studio HQ`,
+  soundFolders: [`${homedir()}/Desktop/!DRUM KITS`],
+  goalBeats: 3,
+  goalPitches: 5,
+  goalPosts: 3,
+  autoTrackFL: false,
+  includeMidiPacks: false
 }
 
 type Row = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any

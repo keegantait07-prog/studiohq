@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react'
 
-interface Props { peaks: number[]; progress: number; onSeek?: (frac: number) => void; height?: number; region?: { from: number; to: number } }
+interface Props { peaks: number[]; progress: number; onSeek?: (frac: number) => void; height?: number; region?: { from: number; to: number }; markers?: number[] }
 
-export function Waveform({ peaks, progress, onSeek, height = 56, region }: Props) {
+export function Waveform({ peaks, progress, onSeek, height = 56, region, markers }: Props) {
   const ref = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
@@ -25,12 +25,13 @@ export function Waveform({ peaks, progress, onSeek, height = 56, region }: Props
         g.fillStyle = region ? (f >= region.from && f <= region.to ? played : base) : f <= progress ? played : base
         g.fillRect(i * (bar + gap), (h - bh) / 2, bar, bh)
       }
+      for (const m of markers ?? []) { g.fillStyle = '#ffffff'; g.fillRect(Math.round(m * w) - 1, 0, 2, h); g.beginPath(); g.arc(m * w, 5, 5, 0, Math.PI * 2); g.fill() }
     }
     draw()
     const ro = new ResizeObserver(draw)
     ro.observe(c)
     return () => ro.disconnect()
-  }, [peaks, progress, height, region?.from, region?.to])
+  }, [peaks, progress, height, region?.from, region?.to, markers?.join(',')])
 
   return (
     <canvas

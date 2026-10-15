@@ -9,6 +9,8 @@ import { renderPage } from './pitch-page'
 import { deployDir } from './netlify'
 import type { NetlifyStatus, PackRequest, PackResult } from '../shared/types'
 
+export interface BuildOpts { kind?: 'pitch' | 'feedback' }
+
 type Row = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 const ffmpeg = (ffmpegStatic as unknown as string).replace('app.asar', 'app.asar.unpacked')
 
@@ -32,7 +34,7 @@ export class Packs {
     else this.db.prepare('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').run(key, v)
   }
   status(): NetlifyStatus {
-    return { hasToken: !!this.kv('netlify_token'), siteUrl: this.kv('netlify_site_url'), encryptionOk: safeStorage.isEncryptionAvailable() }
+    return { hasToken: !!(process.env.SHQ_TEST_NETLIFY_TOKEN ?? this.kv('netlify_token')), siteUrl: this.kv('netlify_site_url'), encryptionOk: safeStorage.isEncryptionAvailable() }
   }
   setToken(token: string | null): void {
     if (!token?.trim()) return this.setKv('netlify_token', null)
@@ -40,6 +42,7 @@ export class Packs {
     this.setKv('netlify_token', safeStorage.encryptString(token.trim()).toString('base64'))
   }
   private token(): string | null {
+    if (process.env.SHQ_TEST_NETLIFY_TOKEN) return process.env.SHQ_TEST_NETLIFY_TOKEN // test hook only
     const v = this.kv('netlify_token')
     return v ? safeStorage.decryptString(Buffer.from(v, 'base64')) : null
   }
@@ -57,7 +60,10 @@ export class Packs {
     })
   }
 
-  async build(req: PackRequest): Promise<PackResult> {
+  token_(): string | null { return this.token() }
+  siteId(): string | null { return this.kv('netlify_site_id') }
+
+  async build(req: PackRequest, opts: BuildOpts = {}): Promise<PackResult> {
     if (!req.beatIds.length) throw new Error('Pick at least one beat.')
     const beats = req.beatIds.map((id) => this.db.prepare('SELECT * FROM beats WHERE id=?').get(id) as Row).filter(Boolean)
     const slug = randomBytes(8).toString('base64url')
@@ -72,13 +78,13 @@ export class Packs {
         copyFileSync(mp3, join(dir, file))
         tracks.push({ title: b.title, file, bpm: b.bpm, key: b.key, duration: b.duration, peaks: b.peaks ? JSON.parse(b.peaks) : [] })
       }
-      writeFileSync(join(dir, 'index.html'), renderPage({ title: req.title, intro: req.intro, producer: this.producer() || 'Producer', tracks }))
+      writeFileSync(join(dir, 'index.html'), renderPage({ title: req.title, intro: req.intro, producer: this.producer() || 'Producer', tracks, feedback: opts.kind === 'feedback' ? { slug } : undefined }))
     } catch (e) {
       rmSync(dir, { recursive: true, force: true })
       throw e
     }
 
-    const packId = Number(this.db.prepare('INSERT INTO packs(slug,title,intro,contact_id,created_at) VALUES(?,?,?,?,?)').run(slug, req.title, req.intro, req.contactId, Date.now()).lastInsertRowid)
+    const packId = Number(this.db.prepare('INSERT INTO packs(slug,title,intro,contact_id,created_at,kind) VALUES(?,?,?,?,?,?)').run(slug, req.title, req.intro, req.contactId, Date.now(), opts.kind ?? 'pitch').lastInsertRowid)
     const ins = this.db.prepare('INSERT INTO pack_beats(pack_id,beat_id,position) VALUES(?,?,?)')
     beats.forEach((b, i) => ins.run(packId, b.id, i))
 

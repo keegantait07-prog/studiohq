@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { STATUSES, type Beat, type BeatDetail, type ContentData, type CrmData, type SalesData, type Sale, type ScanStatus, type Settings as AppSettings, type Status, type TagKind, type NetlifyStatus } from '@shared/types'
+import { STATUSES, type Beat, type BeatDetail, type ContentData, type CrmData, type FeedbackData, type SoundList, type SoundStatus, type StudioSession, type SalesData, type Sale, type ScanStatus, type Settings as AppSettings, type Status, type TagKind, type NetlifyStatus } from '@shared/types'
 import { displayKey } from '@shared/key'
 import { parseQuery } from './query'
 import { usePlayer } from './player'
@@ -16,6 +16,11 @@ import { SplitsDialog } from './SplitsDialog'
 import { errMsg } from './salesUtils'
 import { ContentView } from './Content'
 import { startOfDay } from './suggest'
+import { SoundLibrary } from './SoundLibrary'
+import { FeedbackView } from './FeedbackView'
+import { FeedbackDialog } from './FeedbackDialog'
+import { Dashboard } from './Dashboard'
+import { fmtClock } from './dashUtils'
 import { ago, fmtBpm, fmtDur } from './format'
 
 interface Row { beat: Beat; count: number }
@@ -41,7 +46,7 @@ export function App() {
   const [scan, setScan] = useState<ScanStatus>({ pending: 0, done: 0, total: 0 })
   const [palette, setPalette] = useState(false)
   const [settings, setSettings] = useState(false)
-  const [view, setView] = useState<'vault' | 'crm' | 'sales' | 'content'>('vault')
+  const [view, setView] = useState<'dashboard' | 'vault' | 'crm' | 'sales' | 'content' | 'sounds' | 'feedback'>('dashboard')
   const [crm, setCrm] = useState<CrmData | null>(null)
   const [appSettings, setAppSettings] = useState<AppSettings | null>(null)
   const [netlify, setNetlify] = useState<NetlifyStatus | null>(null)
@@ -53,6 +58,27 @@ export function App() {
   const [saleDlg, setSaleDlg] = useState<{ beatId?: number; edit?: Sale } | null>(null)
   const [splitsDlg, setSplitsDlg] = useState<{ groupId: number; title: string } | null>(null)
   const [salesQuery, setSalesQuery] = useState('')
+  const [sounds, setSounds] = useState<SoundList | null>(null)
+  const [soundStatus, setSoundStatus] = useState<SoundStatus>({ phase: 'idle', done: 0, total: 0 })
+  const [soundQuery, setSoundQuery] = useState('')
+  const [soundProject, setSoundProject] = useState<number | null>(null)
+  const [feedback, setFeedback] = useState<FeedbackData>({ links: [], comments: [] })
+  const [fbDlg, setFbDlg] = useState<{ beatIds?: number[] } | null>(null)
+  const [sessions, setSessions] = useState<StudioSession[]>([])
+  const [clock, setClock] = useState(Date.now())
+  const reloadSounds = useCallback(async () => { setSounds(await window.api.soundsList()) }, [])
+  const reloadFeedback = useCallback(async () => { setFeedback(await window.api.feedbackAll()) }, [])
+  const reloadSessions = useCallback(async () => { setSessions(await window.api.sessionsAll()) }, [])
+  useEffect(() => {
+    reloadSounds(); reloadFeedback(); reloadSessions()
+    const a = window.api.onSoundsStatus(setSoundStatus)
+    const b = window.api.onSoundsChanged(reloadSounds)
+    const c = window.api.onFeedbackChanged(() => { reloadFeedback(); reloadSessions() })
+    return () => { a(); b(); c() }
+  }, [reloadSounds, reloadFeedback, reloadSessions])
+  const openSession = sessions.find((x) => x.endedAt == null)
+  useEffect(() => { const t = setInterval(() => setClock(Date.now()), 1000); return () => clearInterval(t) }, [])
+  const unseenFeedback = useMemo(() => feedback.comments.filter((c) => !c.seen).length, [feedback.comments])
   const [content, setContent] = useState<ContentData>({ posts: [], videos: [] })
   const [contentBeat, setContentBeat] = useState<number | null>(null)
   const reloadContent = useCallback(async () => { setContent(await window.api.contentAll()) }, [])
@@ -148,6 +174,9 @@ export function App() {
       const t = e.target as HTMLElement
       const typing = t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable
       if (mod && e.key.toLowerCase() === 'k') { e.preventDefault(); setPalette((p) => !p); return }
+      if (mod && e.key === '0') { e.preventDefault(); setView('dashboard'); return }
+      if (mod && e.key === '5') { e.preventDefault(); setView('sounds'); return }
+      if (mod && e.key === '6') { e.preventDefault(); setView('feedback'); return }
       if (mod && e.key === '1') { e.preventDefault(); setView('vault'); return }
       if (mod && e.key === '2') { e.preventDefault(); setView('crm'); return }
       if (mod && e.key === '3') { e.preventDefault(); setView('sales'); return }
@@ -177,6 +206,11 @@ export function App() {
   })
 
   const commands: Command[] = [
+    { id: 'go-dash', label: 'Go to Dashboard', hint: '⌘0', run: () => setView('dashboard') },
+    { id: 'go-sounds', label: 'Go to Sound Library', hint: '⌘5', run: () => setView('sounds') },
+    { id: 'go-feedback', label: 'Go to Feedback', hint: '⌘6', run: () => setView('feedback') },
+    { id: 'new-feedback', label: 'New feedback link…', run: () => setFbDlg({}) },
+    { id: 'session', label: openSession ? 'Stop studio session' : 'Start studio session', run: async () => { await (openSession ? window.api.stopSession() : window.api.startSession()); reloadSessions() } },
     { id: 'go-vault', label: 'Go to Beat Vault', hint: '⌘1', run: () => setView('vault') },
     { id: 'go-crm', label: 'Go to Pitch CRM', hint: '⌘2', run: () => setView('crm') },
     { id: 'go-sales', label: 'Go to Sales & Collabs', hint: '⌘3', run: () => setView('sales') },
@@ -197,16 +231,30 @@ export function App() {
       <div className="titlebar" />
       <nav className="side">
         <div className="brand">Studio HQ</div>
+        <a className={`nav ${view === 'dashboard' ? 'on' : ''}`} onClick={() => setView('dashboard')}>Dashboard</a>
         <a className={`nav ${view === 'vault' ? 'on' : ''}`} onClick={() => setView('vault')}>Beat Vault <span>{beats.length}</span></a>
         <a className={`nav ${view === 'crm' ? 'on' : ''}`} onClick={() => setView('crm')}>Pitch CRM {dueCount > 0 ? <span className="badge">{dueCount}</span> : <span>{crm?.contacts.length ?? 0}</span>}</a>
         <a className={`nav ${view === 'sales' ? 'on' : ''}`} onClick={() => setView('sales')}>Sales & Collabs <span>{salesData.sales.length}</span></a>
         <a className={`nav ${view === 'content' ? 'on' : ''}`} onClick={() => setView('content')}>Content {overduePosts > 0 ? <span className="badge">{overduePosts}</span> : <span>{content.posts.filter((p) => p.status === 'posted').length}</span>}</a>
-        {['Sound Library', 'Feedback', 'Dashboard'].map((m) => <a key={m} className="nav soon">{m}<span>soon</span></a>)}
+        <a className={`nav ${view === 'sounds' ? 'on' : ''}`} onClick={() => setView('sounds')}>Sound Library <span>{sounds ? sounds.items.length.toLocaleString() : ''}</span></a>
+        <a className={`nav ${view === 'feedback' ? 'on' : ''}`} onClick={() => setView('feedback')}>Feedback {unseenFeedback > 0 ? <span className="badge">{unseenFeedback}</span> : <span>{feedback.links.length}</span>}</a>
         <div className="grow" />
+        {openSession && <a className="timerpill" onClick={() => setView('dashboard')} title="Studio session running">● {fmtClock(clock - openSession.startedAt)}</a>}
         <button className="ghost" onClick={() => setSettings(true)}>Settings <kbd>⌘,</kbd></button>
       </nav>
 
-      {view === 'content' ? (
+      {view === 'dashboard' ? (
+        <Dashboard
+          beats={beats} crm={crm} content={content} sales={salesData} feedback={feedback} sessions={sessions} settings={appSettings} now={clock}
+          onGo={setView} onOpenBeat={(id) => { setView('vault'); setStatusTab('all'); setQuery(''); setSelectedId(id) }}
+          onOpenContact={(id) => { setCrmSel(id); setView('crm') }} onPitchBeat={(id) => setPitchDlg({ beatIds: [id] })}
+          onMakeVideo={(id) => { setContentBeat(id); setView('content') }} onSetStatus={setStatus} reloadSessions={reloadSessions}
+        />
+      ) : view === 'sounds' ? (
+        <SoundLibrary data={sounds} roots={appSettings?.soundFolders ?? []} status={soundStatus} query={soundQuery} onQuery={setSoundQuery} projectSel={soundProject} onProjectSel={setSoundProject} onReload={reloadSounds} onPauseMain={() => { if (player.playing) player.toggle() }} toast={toast} />
+      ) : view === 'feedback' ? (
+        <FeedbackView data={feedback} beats={beats} onNew={() => setFbDlg({})} onPlayAt={(id, at) => player.play(id, at)} reload={reloadFeedback} toast={toast} />
+      ) : view === 'content' ? (
         <ContentView
           beats={beats} sales={salesData.sales} content={content} settings={appSettings} beatId={contentBeat} onSelectBeat={setContentBeat}
           onPlayAt={(id, at) => player.play(id, at)} reload={reloadContent} reloadBeats={reload} toast={toast}
@@ -283,7 +331,8 @@ export function App() {
           sales={salesData.sales.filter((x) => x.groupId === detail.groupId)} splitGroup={salesData.groups.find((g) => g.groupId === detail.groupId)}
           onLogSale={() => setSaleDlg({ beatId: detail.id })} onEditSplits={() => setSplitsDlg({ groupId: detail.groupId, title: detail.title })}
           onSheet={async () => { try { const f = await window.api.exportSplitSheet(detail.groupId); if (f) toast(`Split sheet saved: ${f.split('/').pop()}`); reloadSales() } catch (e) { toast(errMsg(e)) } }}
-          posts={content.posts.filter((x) => x.beatId === detail.id)} onContent={() => { setContentBeat(detail.id); setView('content') }}
+          projectSection={sounds?.projects.find((x) => x.path === detail.projectPath) ?? null} onProjectSounds={(id) => { setSoundProject(id); setView('sounds') }}
+          onFeedback={() => setFbDlg({ beatIds: [detail.id] })} posts={content.posts.filter((x) => x.beatId === detail.id)} onContent={() => { setContentBeat(detail.id); setView('content') }}
           onError={toast} />
       ) : (
         <aside className="detail empty-detail"><p>Select a beat</p><p className="dim">↑ ↓ to move · Space to play · 1–5 sets status</p></aside>
@@ -302,8 +351,11 @@ export function App() {
         {scanning && <div className="scan">Analyzing {scan.total - scan.pending}/{scan.total}<div className="bar"><div style={{ width: `${((scan.total - scan.pending) / Math.max(1, scan.total)) * 100}%` }} /></div></div>}
       </footer>
 
-      {palette && <Palette beats={beats} contacts={crm?.contacts ?? []} sales={salesData.sales} onPickSale={(sale) => { setSalesQuery(sale.beatTitle); setView('sales') }} commands={commands} onPickBeat={(b) => { setView('vault'); playBeat(b.id) }} onPickContact={(c) => { setCrmSel(c.id); setView('crm') }} onClose={() => setPalette(false)} />}
+      {palette && <Palette beats={beats} contacts={crm?.contacts ?? []} sales={salesData.sales} sounds={sounds?.items ?? []} onPickSound={(x) => { setSoundQuery(x.n); setView('sounds') }} onPickSale={(sale) => { setSalesQuery(sale.beatTitle); setView('sales') }} commands={commands} onPickBeat={(b) => { setView('vault'); playBeat(b.id) }} onPickContact={(c) => { setCrmSel(c.id); setView('crm') }} onClose={() => setPalette(false)} />}
       {settings && <Settings onClose={() => { setSettings(false); reload(); reloadCrm() }} />}
+      {fbDlg && (
+        <FeedbackDialog beats={beats} initial={fbDlg.beatIds} hasToken={!!netlify?.hasToken} onClose={() => { setFbDlg(null); reloadFeedback() }} onBuilt={() => { reloadFeedback(); setView('feedback') }} />
+      )}
       {saleDlg && crm && (
         <LogSaleDialog
           beats={beats} sales={salesData.sales} licenses={salesData.licenses} contacts={crm.contacts} beatId={saleDlg.beatId} edit={saleDlg.edit}

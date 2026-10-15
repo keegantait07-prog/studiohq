@@ -12,7 +12,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
   useEffect(() => { load().then(); window.api.getSettings().then((x) => setName(x.producerName)); window.api.dataPath().then(setDataPath); window.api.netlifyStatus().then(setNl) }, [])
   if (!s) return null
 
-  const list = (kind: 'watchFolders' | 'projectFolders', title: string, help: string) => (
+  const list = (kind: 'watchFolders' | 'projectFolders' | 'soundFolders', title: string, help: string) => (
     <section>
       <h3>{title}</h3>
       <p className="help">{help}</p>
@@ -33,6 +33,11 @@ export function Settings({ onClose }: { onClose: () => void }) {
             <input type="checkbox" checked={s.includeIdeas} onChange={async (e) => { await window.api.setSetting({ includeIdeas: e.target.checked }); load() }} />
             Include folders named “ideas” / “scraps”
           </label>
+        </section>
+        {list('soundFolders', 'Sound library folders', 'Drum kits and sample packs, scanned into the Sound Library. Files are never moved or changed.')}
+        <section>
+          <label className="check"><input type="checkbox" checked={s.includeMidiPacks} onChange={async (e) => { await window.api.setSetting({ includeMidiPacks: e.target.checked }); load(); window.api.soundsScan() }} /> Also index MIDI files inside my sound folders (MIDI packs can be tens of thousands of files)</label>
+          <p className="help">MIDI made from your own FL projects is always included.</p>
         </section>
         {list('projectFolders', 'FL Studio project folders', 'Searched for .flp files to link to your bounces. FL’s Backup folders are skipped.')}
         <section>

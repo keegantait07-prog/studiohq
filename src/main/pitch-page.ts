@@ -1,6 +1,6 @@
 // Self-contained listening page for a pitch pack: no external requests, no tracking.
 export interface PageTrack { title: string; file: string; bpm: number | null; key: string | null; duration: number | null; peaks: number[] }
-export interface PageData { title: string; intro: string; producer: string; tracks: PageTrack[] }
+export interface PageData { title: string; intro: string; producer: string; tracks: PageTrack[]; feedback?: { slug: string } }
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
 const fmt = (s: number | null) => (s == null ? '' : `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`)
@@ -33,19 +33,25 @@ h1{font-size:32px;line-height:1.15;margin:8px 0 18px}.intro p{margin:0 0 12px;co
 .meta{color:var(--dim);font-size:13px}.time{color:var(--dim);font-size:13px;font-variant-numeric:tabular-nums}
 canvas{width:100%;height:56px;display:block;margin-top:12px;cursor:pointer}
 footer{margin-top:36px;color:var(--dim);font-size:13px}
+.me{margin:14px 0 0;display:flex;gap:10px;align-items:center;color:var(--dim);font-size:14px}.me input{background:#0f1013;border:1px solid var(--line);border-radius:8px;color:var(--text);padding:8px 10px;font:inherit;width:220px}
+.cmt{margin-top:12px;border-top:1px solid var(--line);padding-top:12px}.cmt textarea{width:100%;background:#0f1013;border:1px solid var(--line);border-radius:8px;color:var(--text);padding:9px 10px;font:inherit;resize:vertical}
+.cmt .row{display:flex;gap:10px;align-items:center;margin-top:8px}.cmt button{background:var(--accent);border:0;border-radius:8px;padding:8px 14px;font:inherit;font-weight:600;color:#140a06;cursor:pointer}.cmt button.g{background:#23262c;color:var(--text)}
+.cmt .st{color:var(--dim);font-size:13px}.cl{margin-top:10px;display:flex;flex-direction:column;gap:6px}.ci{font-size:14px;color:#cfd2d8}.ci a{color:var(--accent);cursor:pointer;font-weight:600;margin-right:8px}.ci .s{color:var(--dim);font-size:12px;margin-left:6px}
 </style></head><body><main>
 <div class="by">${esc(d.producer)}</div>
 <h1>${esc(d.title)}</h1>
 <div class="intro">${intro}</div>
+${d.feedback ? `<div class="me"><label for="nm">Your name</label><input id="nm" maxlength="60" placeholder="So the producer knows who it's from"></div>
+<form name="studio-hq-feedback" method="POST" data-netlify="true" netlify-honeypot="bot-field" hidden><input name="form-name" value="studio-hq-feedback"><input name="bot-field"><input name="link"><input name="beat"><input name="name"><input name="time"><textarea name="comment"></textarea></form>` : ''}
 ${d.tracks.map((t, i) => `<section class="track" data-i="${i}">
 <div class="top"><button class="play" aria-label="Play ${esc(t.title)}">&#9654;</button>
 <div class="name"><b>${esc(t.title)}</b><span class="meta">${[t.bpm ? Math.round(t.bpm) + ' BPM' : '', keyLabel(t.key)].filter(Boolean).join(' · ')}</span></div>
 <span class="time">0:00 / ${fmt(t.duration)}</span></div>
-<canvas></canvas></section>`).join('\n')}
-<footer>Private link. Please don't share it.</footer>
+<canvas></canvas>${d.feedback ? `<div class="cmt"><textarea rows="2" placeholder="Leave a comment at this point in the beat…"></textarea><div class="row"><button class="add">Comment at <span class="at">0:00</span></button><button class="g now">Use current time</button><span class="st"></span></div><div class="cl"></div></div>` : ''}</section>`).join('\n')}
+<footer>${d.feedback ? 'Private link. Pause anywhere and leave a comment pinned to that moment.' : "Private link. Please don't share it."}</footer>
 </main>
 <script>
-const T=${json(tracks)};let cur=null;
+const T=${json(tracks)};const FB=${json(d.feedback ?? null)};let cur=null;
 const secs=[...document.querySelectorAll('.track')];
 const f=s=>Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');
 secs.forEach((sec,i)=>{
@@ -61,6 +67,25 @@ secs.forEach((sec,i)=>{
  btn.onclick=()=>a.paused?a.play():a.pause();
  cv.onclick=e=>{const r=cv.getBoundingClientRect();const go=()=>{a.currentTime=(e.clientX-r.left)/r.width*a.duration;a.play()};a.duration?go():(a.preload='auto',a.addEventListener('loadedmetadata',go,{once:true}),a.load())};
  draw();addEventListener('resize',draw);
+ if(FB)comments(sec,i,a,draw);
 });
+function comments(sec,i,a,draw){
+ var key='shq-'+FB.slug,store={};try{store=JSON.parse(localStorage.getItem(key)||'{}')}catch(e){}
+ var list=store[i]=store[i]||[],cl=sec.querySelector('.cl'),ta=sec.querySelector('textarea'),at=sec.querySelector('.at'),st=sec.querySelector('.st'),pin=0,nm=document.getElementById('nm');
+ try{nm.value=localStorage.getItem('shq-name')||''}catch(e){}
+ var save=function(){try{localStorage.setItem(key,JSON.stringify(store))}catch(e){}};
+ var render=function(){cl.innerHTML='';list.forEach(function(c){var d=document.createElement('div');d.className='ci';var l=document.createElement('a');l.textContent=f(c.t);l.onclick=function(){a.currentTime=c.t;a.play()};d.appendChild(l);d.appendChild(document.createTextNode(c.x));var s=document.createElement('span');s.className='s';s.textContent=c.ok?'sent':'not sent';d.appendChild(s);cl.appendChild(d)})};
+ render();
+ a.addEventListener('timeupdate',function(){if(!ta.value)at.textContent=f(a.currentTime)});
+ sec.querySelector('.now').onclick=function(){pin=a.currentTime;at.textContent=f(pin);st.textContent='Pinned at '+f(pin)};
+ sec.querySelector('.add').onclick=function(){
+  var text=ta.value.trim();if(!text){st.textContent='Write something first';return}
+  var t=pin||a.currentTime||0,name=(nm.value||'').trim();try{localStorage.setItem('shq-name',name)}catch(e){}
+  var body=new URLSearchParams({'form-name':'studio-hq-feedback','bot-field':'',link:FB.slug,beat:String(i),name:name,time:String(Math.round(t*10)/10),comment:text});
+  st.textContent='Sending…';
+  fetch('/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body.toString()}).then(function(r){
+   if(!r.ok)throw new Error('http '+r.status);list.push({t:t,x:text,ok:1});save();render();ta.value='';pin=0;st.textContent='Sent. Thank you!'}).catch(function(){st.textContent="Couldn't send that. Check your connection and try again."});
+ };
+}
 </script></body></html>`
 }

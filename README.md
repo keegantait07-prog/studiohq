@@ -2,7 +2,7 @@
 
 A local-first desktop app for your whole producer workflow. Built with Electron, React and SQLite. Runs on macOS.
 
-**Status: Milestones 1–4 (Beat Vault, Pitch CRM, Sales & Collabs, Content Machine).** Later milestones add Sound Library, Feedback Links and the Daily Dashboard.
+**Status: all five milestones (Beat Vault, Pitch CRM, Sales & Collabs, Content Machine, and Sound Library + Feedback links + Dashboard).** Planned next: Sound Library, Feedback Links and the Daily Dashboard.
 
 ## Setup
 
@@ -91,11 +91,44 @@ Open it from the sidebar or with **⌘4**.
 
 Videos are saved to `~/Movies/Studio HQ` by default (change it in Settings). Studio HQ doesn't post to Instagram or TikTok for you yet: export the video, post it, then log it here.
 
+## What M5 does
+
+### Daily Dashboard (⌘0, the home screen)
+- **Studio session timer.** Start and stop a session; a running session also shows in the sidebar. Optionally turn on *Time sessions automatically while FL Studio is open* and Studio HQ starts and stops a session when FL launches and quits. Sessions under a minute are discarded.
+- **Beat-making streak.** A day counts when you bounce a beat or log 15+ minutes in the studio. The heat map covers the last 15 weeks and is built from your bounces' dates, so it fills in with your history immediately. Today doesn't break a streak until the day is over.
+- **Weekly goals** (Monday to Sunday): beats made, pitches sent, posts published. Click a goal number to change it. A beat counts as "made" in the week of its first bounce, so extra versions don't count twice.
+- **Today's list:** follow-ups due, beats you've marked WIP (with a *Mark finished* button), finished beats never pitched or posted (with *Pitch* and *Video* buttons), posts planned for today or overdue, and new feedback comments.
+
+### Sound Library (⌘5)
+- **Scans your sound folders** (default `~/Desktop/!DRUM KITS`; change in Settings). About 18,000 files take roughly 10 seconds. Files are never moved or modified.
+- **Auto-sorts** each sound into kick, snare, clap, hat, perc, 808, bass, loop, melody, vocal, fx or other from its file and folder names, and picks up BPM and key from loop names.
+- **Search and filter** by text, type, one-shots or loops, favorites, and folder (a collapsible folder tree). Click any column header to sort.
+- **Instant preview.** Click a sound, or move with ↑↓, and it plays right away with its waveform. Space replays, **L** loops, **F** toggles favorite. Select several (⌘-click, Shift-click, ⌘A) to tag or favorite them together.
+- **Drag into your DAW.** Drag one or many rows straight out of the app into FL Studio.
+- **Find duplicates.** Compares files byte for byte (only files of identical size are even read), shows each group, and moves the ones you tick to the **Trash** (so they can be put back). Nothing is ticked until you choose; it can tick all but one copy per group for you, and always keeps one.
+
+### FL projects: each project's own sounds and MIDI
+Studio HQ reads every `.flp` in your project folders (skipping FL's `Backup` folders) and gives each project its own section under **Sound Library → FL projects**:
+- **Samples:** every audio file the project uses. If a project points at a file that has moved, it's matched by file name against your library; ones that can't be found anywhere are listed so you know what's missing.
+- **MIDI:** the notes from each pattern's piano roll are exported as a `.mid` file (one track per instrument, named after the channel and pattern), so you can drag a melody or chord progression from an old project into a new one.
+- A beat linked to its project in the Vault shows a *Samples & MIDI from this project* button. MIDI files are saved in `~/Library/Application Support/Studio HQ/FL project MIDI/` and refreshed when a project changes.
+- Limits: MIDI has no audio preview (drag it into FL to hear it); only piano-roll patterns are exported, not the playlist arrangement; FL 2026 projects don't store their tempo in a place I could read, so MIDI uses the linked beat's BPM or 120 (FL ignores a MIDI file's tempo on import anyway); a few older or unusual projects can only be read partly.
+- MIDI packs inside your sound folders (tens of thousands of files) are **not** indexed unless you tick *Also index MIDI files inside my sound folders* in Settings.
+
+### Feedback links (⌘6)
+Send an artist a private link to a beat (from the Vault, *Get timestamped feedback…*, or the Feedback screen). They listen, press **Comment at 0:42**, and write a note. Comments appear in the app pinned to the waveform; click a comment's time to hear that moment (it starts 2 seconds early). Resolve comments as you go.
+- Comments are collected with **Netlify Forms** and pulled into the app every 5 minutes, or on *Sync now*, with a macOS notification for new ones. The link is unlisted, not password-protected, and visitors need no account.
+- **Netlify's free plan allows 100 form submissions a month** for your whole site, so heavy feedback may need a paid plan.
+- Needs the same Netlify token as pitch pages (Settings). Without it, the page is built locally for preview, but comments only work on a published link.
+- Tested end to end against a mock of Netlify's forms API (a real page posting real comments, then syncing them into the app). It hasn't been run against a live Netlify account.
+
 ## Shortcuts
 
 | Key | Action |
 |---|---|
+| ⌘0 | Dashboard |
 | ⌘1 / ⌘2 / ⌘3 / ⌘4 | Beat Vault / Pitch CRM / Sales & Collabs / Content |
+| ⌘5 / ⌘6 | Sound Library / Feedback |
 
 | Key | Action |
 |---|---|
@@ -119,6 +152,7 @@ Everything is in one folder. Contacts, pitches, sales, splits, templates and set
   backups/           # snapshots made by "Back up now"
   pitch-site/        # the pitch pages and MP3 previews that get published
   pitch-cache/       # cached MP3 previews, safe to delete
+  FL project MIDI/   # MIDI made from your FL projects' patterns (rebuilt automatically)
 ```
 
 Exported videos live outside this folder (default `~/Movies/Studio HQ`), so they are not in the database backup.

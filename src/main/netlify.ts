@@ -5,7 +5,7 @@ import { join, relative, sep } from 'path'
 
 const API = process.env.STUDIO_HQ_NETLIFY_API ?? 'https://api.netlify.com/api/v1'
 
-async function call(token: string, path: string, init: RequestInit = {}): Promise<Response> {
+export async function call(token: string, path: string, init: RequestInit = {}): Promise<Response> {
   const res = await fetch(API + path, { ...init, headers: { Authorization: `Bearer ${token}`, ...(init.headers ?? {}) } })
   if (res.status === 401) throw new Error('Netlify rejected the access token (401). Paste a fresh personal access token in Settings.')
   if (!res.ok) throw new Error(`Netlify error ${res.status}: ${(await res.text()).slice(0, 200)}`)

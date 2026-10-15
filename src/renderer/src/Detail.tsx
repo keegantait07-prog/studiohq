@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { STATUSES, TAG_KINDS, type BeatDetail, type Pitch, type Post, type Sale, type SplitGroup, type Status, type TagKind } from '@shared/types'
+import { STATUSES, TAG_KINDS, type BeatDetail, type Pitch, type Post, type ProjectSection, type Sale, type SplitGroup, type Status, type TagKind } from '@shared/types'
 import { displayKey } from '@shared/key'
 import { fmtBpm, fmtDur } from './format'
 import { errMsg, fmtDay, money } from './salesUtils'
@@ -54,9 +54,12 @@ interface Props {
   onError: (m: string) => void
   posts: Post[]
   onContent: () => void
+  onFeedback: () => void
+  projectSection: ProjectSection | null
+  onProjectSounds: (id: number) => void
 }
 
-export function Detail({ beat, allTags, onSelect, onPlay, refresh, pitchedTo, onPitch, onOpenContact, sales, splitGroup, onLogSale, onEditSplits, onSheet, onError, posts, onContent }: Props) {
+export function Detail({ beat, allTags, onSelect, onPlay, refresh, pitchedTo, onPitch, onOpenContact, sales, splitGroup, onLogSale, onEditSplits, onSheet, onError, posts, onContent, onFeedback, projectSection, onProjectSounds }: Props) {
   const [title, setTitle] = useState(beat.title)
   const [bpm, setBpm] = useState(fmtBpm(beat.bpm).replace('–', ''))
   const [key, setKey] = useState(displayKey(beat.key))
@@ -116,6 +119,10 @@ export function Detail({ beat, allTags, onSelect, onPlay, refresh, pitchedTo, on
           <button className="wide" onClick={() => window.api.linkProject(beat.id)}>Link .flp…</button>
         )}
       </div>
+
+      {projectSection && (projectSection.samples.length > 0 || projectSection.midis.length > 0) && (
+        <button className="wide" onClick={() => onProjectSounds(projectSection.id)}>Samples & MIDI from this project ({projectSection.samples.length} + {projectSection.midis.length} MIDI)</button>
+      )}
 
       <div className="field">
         <label>Notes</label>
@@ -177,6 +184,7 @@ export function Detail({ beat, allTags, onSelect, onPlay, refresh, pitchedTo, on
       <div className="field">
         <label>Content ({posts.filter((x) => x.status === 'posted').length} posted)</label>
         <button className="wide" onClick={onContent}>Make video, titles & tags…</button>
+        <button className="wide" style={{ marginTop: 6 }} onClick={onFeedback}>Get timestamped feedback…</button>
       </div>
 
       <div className="actions">

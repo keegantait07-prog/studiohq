@@ -60,7 +60,46 @@ export interface Settings {
   contactEmail: string
   hashtags: string
   exportDir: string
+  soundFolders: string[]
+  goalBeats: number
+  goalPitches: number
+  goalPosts: number
+  autoTrackFL: boolean
+  includeMidiPacks: boolean
 }
+
+// ---- Sound Library ----
+export const SOUND_KINDS = ['kick', 'snare', 'clap', 'hat', 'perc', '808', 'bass', 'loop', 'melody', 'vocal', 'fx', 'midi', 'other'] as const
+export type SoundKind = (typeof SOUND_KINDS)[number]
+/** compact row: the library holds ~20k of these */
+export interface SoundRow { id: number; n: string; d: number; e: string; u: number | null; k: SoundKind; f: boolean; b: number | null; y: string | null; t: string[]; s: number; m: number | null }
+/** One FL Studio project's own section: the sounds it uses and the MIDI pulled from its patterns */
+export interface ProjectSection {
+  id: number
+  name: string
+  path: string
+  mtime: number
+  partial: boolean
+  error: string | null
+  beatTitle: string | null
+  samples: number[]
+  midis: number[]
+  missing: { name: string; channel: string; ref: string }[]
+  /** how many of the samples were matched by file name rather than by their original path */
+  byName: number
+}
+export interface SoundList { dirs: string[]; items: SoundRow[]; projects: ProjectSection[]; roots: string[] }
+export interface SoundStatus { phase: 'scanning' | 'reading' | 'hashing' | 'idle'; done: number; total: number }
+export interface DupGroup { hash: string; size: number; files: { id: number; path: string; mtime: number; fav: boolean }[] }
+
+// ---- Feedback links ----
+export interface FeedbackLink { id: number; slug: string; title: string; url: string | null; createdAt: number; deployedAt: number | null; beats: { beatId: number; title: string; duration: number | null }[] }
+export interface FeedbackComment { id: string; slug: string; beatId: number | null; beatIndex: number; name: string; time: number; text: string; createdAt: number; seen: boolean; resolved: boolean }
+export interface FeedbackData { links: FeedbackLink[]; comments: FeedbackComment[] }
+export interface FeedbackRequest { title: string; intro: string; beatIds: number[] }
+
+// ---- Dashboard ----
+export interface StudioSession { id: number; startedAt: number; endedAt: number | null; auto: boolean }
 
 // ---- Content Machine ----
 export type Platform = 'tiktok' | 'instagram' | 'youtube' | 'shorts' | 'other'
@@ -192,11 +231,32 @@ export interface Api {
   openProject(id: number): Promise<void>
   linkProject(id: number): Promise<void>
   getSettings(): Promise<Settings>
-  addFolder(kind: 'watchFolders' | 'projectFolders'): Promise<void>
-  removeFolder(kind: 'watchFolders' | 'projectFolders', path: string): Promise<void>
-  setSetting(patch: Partial<Pick<Settings, 'includeIdeas' | 'ownHandles' | 'producerName' | 'followupDays' | 'notify' | 'storeUrl' | 'contactEmail' | 'hashtags'>>): Promise<void>
+  addFolder(kind: 'watchFolders' | 'projectFolders' | 'soundFolders'): Promise<void>
+  removeFolder(kind: 'watchFolders' | 'projectFolders' | 'soundFolders', path: string): Promise<void>
+  setSetting(patch: Partial<Pick<Settings, 'includeIdeas' | 'ownHandles' | 'producerName' | 'followupDays' | 'notify' | 'storeUrl' | 'contactEmail' | 'hashtags' | 'goalBeats' | 'goalPitches' | 'goalPosts' | 'autoTrackFL' | 'includeMidiPacks'>>): Promise<void>
   backup(): Promise<string>
   dataPath(): Promise<string>
+  soundsList(): Promise<SoundList>
+  soundsScan(): Promise<void>
+  soundsTag(ids: number[], add: string[], remove: string[]): Promise<void>
+  soundsFav(ids: number[], fav: boolean): Promise<void>
+  soundsDuplicates(): Promise<DupGroup[]>
+  soundsTrash(ids: number[]): Promise<number>
+  soundsReveal(id: number): Promise<void>
+  projectOpen(id: number): Promise<void>
+  projectReveal(id: number): Promise<void>
+  startDrag(kind: 'sound' | 'beat', ids: number[]): void
+  onSoundsStatus(cb: (s: SoundStatus) => void): () => void
+  onSoundsChanged(cb: () => void): () => void
+  feedbackAll(): Promise<FeedbackData>
+  buildFeedback(req: FeedbackRequest): Promise<PackResult>
+  feedbackSync(): Promise<{ added: number; error: string | null }>
+  feedbackUpdate(id: string, patch: { seen?: boolean; resolved?: boolean }): Promise<void>
+  feedbackMarkAllSeen(): Promise<void>
+  onFeedbackChanged(cb: () => void): () => void
+  sessionsAll(): Promise<StudioSession[]>
+  startSession(): Promise<void>
+  stopSession(): Promise<void>
   contentAll(): Promise<ContentData>
   savePost(p: Partial<Post> & Pick<Post, 'beatId' | 'platform' | 'status' | 'date'>): Promise<number>
   deletePost(id: number): Promise<void>
@@ -235,7 +295,7 @@ export interface Api {
   setNetlifyToken(token: string | null): Promise<void>
   openExternal(url: string): Promise<void>
   onCrmChanged(cb: () => void): () => void
-  onNavigate(cb: (view: 'vault' | 'crm' | 'sales' | 'content') => void): () => void
+  onNavigate(cb: (view: 'dashboard' | 'vault' | 'crm' | 'sales' | 'content' | 'sounds' | 'feedback') => void): () => void
   onBeatsChanged(cb: (ids: number[]) => void): () => void
   onScanStatus(cb: (s: ScanStatus) => void): () => void
 }

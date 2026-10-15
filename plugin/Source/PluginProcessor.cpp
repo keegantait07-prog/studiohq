@@ -256,8 +256,20 @@ void BridgeProcessor::handleAsyncUpdate()
     if (partialFile.moveFileTo (dest))
     {
         lastSaved = dest;
+        // JUCE can't encode MP3, so Studio HQ converts this recording to MP3 and removes the WAV
+        {
+            auto* o = new DynamicObject();
+            o->setProperty ("version", 2);
+            o->setProperty ("kind", "bounce");
+            o->setProperty ("wav", dest.getFullPathName());
+            o->setProperty ("bpm", bpm);
+            const auto inbox = supportDir().getChildFile ("inbox");
+            inbox.createDirectory();
+            auto tmp = inbox.getChildFile ("bounce-" + String (Time::currentTimeMillis()) + ".tmp");
+            if (tmp.replaceWithText (JSON::toString (var (o)))) tmp.moveFileTo (tmp.withFileExtension ("json"));
+        }
         if (onSaved) onSaved (dest, bpm);
-        if (onMessage) onMessage ("Saved " + dest.getFileName() + (dropped > 0 ? "  (warning: some audio was dropped)" : ""));
+        if (onMessage) onMessage ("Saved " + dest.getFileName() + " (Studio HQ turns it into an MP3)" + (dropped > 0 ? "  (warning: some audio was dropped)" : ""));
     }
     else
     {

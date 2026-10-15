@@ -14,6 +14,7 @@ import { Sounds } from './sounds'
 import { ProjectIndex } from './flpindex'
 import { Feedback } from './feedback'
 import { Sessions } from './sessions'
+import { wavToMp3 } from './bounce'
 import { startInbox } from './inbox'
 import { VideoExporter, coverData, pickCover, previewStill } from './video'
 import type { Post, VideoOptions } from '../shared/types'
@@ -330,7 +331,10 @@ app.whenReady().then(async () => {
   ]))
   createWindow()
   writeBridgeConfig()
-  startInbox(join(app.getPath('userData'), 'inbox'), (d) => { store.saveFromPlugin(d); win?.webContents.send('beats:changed', [-1]) })
+  startInbox(join(app.getPath('userData'), 'inbox'), (d) => {
+    if (d.kind === 'bounce' && d.wav) { wavToMp3(d.wav).then((mp3) => { if (!mp3) console.error('bounce conversion failed', d.wav); else win?.webContents.send('beats:changed', [-1]) }); return }
+    store.saveFromPlugin(d); win?.webContents.send('beats:changed', [-1])
+  })
   watcher.restart()
   setTimeout(() => { scanLibrary().catch((e) => console.error('library scan failed', e)) }, 3000)
   setInterval(() => { reindexProjects().catch((e) => console.error('reindex failed', e)) }, 3 * 60 * 1000)

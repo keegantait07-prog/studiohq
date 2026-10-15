@@ -49,7 +49,9 @@ Checked by loading it in FL Studio 2026 itself (Apple Silicon):
 - Arming then pressing play started the recording by itself, and stopping saved `FL Test (130bpm).wav` (24-bit, 48 kHz stereo). Recording sample previews from FL's browser captured real audio (peak −8 dBFS). A second take with the same name became `FL Test (130bpm) (2).wav`.
 - The Sounds & MIDI tab loaded the full library (19,520 sounds) and a preview played with FL stopped. The folder picker works, and the plugin's settings (name, folder, last file) are remembered when its window is reopened.
 
-**Not tested in FL:** the new *Save to Studio HQ* tab (checked with a simulated host and against the app's inbox instead, and its project detection ran correctly against your real FL autosave files), dragging a row from the plugin into FL's playlist or channel rack, and recording during FL's *Export* (offline render).
+- **Save to Studio HQ** (checked live in FL): it identified the open project ("Active just now"), showed FL's tempo (163 BPM), and pressing Save wrote an inbox item with the right name, tempo and project path. Studio HQ picked it up at once, both when the app was already open and when it started afterwards, and saving twice didn't duplicate the beat.
+
+**Not tested in FL:** dragging a row from the plugin into FL's playlist or channel rack, recording during FL's *Export* (offline render), and the "project not saved yet" message (checked with a simulated host only).
 
 ## Known limits
 

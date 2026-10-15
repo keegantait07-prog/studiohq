@@ -56,6 +56,8 @@ function createWindow(): void {
   win.on('closed', () => (win = null))
 }
 
+let loopQueue: Promise<unknown> = Promise.resolve() // loops are handled one at a time so a newer one replaces the older cleanly
+
 function serveAudio(req: Request): Response {
   const u = new URL(req.url)
   const id = Number(u.pathname.replace('/', ''))
@@ -334,15 +336,16 @@ app.whenReady().then(async () => {
   startInbox(join(app.getPath('userData'), 'inbox'), (d) => {
     if (d.kind === 'bounce' && d.wav) { wavToMp3(d.wav).then((mp3) => { if (!mp3) console.error('bounce conversion failed', d.wav); else win?.webContents.send('beats:changed', [-1]) }); return }
     if (d.kind === 'loop' && d.wav) {
-      const t = store.previewTarget(d.flp)
-      if (!t) { try { unlinkSync(d.wav) } catch { /* gone */ } return }
-      const out = join(app.getPath('userData'), 'previews', `${t.id}-${Date.now()}.mp3`)
-      loopToMp3(d.wav, out).then((ok) => {
-        if (!ok) return
+      const wav = d.wav
+      loopQueue = loopQueue.then(async () => {
+        const t = store.previewTarget(d.flp)
+        if (!t) { try { unlinkSync(wav) } catch { /* gone */ } return }
+        const out = join(app.getPath('userData'), 'previews', `${t.id}-${Date.now()}.mp3`)
+        if (!(await loopToMp3(wav, out))) return
         store.setPreview(t.id, out)
         if (t.old) { try { unlinkSync(t.old) } catch { /* gone */ } }
         win?.webContents.send('beats:changed', [t.id])
-      })
+      }).catch((e) => console.error('loop failed', e))
       return
     }
     store.saveFromPlugin(d); win?.webContents.send('beats:changed', [-1])

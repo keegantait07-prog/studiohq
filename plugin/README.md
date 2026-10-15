@@ -63,3 +63,8 @@ Checked by loading it in FL Studio 2026 itself (Apple Silicon):
 ## Tests
 
 `./build.sh` runs `BridgeTest`, which drives the plugin like a host (fake tempo, play/stop) and checks the recorded files, the browser against your real library, and that previews never leak into a bounce. It also validates the installed plugin with `pluginval` (and Apple's `auval` for the AU).
+
+## Preview loops and MP3 bounces
+
+- **Preview loop.** While FL plays, the plugin keeps the last ~40 s of what reaches the Master. When you close the project (the plugin is unloaded), or press Save to Studio HQ, it keeps the last 4 whole bars (else 2, else 1, else 8 s) as a short MP3 and Studio HQ plays it as that beat's preview in the Vault. It only applies to a saved project, and the plugin must be on the Master. A newer loop replaces the older one. Verified by the host-simulation test and by pushing loops through the real app inbox; not yet checked by closing a project inside FL.
+- **Bounces are MP3 only.** The plugin records a WAV (JUCE cannot encode MP3); Studio HQ converts it to a 320 kbps MP3 in your beat folder and deletes the WAV. If the app is closed, the WAV waits until it is open again.

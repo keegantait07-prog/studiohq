@@ -339,6 +339,7 @@ int main()
     }
 
     dir.deleteRecursively();
+    proc.prepareToPlay (sr, block); // clears the capture, so closing the test plugin doesn't save a loop into the real app folder
     std::cout << (failures == 0 ? "\nALL PASSED" : "\nSOME FAILED") << std::endl;
     return failures == 0 ? 0 : 1;
 }

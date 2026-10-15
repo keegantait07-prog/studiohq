@@ -50,6 +50,45 @@ function previewWave(o: VideoHtmlOpts, b: Box): string {
   const n = o.format === 'vertical' ? 48 : 80
   const pk = o.peaks.length ? o.peaks : new Array(200).fill(80)
   const val = (i: number) => (pk[Math.floor((i / n) * pk.length)] ?? 60) / 255
+  const A = o.accent, mid = b.h / 2
+  const rnd = (i: number) => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x) }
+  const svg = (inner: string) => `<svg width="${b.w}" height="${b.h}" style="position:absolute;${px(b)}">${inner}</svg>`
+  if (o.viz === 'ribbon') {
+    const pts = Array.from({ length: 121 }, (_, i) => [(i / 120) * b.w, Math.max(4, Math.pow(val(Math.floor((i / 120) * n)), 1.2) * mid)] as const)
+    const top = pts.map(([x, h]) => `${x},${mid - h}`).join(' '), bot = [...pts].reverse().map(([x, h]) => `${x},${mid + h}`).join(' ')
+    return svg(`<defs><linearGradient id="rb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${A}" stop-opacity=".8"/><stop offset=".5" stop-color="${A}" stop-opacity=".12"/><stop offset="1" stop-color="${A}" stop-opacity=".8"/></linearGradient></defs><polygon points="${top} ${bot}" fill="url(#rb)"/><polyline points="${top}" fill="none" stroke="${A}" stroke-width="4"/><polyline points="${bot.split(' ').reverse().join(' ')}" fill="none" stroke="${A}" stroke-width="4"/>`)
+  }
+  if (o.viz === 'led') {
+    const cols = Math.round(n / 1.5), pitch = b.w / cols, rows = 14, rh = b.h / rows
+    let cells = ''
+    for (let c = 0; c < cols; c++) { const lit = Math.max(1, Math.round(val(Math.floor((c / cols) * n)) * rows)); for (let r = 0; r < lit; r++) cells += `<rect x="${c * pitch + pitch * 0.12}" y="${b.h - (r + 1) * rh + 2}" width="${pitch * 0.76}" height="${rh - 4}" fill="${A}" opacity="${0.35 + 0.65 * (r / rows)}"/>` }
+    return svg(cells)
+  }
+  if (o.viz === 'dots') {
+    const cols = Math.round(n / 1.2), pitch = b.w / cols, rows = 13, rh = b.h / rows
+    let d = ''
+    for (let c = 0; c < cols; c++) { const lit = Math.max(1, Math.round(val(Math.floor((c / cols) * n)) * rows)); for (let r = 0; r < lit; r++) d += `<circle cx="${c * pitch + pitch / 2}" cy="${b.h - rh * (r + 0.5)}" r="${Math.min(pitch * 0.34, rh * 0.4) * (r === lit - 1 ? 1.05 : 0.7)}" fill="${A}" opacity="${r === lit - 1 ? 1 : 0.35 + 0.4 * (r / lit)}"/>` }
+    return svg(d)
+  }
+  if (o.viz === 'sonar') {
+    const rings = [0.28, 0.55, 0.85].map((t, i) => `<ellipse cx="${b.w / 2}" cy="${mid}" rx="${t * b.w / 2}" ry="${t * mid}" fill="none" stroke="${A}" stroke-width="${6 - i * 1.5}" opacity="${1 - t * 0.9}"/>`).join('')
+    return svg(`${rings}<circle cx="${b.w / 2}" cy="${mid}" r="${b.h * 0.12}" fill="${A}" opacity=".8"/>`)
+  }
+  if (o.viz === 'aurora') {
+    const layer = (l: number) => `<polyline points="${Array.from({ length: 160 }, (_, i) => `${(i / 159) * b.w},${mid + Math.sin(i * (0.09 + l * 0.03) + l * 1.7) * b.h * (0.18 + 0.1 * val(l * 9)) * (0.7 + 0.3 * Math.sin(i * 0.03))}`).join(' ')}" fill="none" stroke="${A}" stroke-width="${10 - l * 1.5}" stroke-linecap="round" opacity="${0.9 - l * 0.2}" style="filter:blur(${3 + l}px)"/>`
+    return svg([0, 1, 2, 3].map(layer).join(''))
+  }
+  if (o.viz === 'pulse') {
+    let pts = ''
+    for (let i = 0; i <= 200; i++) { const x = (i / 200) * b.w, ph = ((i % 50) - 25) / 25; const spike = Math.abs(ph) < 0.18 ? Math.sin((ph / 0.18) * Math.PI) * -1 * b.h * 0.42 * (1 - Math.abs(ph) / 0.18) * 1.4 : Math.abs(ph - 0.55) < 0.16 ? Math.sin(((ph - 0.55) / 0.16 + 1) * Math.PI / 2) * b.h * 0.07 : 0; pts += `${x},${mid + spike} ` }
+    return svg(`<polyline points="${pts}" fill="none" stroke="${A}" stroke-width="5" stroke-linejoin="round"/><circle cx="${b.w - 4}" cy="${mid}" r="9" fill="${A}"/>`)
+  }
+  if (o.viz === 'sparks') {
+    let d = ''
+    for (let i = 0; i < 70; i++) { const x = rnd(i) * b.w, y = b.h - 12 - Math.pow(rnd(i + 99), 1.6) * b.h * 0.85; d += `<circle cx="${x}" cy="${y}" r="${2.5 + rnd(i + 5) * 4.5}" fill="${A}" opacity="${0.35 + 0.65 * rnd(i + 7)}"/>` }
+    for (let c = 0; c < n; c++) d += `<rect x="${c * (b.w / n) + 3}" y="${b.h - Math.max(3, val(c) * b.h * 0.16)}" width="${b.w / n - 6}" height="${Math.max(3, val(c) * b.h * 0.16)}" fill="${A}" opacity=".5"/>`
+    return svg(d)
+  }
   if (o.viz === 'line') {
     const pts = Array.from({ length: 200 }, (_, i) => `${(i / 199) * b.w},${b.h / 2 + Math.sin(i * 0.7) * val(Math.floor((i / 200) * n)) * (b.h / 2.4)}`).join(' ')
     return `<svg width="${b.w}" height="${b.h}" style="position:absolute;${px(b)}"><polyline points="${pts}" fill="none" stroke="${o.accent}" stroke-width="5" stroke-linejoin="round"/></svg>`

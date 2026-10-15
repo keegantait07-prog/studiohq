@@ -135,7 +135,7 @@ export class VideoExporter {
         const fade = Math.min(0.6, dur / 4)
         const graph =
           `[1:v]format=rgb24,split[wa][wb];[wb]gblur=sigma=16[wg];[wa][wg]blend=all_mode=screen,pad=${L.W}:${L.H}:${wv.x}:${wv.y}:black,format=gbrp[w];` +
-          `[0:v]format=gbrp[b];[b][w]blend=all_mode=screen:shortest=1,format=yuv420p[v];` +
+          `[0:v]${motionFilter(o.motion ?? 'still', L.W, L.H, dur, beat.bpm as number | null)}format=gbrp[b];[b][w]blend=all_mode=screen:shortest=1,format=yuv420p[v];` +
           `[2:a]afade=t=in:d=0.03,afade=t=out:st=${(dur - fade).toFixed(2)}:d=${fade.toFixed(2)}[a]`
         const args = [
           '-y', '-hide_banner', '-v', 'error', '-progress', 'pipe:1', '-nostats',
@@ -175,6 +175,18 @@ export class VideoExporter {
       rmSync(tmp, { recursive: true, force: true })
     }
   }
+}
+
+/** The frame itself can move: a slow push-in, a steady breath, or a bounce locked to the beat's tempo. */
+function motionFilter(motion: string, W: number, H: number, dur: number, bpm: number | null): string {
+  if (motion === 'still') return ''
+  const frames = Math.max(1, Math.round(dur * FPS))
+  let z: string
+  if (motion === 'drift') z = `1+0.07*on/${frames}`
+  else if (motion === 'beat' && bpm && bpm > 40 && bpm < 240) z = `1.015+0.04*pow(1-mod(on*${bpm}/${60 * FPS},1),3)`
+  else z = `1.04+0.03*sin(2*PI*on/${FPS * 4})`
+  // work from a 2x copy so the slow zoom doesn't shimmer
+  return `scale=${W * 2}:${H * 2}:flags=bicubic,zoompan=z='${z}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=${W}x${H}:fps=${FPS},`
 }
 
 function uniquePath(dir: string, name: string): string {

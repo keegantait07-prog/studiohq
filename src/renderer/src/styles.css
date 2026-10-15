@@ -296,3 +296,8 @@ kbd { border-radius: 6px; background: #0a0a0e; }
 .health .gtrack { margin-bottom: 8px; }
 .whatsnew { width: 520px; } .whatsnew ul { padding-left: 18px; line-height: 1.55; } .whatsnew li { margin-bottom: 6px; color: #c9c9d4; } .whatsnew b { color: var(--text); }
 .health .gfill { background: var(--accent); }
+
+.stylegrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; } .stylegrid.four { grid-template-columns: repeat(4, 1fr); }
+.stylecard { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left; border-radius: 14px; padding: 9px 12px; background: #0d0d12; }
+.stylecard b { font-size: 12.5px; } .stylecard span { color: var(--dim); font-size: 10.5px; line-height: 1.3; }
+.stylecard.on { border-color: var(--accent); background: var(--accent-soft); box-shadow: var(--glow); } .stylecard.on b { color: var(--accent); }

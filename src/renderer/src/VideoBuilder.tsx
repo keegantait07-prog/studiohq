@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { Beat, BeatDetail, Settings, VideoExport, VideoFormat, VideoLook, VideoProgress, VizStyle } from '@shared/types'
+import type { Beat, BeatDetail, Settings, VideoExport, VideoFormat, VideoLook, VideoMotion, VideoProgress, VizStyle } from '@shared/types'
 import { LAYOUT, previewWaveSvg } from '@shared/videoTemplate'
 import { displayKey } from '@shared/key'
 import { Waveform } from './Waveform'
@@ -9,11 +9,28 @@ import { fmtDur } from './format'
 
 const ACCENTS = ['#ff6b3d', '#3987e5', '#1baf7a', '#e87ba4', '#eda100', '#9085e9', '#ffffff']
 const LOOKS: { id: VideoLook; label: string }[] = [{ id: 'classic', label: 'Classic' }, { id: 'minimal', label: 'Minimal' }, { id: 'poster', label: 'Poster' }]
-const VIZ: { id: VizStyle; label: string }[] = [{ id: 'mirror', label: 'Mirror bars' }, { id: 'bars', label: 'Bars' }, { id: 'line', label: 'Waveform' }]
+const VIZ: { id: VizStyle; label: string; hint: string }[] = [
+  { id: 'mirror', label: 'Mirror bars', hint: 'Classic bars from the centre line' },
+  { id: 'bars', label: 'Bars', hint: 'Rounded bars from the floor' },
+  { id: 'line', label: 'Waveform', hint: 'The real waveform, drawn live' },
+  { id: 'ribbon', label: 'Ribbon', hint: 'A smooth glowing mountain range' },
+  { id: 'led', label: 'LED stack', hint: 'Hi-fi analyser cells with falling peak caps' },
+  { id: 'dots', label: 'Beads', hint: 'Columns of round dots that swell' },
+  { id: 'sonar', label: 'Sonar', hint: 'Every kick sends a ring across the frame' },
+  { id: 'aurora', label: 'Aurora', hint: 'Four drifting light ribbons, driven by bass, mids and highs' },
+  { id: 'pulse', label: 'Heartbeat', hint: 'A monitor line that spikes on every kick' },
+  { id: 'sparks', label: 'Sparks', hint: 'Kicks throw embers that fall back down' }
+]
+const MOTIONS: { id: VideoMotion; label: string; hint: string }[] = [
+  { id: 'still', label: 'Still', hint: 'The frame stays put' },
+  { id: 'drift', label: 'Slow push-in', hint: 'A gentle zoom across the whole clip' },
+  { id: 'breathe', label: 'Breathe', hint: 'A steady in-and-out, 4 seconds a cycle' },
+  { id: 'beat', label: 'Beat bounce', hint: 'The frame thumps on the beat, locked to the beat\u2019s tempo' }
+]
 const LENGTHS = [15, 30, 45, 60, 90, 0]
 
-interface Prefs { look: VideoLook; viz: VizStyle; accent: string; formats: VideoFormat[]; length: number }
-const DEFAULTS: Prefs = { look: 'classic', viz: 'mirror', accent: '#ff6b3d', formats: ['vertical'], length: 30 }
+interface Prefs { look: VideoLook; viz: VizStyle; motion: VideoMotion; accent: string; formats: VideoFormat[]; length: number }
+const DEFAULTS: Prefs = { look: 'classic', viz: 'mirror', motion: 'still', accent: '#ff6b3d', formats: ['vertical'], length: 30 }
 const loadPrefs = (): Prefs => { try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem('shq-video') ?? '{}') } } catch { return DEFAULTS } }
 
 interface Props {
@@ -77,7 +94,7 @@ export function VideoBuilder({ beat, settings, videos, onPlayAt, onExported, toa
   const doExport = async () => {
     setBusy(true); setMade([]); setProgress({ label: 'Starting', pct: 0 })
     try {
-      const paths = await window.api.exportVideo({ beatId: beat.id, formats: prefs.formats, look: prefs.look, viz: prefs.viz, accent: prefs.accent, title, tagline, footer, start, length: prefs.length })
+      const paths = await window.api.exportVideo({ beatId: beat.id, formats: prefs.formats, look: prefs.look, viz: prefs.viz, motion: prefs.motion, accent: prefs.accent, title, tagline, footer, start, length: prefs.length })
       setMade(paths)
       toast(`Exported ${paths.length} video${paths.length > 1 ? 's' : ''}`)
       onExported()
@@ -107,9 +124,12 @@ export function VideoBuilder({ beat, settings, videos, onPlayAt, onExported, toa
             <button className={prefs.formats.includes('horizontal') ? 'on' : ''} onClick={() => toggleFmt('horizontal')}>Horizontal 1920×1080 · YouTube</button>
           </div>
         </div>
-        <div className="two">
-          <div className="field"><label>Look</label><div className="seg" style={{ width: 'auto' }}>{LOOKS.map((l) => <button key={l.id} className={prefs.look === l.id ? 'on' : ''} onClick={() => set({ look: l.id })}>{l.label}</button>)}</div></div>
-          <div className="field"><label>Visualizer</label><div className="seg" style={{ width: 'auto' }}>{VIZ.map((l) => <button key={l.id} className={prefs.viz === l.id ? 'on' : ''} onClick={() => set({ viz: l.id })}>{l.label}</button>)}</div></div>
+        <div className="field"><label>Look</label><div className="seg" style={{ width: 'auto' }}>{LOOKS.map((l) => <button key={l.id} className={prefs.look === l.id ? 'on' : ''} onClick={() => set({ look: l.id })}>{l.label}</button>)}</div></div>
+        <div className="field"><label>Animation style</label>
+          <div className="stylegrid">{VIZ.map((l) => <button key={l.id} className={`stylecard ${prefs.viz === l.id ? 'on' : ''}`} onClick={() => set({ viz: l.id })} title={l.hint}><b>{l.label}</b><span>{l.hint}</span></button>)}</div>
+        </div>
+        <div className="field"><label>Frame motion</label>
+          <div className="stylegrid four">{MOTIONS.map((l) => <button key={l.id} className={`stylecard ${prefs.motion === l.id ? 'on' : ''}`} onClick={() => set({ motion: l.id })} title={l.hint}><b>{l.label}</b><span>{l.hint}</span></button>)}</div>
         </div>
         <div className="field"><label>Accent color</label>
           <div className="swatches">{ACCENTS.map((c) => <button key={c} className={`swatch ${prefs.accent === c ? 'on' : ''}`} style={{ background: c }} onClick={() => set({ accent: c })} aria-label={c} />)}<input type="color" value={prefs.accent} onChange={(e) => set({ accent: e.target.value })} /></div>

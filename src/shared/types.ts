@@ -117,12 +117,15 @@ export const PLATFORMS: { id: Platform; label: string; color: string }[] = [
 export interface Post { id: number; beatId: number; platform: Platform; status: 'planned' | 'posted'; date: number; url: string; caption: string }
 export type VideoFormat = 'vertical' | 'horizontal'
 export type VideoLook = 'classic' | 'minimal' | 'poster'
-export type VizStyle = 'mirror' | 'bars' | 'line'
+export type VizStyle = 'mirror' | 'bars' | 'line' | 'ribbon' | 'led' | 'dots' | 'sonar' | 'aurora' | 'pulse' | 'sparks'
+/** How the whole frame moves behind the visualizer. */
+export type VideoMotion = 'still' | 'drift' | 'breathe' | 'beat'
 export interface VideoOptions {
   beatId: number
   formats: VideoFormat[]
   look: VideoLook
   viz: VizStyle
+  motion?: VideoMotion
   accent: string
   title: string
   tagline: string

@@ -209,3 +209,11 @@ Your audio is not part of the backup. It stays in your own folders, so back thos
 - **Catalog health** on the dashboard, with a score and one-click jumps to the beats that need attention.
 - **CSV export** of beats and sales (Settings, Your data).
 - Everything from the FL work: Save to Studio HQ, preview loops, MP3-only bounces, the new look.
+
+## Video animation styles
+
+The Content view's video builder now has ten animation styles and four frame motions.
+
+- **Styles:** Mirror bars, Bars, Waveform (the originals), plus **Ribbon**, **LED stack**, **Beads**, **Sonar** (a ring per kick), **Aurora** (light ribbons driven by bass, mids and highs), **Heartbeat** (a monitor line that spikes on kicks) and **Sparks** (kicks throw embers that fall back). Kicks are found from the rise of the raw low end, so a held bass note does not trigger them.
+- **Frame motion:** Still, Slow push-in, Breathe, and Beat bounce (locked to the beat's BPM; falls back to Breathe if the tempo is unknown).
+- Verified by rendering frames from a synthetic kick pattern and encoding clips with the real ffmpeg graph. The live preview in the app is an approximation of the motion styles.

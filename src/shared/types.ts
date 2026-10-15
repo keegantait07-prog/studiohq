@@ -28,6 +28,7 @@ export interface Beat {
   missing: boolean
   analyzed: boolean
   thumb: number[]
+  coverPath: string | null
   tags: Record<TagKind, string[]>
   createdAt: number
 }
@@ -55,7 +56,41 @@ export interface Settings {
   producerName: string
   followupDays: number
   notify: boolean
+  storeUrl: string
+  contactEmail: string
+  hashtags: string
+  exportDir: string
 }
+
+// ---- Content Machine ----
+export type Platform = 'tiktok' | 'instagram' | 'youtube' | 'shorts' | 'other'
+export const PLATFORMS: { id: Platform; label: string; color: string }[] = [
+  { id: 'tiktok', label: 'TikTok', color: '#25c7d9' },
+  { id: 'instagram', label: 'Instagram Reels', color: '#e87ba4' },
+  { id: 'youtube', label: 'YouTube', color: '#e34948' },
+  { id: 'shorts', label: 'YouTube Shorts', color: '#eda100' },
+  { id: 'other', label: 'Other', color: '#8b8f98' }
+]
+export interface Post { id: number; beatId: number; platform: Platform; status: 'planned' | 'posted'; date: number; url: string; caption: string }
+export type VideoFormat = 'vertical' | 'horizontal'
+export type VideoLook = 'classic' | 'minimal' | 'poster'
+export type VizStyle = 'mirror' | 'bars' | 'line'
+export interface VideoOptions {
+  beatId: number
+  formats: VideoFormat[]
+  look: VideoLook
+  viz: VizStyle
+  accent: string
+  title: string
+  tagline: string
+  footer: string
+  start: number
+  /** seconds, 0 = the whole beat from `start` */
+  length: number
+}
+export interface VideoExport { id: number; beatId: number; format: VideoFormat; path: string; createdAt: number }
+export interface ContentData { posts: Post[]; videos: VideoExport[] }
+export interface VideoProgress { label: string; pct: number }
 
 // ---- Sales & Collabs ----
 export type SaleSource = 'beatstars' | 'paypal' | 'venmo' | 'cashapp' | 'zelle' | 'other'
@@ -159,9 +194,21 @@ export interface Api {
   getSettings(): Promise<Settings>
   addFolder(kind: 'watchFolders' | 'projectFolders'): Promise<void>
   removeFolder(kind: 'watchFolders' | 'projectFolders', path: string): Promise<void>
-  setSetting(patch: Partial<Pick<Settings, 'includeIdeas' | 'ownHandles' | 'producerName' | 'followupDays' | 'notify'>>): Promise<void>
+  setSetting(patch: Partial<Pick<Settings, 'includeIdeas' | 'ownHandles' | 'producerName' | 'followupDays' | 'notify' | 'storeUrl' | 'contactEmail' | 'hashtags'>>): Promise<void>
   backup(): Promise<string>
   dataPath(): Promise<string>
+  contentAll(): Promise<ContentData>
+  savePost(p: Partial<Post> & Pick<Post, 'beatId' | 'platform' | 'status' | 'date'>): Promise<number>
+  deletePost(id: number): Promise<void>
+  exportVideo(o: VideoOptions): Promise<string[]>
+  cancelVideo(): Promise<void>
+  previewVideo(o: Omit<VideoOptions, 'formats'> & { format: VideoFormat }): Promise<string>
+  coverData(beatId: number): Promise<string | null>
+  chooseCover(beatId: number): Promise<boolean>
+  clearCover(beatId: number): Promise<void>
+  revealPath(path: string): Promise<void>
+  chooseExportDir(): Promise<void>
+  onVideoProgress(cb: (p: VideoProgress) => void): () => void
   salesAll(): Promise<SalesData>
   logSale(input: LogSaleInput): Promise<number>
   updateSale(id: number, patch: Partial<Pick<Sale, 'buyer' | 'buyerEmail' | 'price' | 'fee' | 'source' | 'soldAt' | 'notes'>>): Promise<void>
@@ -188,7 +235,7 @@ export interface Api {
   setNetlifyToken(token: string | null): Promise<void>
   openExternal(url: string): Promise<void>
   onCrmChanged(cb: () => void): () => void
-  onNavigate(cb: (view: 'vault' | 'crm' | 'sales') => void): () => void
+  onNavigate(cb: (view: 'vault' | 'crm' | 'sales' | 'content') => void): () => void
   onBeatsChanged(cb: (ids: number[]) => void): () => void
   onScanStatus(cb: (s: ScanStatus) => void): () => void
 }

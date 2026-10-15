@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { STATUSES, TAG_KINDS, type BeatDetail, type Pitch, type Sale, type SplitGroup, type Status, type TagKind } from '@shared/types'
+import { STATUSES, TAG_KINDS, type BeatDetail, type Pitch, type Post, type Sale, type SplitGroup, type Status, type TagKind } from '@shared/types'
 import { displayKey } from '@shared/key'
 import { fmtBpm, fmtDur } from './format'
 import { errMsg, fmtDay, money } from './salesUtils'
@@ -52,9 +52,11 @@ interface Props {
   onEditSplits: () => void
   onSheet: () => void
   onError: (m: string) => void
+  posts: Post[]
+  onContent: () => void
 }
 
-export function Detail({ beat, allTags, onSelect, onPlay, refresh, pitchedTo, onPitch, onOpenContact, sales, splitGroup, onLogSale, onEditSplits, onSheet, onError }: Props) {
+export function Detail({ beat, allTags, onSelect, onPlay, refresh, pitchedTo, onPitch, onOpenContact, sales, splitGroup, onLogSale, onEditSplits, onSheet, onError, posts, onContent }: Props) {
   const [title, setTitle] = useState(beat.title)
   const [bpm, setBpm] = useState(fmtBpm(beat.bpm).replace('–', ''))
   const [key, setKey] = useState(displayKey(beat.key))
@@ -170,6 +172,11 @@ export function Detail({ beat, allTags, onSelect, onPlay, refresh, pitchedTo, on
           <button onClick={onEditSplits}>{splitGroup?.parties ? 'Edit splits' : 'Add splits'}</button>
           {splitGroup?.parties ? <button onClick={onSheet} disabled={Math.abs(splitGroup.pubTotal - 100) > 0.01 || Math.abs(splitGroup.masterTotal - 100) > 0.01}>Split sheet PDF</button> : null}
         </div>
+      </div>
+
+      <div className="field">
+        <label>Content ({posts.filter((x) => x.status === 'posted').length} posted)</label>
+        <button className="wide" onClick={onContent}>Make video, titles & tags…</button>
       </div>
 
       <div className="actions">

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { STATUSES, type Beat, type BeatDetail, type CrmData, type SalesData, type Sale, type ScanStatus, type Settings as AppSettings, type Status, type TagKind, type NetlifyStatus } from '@shared/types'
+import { STATUSES, type Beat, type BeatDetail, type ContentData, type CrmData, type SalesData, type Sale, type ScanStatus, type Settings as AppSettings, type Status, type TagKind, type NetlifyStatus } from '@shared/types'
 import { displayKey } from '@shared/key'
 import { parseQuery } from './query'
 import { usePlayer } from './player'
@@ -14,6 +14,8 @@ import { SalesView } from './Sales'
 import { LogSaleDialog } from './LogSaleDialog'
 import { SplitsDialog } from './SplitsDialog'
 import { errMsg } from './salesUtils'
+import { ContentView } from './Content'
+import { startOfDay } from './suggest'
 import { ago, fmtBpm, fmtDur } from './format'
 
 interface Row { beat: Beat; count: number }
@@ -39,7 +41,7 @@ export function App() {
   const [scan, setScan] = useState<ScanStatus>({ pending: 0, done: 0, total: 0 })
   const [palette, setPalette] = useState(false)
   const [settings, setSettings] = useState(false)
-  const [view, setView] = useState<'vault' | 'crm' | 'sales'>('vault')
+  const [view, setView] = useState<'vault' | 'crm' | 'sales' | 'content'>('vault')
   const [crm, setCrm] = useState<CrmData | null>(null)
   const [appSettings, setAppSettings] = useState<AppSettings | null>(null)
   const [netlify, setNetlify] = useState<NetlifyStatus | null>(null)
@@ -51,6 +53,11 @@ export function App() {
   const [saleDlg, setSaleDlg] = useState<{ beatId?: number; edit?: Sale } | null>(null)
   const [splitsDlg, setSplitsDlg] = useState<{ groupId: number; title: string } | null>(null)
   const [salesQuery, setSalesQuery] = useState('')
+  const [content, setContent] = useState<ContentData>({ posts: [], videos: [] })
+  const [contentBeat, setContentBeat] = useState<number | null>(null)
+  const reloadContent = useCallback(async () => { setContent(await window.api.contentAll()) }, [])
+  useEffect(() => { reloadContent() }, [beats, reloadContent])
+  const overduePosts = useMemo(() => content.posts.filter((p) => p.status === 'planned' && startOfDay(p.date) < startOfDay(Date.now())).length, [content.posts, tick])
   const [toastMsg, setToastMsg] = useState('')
   const toast = useCallback((m: string) => { setToastMsg(m); setTimeout(() => setToastMsg((cur) => (cur === m ? '' : cur)), 4500) }, [])
   const reloadSales = useCallback(async () => { setSalesData(await window.api.salesAll()) }, [])
@@ -144,6 +151,7 @@ export function App() {
       if (mod && e.key === '1') { e.preventDefault(); setView('vault'); return }
       if (mod && e.key === '2') { e.preventDefault(); setView('crm'); return }
       if (mod && e.key === '3') { e.preventDefault(); setView('sales'); return }
+      if (mod && e.key === '4') { e.preventDefault(); setView('content'); return }
       if (mod && e.key === ',') { e.preventDefault(); setSettings(true); return }
       if (mod && e.key.toLowerCase() === 'f') { e.preventDefault(); search.current?.focus(); search.current?.select(); return }
       if (e.key === 'Escape') {
@@ -172,6 +180,7 @@ export function App() {
     { id: 'go-vault', label: 'Go to Beat Vault', hint: '⌘1', run: () => setView('vault') },
     { id: 'go-crm', label: 'Go to Pitch CRM', hint: '⌘2', run: () => setView('crm') },
     { id: 'go-sales', label: 'Go to Sales & Collabs', hint: '⌘3', run: () => setView('sales') },
+    { id: 'go-content', label: 'Go to Content Machine', hint: '⌘4', run: () => setView('content') },
     { id: 'log-sale', label: 'Log a sale…', run: () => setSaleDlg({}) },
     { id: 'new-pitch', label: 'New pitch…', run: () => setPitchDlg({}) },
     { id: 'new-contact', label: 'New contact…', run: () => { setView('crm'); setNewContactSignal((n) => n + 1) } },
@@ -191,12 +200,18 @@ export function App() {
         <a className={`nav ${view === 'vault' ? 'on' : ''}`} onClick={() => setView('vault')}>Beat Vault <span>{beats.length}</span></a>
         <a className={`nav ${view === 'crm' ? 'on' : ''}`} onClick={() => setView('crm')}>Pitch CRM {dueCount > 0 ? <span className="badge">{dueCount}</span> : <span>{crm?.contacts.length ?? 0}</span>}</a>
         <a className={`nav ${view === 'sales' ? 'on' : ''}`} onClick={() => setView('sales')}>Sales & Collabs <span>{salesData.sales.length}</span></a>
-        {['Sound Library', 'Content', 'Feedback', 'Dashboard'].map((m) => <a key={m} className="nav soon">{m}<span>soon</span></a>)}
+        <a className={`nav ${view === 'content' ? 'on' : ''}`} onClick={() => setView('content')}>Content {overduePosts > 0 ? <span className="badge">{overduePosts}</span> : <span>{content.posts.filter((p) => p.status === 'posted').length}</span>}</a>
+        {['Sound Library', 'Feedback', 'Dashboard'].map((m) => <a key={m} className="nav soon">{m}<span>soon</span></a>)}
         <div className="grow" />
         <button className="ghost" onClick={() => setSettings(true)}>Settings <kbd>⌘,</kbd></button>
       </nav>
 
-      {view === 'sales' ? (
+      {view === 'content' ? (
+        <ContentView
+          beats={beats} sales={salesData.sales} content={content} settings={appSettings} beatId={contentBeat} onSelectBeat={setContentBeat}
+          onPlayAt={(id, at) => player.play(id, at)} reload={reloadContent} reloadBeats={reload} toast={toast}
+        />
+      ) : view === 'sales' ? (
         <SalesView
           data={salesData} query={salesQuery} onQuery={setSalesQuery} onLog={() => setSaleDlg({})} onEdit={(sale) => setSaleDlg({ edit: sale })}
           onSplits={setSplitsDlg} reload={() => { reload(); reloadSales() }} toast={toast}
@@ -268,6 +283,7 @@ export function App() {
           sales={salesData.sales.filter((x) => x.groupId === detail.groupId)} splitGroup={salesData.groups.find((g) => g.groupId === detail.groupId)}
           onLogSale={() => setSaleDlg({ beatId: detail.id })} onEditSplits={() => setSplitsDlg({ groupId: detail.groupId, title: detail.title })}
           onSheet={async () => { try { const f = await window.api.exportSplitSheet(detail.groupId); if (f) toast(`Split sheet saved: ${f.split('/').pop()}`); reloadSales() } catch (e) { toast(errMsg(e)) } }}
+          posts={content.posts.filter((x) => x.beatId === detail.id)} onContent={() => { setContentBeat(detail.id); setView('content') }}
           onError={toast} />
       ) : (
         <aside className="detail empty-detail"><p>Select a beat</p><p className="dim">↑ ↓ to move · Space to play · 1–5 sets status</p></aside>

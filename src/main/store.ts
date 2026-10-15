@@ -16,7 +16,11 @@ const DEFAULTS: Settings = {
   ownHandles: ['smalls', 'prodbysmalls'],
   producerName: '',
   followupDays: 7,
-  notify: true
+  notify: true,
+  storeUrl: '',
+  contactEmail: '',
+  hashtags: '#typebeat #producer #instrumental',
+  exportDir: `${homedir()}/Movies/Studio HQ`
 }
 
 type Row = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -58,7 +62,7 @@ export class Store {
   // ---- reads ----
   private tagMap(): Map<number, Record<TagKind, string[]>> {
     const m = new Map<number, Record<TagKind, string[]>>()
-    for (const t of this.db.prepare(`SELECT beat_id, kind, value FROM tags ORDER BY value`).all() as Row[]) {
+    for (const t of this.db.prepare(`SELECT beat_id, kind, value FROM tags ORDER BY rowid`).all() as Row[]) {
       let e = m.get(t.beat_id)
       if (!e) m.set(t.beat_id, (e = { vibe: [], genre: [], artist: [] }))
       e[t.kind as TagKind].push(t.value)
@@ -71,13 +75,13 @@ export class Store {
       duration: r.duration, bpm: r.bpm, bpmSource: r.bpm_source, bpmConfidence: r.bpm_confidence,
       key: r.key, keySource: r.key_source, status: r.status, notes: r.notes, credits: r.credits,
       groupId: r.group_id, versionLabel: r.version_label, projectPath: r.project_path, projectConfidence: r.project_confidence,
-      missing: !!r.missing, analyzed: r.analyzed_at != null, thumb: r.thumb ? JSON.parse(r.thumb) : [],
+      missing: !!r.missing, analyzed: r.analyzed_at != null, thumb: r.thumb ? JSON.parse(r.thumb) : [], coverPath: r.cover_path ?? null,
       tags: tags ?? { vibe: [], genre: [], artist: [] }, createdAt: r.created_at
     }
   }
   listBeats(): Beat[] {
     const tags = this.tagMap()
-    const rows = this.db.prepare(`SELECT id,path,filename,title,folder,ext,size,mtime,duration,bpm,bpm_source,bpm_confidence,key,key_source,status,notes,credits,group_id,version_label,project_path,project_confidence,missing,analyzed_at,thumb,created_at FROM beats WHERE missing=0 ORDER BY mtime DESC`).all() as Row[]
+    const rows = this.db.prepare(`SELECT id,path,filename,title,folder,ext,size,mtime,duration,bpm,bpm_source,bpm_confidence,key,key_source,status,notes,credits,group_id,version_label,project_path,project_confidence,missing,analyzed_at,thumb,cover_path,created_at FROM beats WHERE missing=0 ORDER BY mtime DESC`).all() as Row[]
     return rows.map((r) => this.toBeat(r, tags.get(r.id)))
   }
   getBeat(id: number): BeatDetail | null {

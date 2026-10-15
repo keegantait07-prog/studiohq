@@ -2,7 +2,7 @@
 
 A local-first desktop app for your whole producer workflow. Built with Electron, React and SQLite. Runs on macOS.
 
-**Status: Milestones 1–3 (Beat Vault, Pitch CRM, Sales & Collabs).** Later milestones add Content Machine, Sound Library, Feedback Links and the Daily Dashboard.
+**Status: Milestones 1–4 (Beat Vault, Pitch CRM, Sales & Collabs, Content Machine).** Later milestones add Sound Library, Feedback Links and the Daily Dashboard.
 
 ## Setup
 
@@ -77,11 +77,25 @@ Open it from the sidebar or with **⌘3**.
 - **Revenue dashboard.** Monthly revenue (leases and exclusives stacked), plus top beats, top buyers (repeat buyers flagged) and revenue by source, with a gross / net-of-fees toggle and last-12-months / this-year / all-time ranges. A "Show table" button gives the same data as a table.
 - In the Vault, each beat's detail panel shows its sales and splits, and Cmd+K also finds sales by buyer or beat.
 
+## What M4 does (Content Machine)
+
+Open it from the sidebar or with **⌘4**.
+
+- **Video export.** Pick a beat and Studio HQ makes an MP4 with cover art, an animated audio visualizer and your title. Choose **vertical 1080×1920** (TikTok, Reels, Shorts), **horizontal 1920×1080** (YouTube), or both at once. H.264 + AAC, 30 fps. A 30-second clip takes a few seconds, and a full 2½-minute beat in both formats took about 70 seconds on this machine.
+- **Looks.** Three designs (Classic, Minimal, Poster), three visualizer styles (mirror bars, bars, waveform line), an accent color, and editable title, second line and footer. The preview is the real frame from the exporter; only the visualizer there is a stand-in that moves with the music in the export.
+- **Clip picker.** Click the waveform to choose the start, pick 15–90 seconds or the full beat, or hit **Best section** to jump to the loudest stretch (snapped to a bar line when the tempo is known). "Play from here" auditions it.
+- **Cover art.** Uses your chosen image, otherwise artwork embedded in the audio file, otherwise a colored placeholder with the beat's initials. Choose or remove art per beat. Your files are never modified.
+- **Titles & tags.** For a beat with type-beat artists, it writes five YouTube-style titles (with a 100-character counter), a description with your store link and email, up to 500 characters of YouTube tags, and a TikTok/Reels caption with hashtags. Add the artists a beat sounds like, set your store link, email and default hashtags in Settings, and everything fills in. These are text templates built from your tags, not AI-written.
+- **Posts and calendar.** Log where each beat has been posted (TikTok, Instagram Reels, YouTube, Shorts) with date and link, or plan posts ahead. The calendar shows posted (solid), planned (outlined) and overdue (dashed) posts; drag a post to reschedule. The sidebar badge counts overdue planned posts.
+- **What to post next.** Per platform, ranks your finished beats: never-posted and recent beats first, ones with artists and a ready video get a boost, and it skips sold beats, anything posted on that platform in the last 14 days, and anything already planned there. "Plan it" books the next free day.
+
+Videos are saved to `~/Movies/Studio HQ` by default (change it in Settings). Studio HQ doesn't post to Instagram or TikTok for you yet: export the video, post it, then log it here.
+
 ## Shortcuts
 
 | Key | Action |
 |---|---|
-| ⌘1 / ⌘2 / ⌘3 | Beat Vault / Pitch CRM / Sales & Collabs |
+| ⌘1 / ⌘2 / ⌘3 / ⌘4 | Beat Vault / Pitch CRM / Sales & Collabs / Content |
 
 | Key | Action |
 |---|---|
@@ -107,7 +121,9 @@ Everything is in one folder. Contacts, pitches, sales, splits, templates and set
   pitch-cache/       # cached MP3 previews, safe to delete
 ```
 
-Studio HQ never moves, renames or edits your audio and project files. The database only stores their paths and metadata. Nothing leaves your computer.
+Exported videos live outside this folder (default `~/Movies/Studio HQ`), so they are not in the database backup.
+
+Studio HQ never moves, renames or edits your audio and project files. The database only stores their paths and metadata. Nothing leaves your computer except the pitch pages you choose to publish to your Netlify site.
 
 ## Backing up
 

@@ -9,6 +9,9 @@ import { Watcher } from './watcher'
 import { Crm } from './crm'
 import { Packs } from './packs'
 import { Sales } from './sales'
+import { Content } from './content'
+import { VideoExporter, coverData, pickCover, previewStill } from './video'
+import type { Post, VideoOptions } from '../shared/types'
 import { splitSheetHtml, writePdf } from './splitsheet'
 import type { LogSaleInput, License, Sale, SplitRow } from '../shared/types'
 import type { BeatPatch, Settings, TagKind, LogPitchInput, PackRequest, Template, Contact, PitchStatus } from '../shared/types'
@@ -26,6 +29,8 @@ let watcher: Watcher
 let crm: Crm
 let packs: Packs
 let sales: Sales
+let content: Content
+let videos: VideoExporter
 
 const MIME: Record<string, string> = { mp3: 'audio/mpeg', wav: 'audio/wav', flac: 'audio/flac', m4a: 'audio/mp4', aif: 'audio/aiff', aiff: 'audio/aiff', ogg: 'audio/ogg' }
 
@@ -131,6 +136,24 @@ function registerIpc(): void {
     else sendCrm()
   })
 
+  // ---- Content Machine ----
+  h('content:all', () => content.all())
+  h('content:savePost', (_, p: Post) => content.savePost(p))
+  h('content:deletePost', (_, id: number) => content.deletePost(id))
+  h('content:export', (_, o: VideoOptions) => videos.run(o, (p) => win?.webContents.send('video:progress', p)))
+  h('content:cancel', () => videos.cancel())
+  h('content:preview', (_, o: Parameters<typeof previewStill>[1]) => previewStill(store.db, o))
+  h('content:coverData', (_, id: number) => coverData(store.db, id))
+  h('content:chooseCover', async (_, id: number) => { const ok = await pickCover(store.db, win!, id); if (ok) store.bumpAll(); return ok })
+  h('content:clearCover', (_, id: number) => { store.db.prepare('UPDATE beats SET cover_path=NULL WHERE id=?').run(id); store.bumpAll() })
+  h('app:revealPath', (_, p: string) => shell.showItemInFolder(p))
+  h('settings:chooseExportDir', async () => {
+    const r = await dialog.showOpenDialog(win!, { title: 'Where should videos be saved?', properties: ['openDirectory', 'createDirectory'] })
+    if (r.canceled || !r.filePaths[0]) return
+    store.saveSettings({ ...store.getSettings(), exportDir: r.filePaths[0] })
+    sendCrm()
+  })
+
   // ---- Sales & Collabs ----
   const sale = <A extends unknown[], R>(fn: (...a: A) => R) => (_: unknown, ...a: A): R => { const r = fn(...a); store.bumpAll(); sendCrm(); return r }
   h('sales:all', () => sales.all())
@@ -201,6 +224,8 @@ app.whenReady().then(async () => {
   watcher = new Watcher(store)
   crm = new Crm(db, () => store.getSettings().followupDays, () => store.bumpAll())
   sales = new Sales(db)
+  content = new Content(db)
+  videos = new VideoExporter(db, () => store.getSettings().exportDir)
   packs = new Packs(db, () => store.getSettings().producerName)
   registerIpc()
   Menu.setApplicationMenu(Menu.buildFromTemplate([

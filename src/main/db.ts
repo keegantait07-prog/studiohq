@@ -137,6 +137,24 @@ export function openDb(dir: string): Database.Database {
       sort INTEGER NOT NULL DEFAULT 0
     );
     CREATE INDEX IF NOT EXISTS splits_group ON beat_splits(group_id);
+    CREATE TABLE IF NOT EXISTS posts (
+      id INTEGER PRIMARY KEY,
+      beat_id INTEGER NOT NULL REFERENCES beats(id) ON DELETE CASCADE,
+      platform TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'planned',
+      date INTEGER NOT NULL,
+      url TEXT NOT NULL DEFAULT '',
+      caption TEXT NOT NULL DEFAULT '',
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS posts_beat ON posts(beat_id);
+    CREATE TABLE IF NOT EXISTS videos (
+      id INTEGER PRIMARY KEY,
+      beat_id INTEGER NOT NULL REFERENCES beats(id) ON DELETE CASCADE,
+      format TEXT NOT NULL,
+      path TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS templates (
       id INTEGER PRIMARY KEY,
       name TEXT NOT NULL,
@@ -145,6 +163,8 @@ export function openDb(dir: string): Database.Database {
       body TEXT NOT NULL
     );
   `)
+  const bcols = db.prepare('PRAGMA table_info(beats)').all() as { name: string }[]
+  if (!bcols.some((c) => c.name === 'cover_path')) db.exec('ALTER TABLE beats ADD COLUMN cover_path TEXT')
   const gcols = db.prepare('PRAGMA table_info(groups)').all() as { name: string }[]
   if (!gcols.some((c) => c.name === 'split_sheet_at')) db.exec('ALTER TABLE groups ADD COLUMN split_sheet_at INTEGER')
   seedTemplates(db)

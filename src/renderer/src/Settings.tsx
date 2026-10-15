@@ -48,6 +48,16 @@ export function Settings({ onClose }: { onClose: () => void }) {
           <label className="check"><input type="checkbox" checked={s.notify} onChange={async (e) => { await window.api.setSetting({ notify: e.target.checked }); load() }} /> Send a macOS notification when follow-ups are due</label>
         </section>
         <section>
+          <h3>Content & store</h3>
+          <p className="help">Used in titles, descriptions and captions so you don't retype them.</p>
+          <div className="two">
+            <div className="field"><label>Store / lease link</label><input defaultValue={s.storeUrl} placeholder="https://…" onBlur={(e) => window.api.setSetting({ storeUrl: e.target.value.trim() })} /></div>
+            <div className="field"><label>Business email</label><input defaultValue={s.contactEmail} onBlur={(e) => window.api.setSetting({ contactEmail: e.target.value.trim() })} /></div>
+          </div>
+          <div className="field"><label>Default hashtags</label><input defaultValue={s.hashtags} onBlur={(e) => window.api.setSetting({ hashtags: e.target.value.trim() })} /></div>
+          <div className="folder" style={{ marginTop: 8 }}><span>Videos are saved to: {s.exportDir}</span><button onClick={async () => { await window.api.chooseExportDir(); load() }}>Change…</button></div>
+        </section>
+        <section>
           <h3>Netlify (private pitch pages)</h3>
           <p className="help">Pages and audio previews are published to your own Netlify site, under unguessable links. Create a personal access token in Netlify → User settings → Applications, and paste it here. It is stored encrypted with the macOS Keychain.</p>
           {nl?.hasToken ? (

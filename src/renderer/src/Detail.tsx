@@ -1,0 +1,136 @@
+import { useEffect, useState } from 'react'
+import { STATUSES, TAG_KINDS, type BeatDetail, type Status, type TagKind } from '@shared/types'
+import { displayKey } from '@shared/key'
+import { fmtBpm, fmtDur } from './format'
+
+const KIND_LABEL: Record<TagKind, string> = { vibe: 'Vibe', genre: 'Genre', artist: 'Type beat artist' }
+
+function TagEditor({ kind, values, suggestions, onChange }: { kind: TagKind; values: string[]; suggestions: string[]; onChange: (v: string[]) => void }) {
+  const [draft, setDraft] = useState('')
+  const add = () => {
+    const v = draft.trim().toLowerCase()
+    if (v && !values.includes(v)) onChange([...values, v])
+    setDraft('')
+  }
+  return (
+    <div className="field">
+      <label>{KIND_LABEL[kind]}</label>
+      <div className="chips">
+        {values.map((v) => (
+          <span key={v} className={`chip ${kind}`}>
+            {v}
+            <button onClick={() => onChange(values.filter((x) => x !== v))} aria-label={`remove ${v}`}>×</button>
+          </span>
+        ))}
+        <input
+          list={`dl-${kind}`}
+          value={draft}
+          placeholder="add…"
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); add() } if (e.key === 'Backspace' && !draft && values.length) onChange(values.slice(0, -1)) }}
+          onBlur={add}
+        />
+        <datalist id={`dl-${kind}`}>{suggestions.filter((s) => !values.includes(s)).slice(0, 40).map((s) => <option key={s} value={s} />)}</datalist>
+      </div>
+    </div>
+  )
+}
+
+interface Props {
+  beat: BeatDetail
+  allTags: Record<TagKind, string[]>
+  onSelect: (id: number) => void
+  onPlay: (id: number) => void
+  refresh: () => void
+}
+
+export function Detail({ beat, allTags, onSelect, onPlay, refresh }: Props) {
+  const [title, setTitle] = useState(beat.title)
+  const [bpm, setBpm] = useState(fmtBpm(beat.bpm).replace('–', ''))
+  const [key, setKey] = useState(displayKey(beat.key))
+  const [notes, setNotes] = useState(beat.notes)
+  const [label, setLabel] = useState(beat.versionLabel)
+  useEffect(() => {
+    setTitle(beat.title); setBpm(fmtBpm(beat.bpm).replace('–', '')); setKey(displayKey(beat.key)); setNotes(beat.notes); setLabel(beat.versionLabel)
+  }, [beat.id, beat.title, beat.bpm, beat.key, beat.notes, beat.versionLabel])
+
+  const save = async (patch: Parameters<typeof window.api.updateBeat>[1]) => { await window.api.updateBeat(beat.id, patch); refresh() }
+  const setBpmNum = (n: number | null) => save({ bpm: n })
+  const projectName = beat.projectPath?.split('/').slice(-2).join(' / ')
+
+  return (
+    <aside className="detail">
+      <input className="title-input" value={title} onChange={(e) => setTitle(e.target.value)} onBlur={() => title !== beat.title && save({ title })} />
+      <div className="filename" title={beat.path}>{beat.filename}</div>
+
+      <div className="status-row">
+        {STATUSES.map((s: Status, i) => (
+          <button key={s} className={`st st-${s} ${beat.status === s ? 'on' : ''}`} onClick={() => save({ status: s })} title={`Press ${i + 1}`}>{s}</button>
+        ))}
+      </div>
+
+      <div className="two">
+        <div className="field">
+          <label>BPM {beat.bpmSource && <span className="src">{beat.bpmSource}{beat.bpmConfidence === 'low' ? ' · low confidence' : ''}</span>}</label>
+          <div className="bpm-edit">
+            <input value={bpm} onChange={(e) => setBpm(e.target.value)} onBlur={() => { const n = parseFloat(bpm); if (!isNaN(n) && n !== beat.bpm) setBpmNum(n) }} />
+            <button onClick={() => beat.bpm && setBpmNum(Math.round(beat.bpm * 2 * 10) / 10)} title="Double">×2</button>
+            <button onClick={() => beat.bpm && setBpmNum(Math.round(beat.bpm / 2 * 10) / 10)} title="Halve">÷2</button>
+          </div>
+        </div>
+        <div className="field">
+          <label>Key {beat.keySource && <span className="src">{beat.keySource}</span>}</label>
+          <input value={key} placeholder="e.g. Cm, F#" onChange={(e) => setKey(e.target.value)} onBlur={() => key !== displayKey(beat.key) && save({ key })} />
+        </div>
+      </div>
+      <div className="meta-line">{fmtDur(beat.duration)} · {beat.ext.toUpperCase()} · {(beat.size / 1e6).toFixed(1)} MB{!beat.analyzed && ' · analyzing…'}</div>
+
+      {TAG_KINDS.map((k) => (
+        <TagEditor key={k} kind={k} values={beat.tags[k]} suggestions={allTags[k]} onChange={async (v) => { await window.api.setTags(beat.id, { ...beat.tags, [k]: v }); refresh() }} />
+      ))}
+
+      {beat.credits && <div className="field"><label>Credits (from filename)</label><div className="credits">{beat.credits}</div></div>}
+
+      <div className="field">
+        <label>FL Studio project {beat.projectPath && beat.projectConfidence != null && beat.projectConfidence < 1 && <span className="src">guessed {Math.round(beat.projectConfidence * 100)}%</span>}</label>
+        {beat.projectPath ? (
+          <div className="project">
+            <span title={beat.projectPath}>{projectName}</span>
+            <button onClick={() => window.api.openProject(beat.id)}>Open in FL</button>
+            <button onClick={() => window.api.linkProject(beat.id)}>Change</button>
+            <button onClick={() => save({ projectPath: null })} aria-label="unlink">×</button>
+          </div>
+        ) : (
+          <button className="wide" onClick={() => window.api.linkProject(beat.id)}>Link .flp…</button>
+        )}
+      </div>
+
+      <div className="field">
+        <label>Notes</label>
+        <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} onBlur={() => notes !== beat.notes && save({ notes })} />
+      </div>
+
+      <div className="field">
+        <label>Versions ({beat.versions.length})</label>
+        <div className="versions">
+          {beat.versions.map((v) => (
+            <div key={v.id} className={`ver ${v.id === beat.id ? 'cur' : ''}`} onClick={() => onSelect(v.id)} onDoubleClick={() => onPlay(v.id)}>
+              <span className="vl">{v.versionLabel || 'main'}</span>
+              <span className="vf">{v.filename}</span>
+              <span className="vd">{fmtDur(v.duration)}</span>
+            </div>
+          ))}
+        </div>
+        <div className="ver-label">
+          <label>This file’s version label</label>
+          <input value={label} placeholder="v1, final, stems…" onChange={(e) => setLabel(e.target.value)} onBlur={() => label !== beat.versionLabel && save({ versionLabel: label })} />
+        </div>
+      </div>
+
+      <div className="actions">
+        <button onClick={() => window.api.reveal(beat.id)}>Reveal in Finder</button>
+        <button onClick={async () => { await window.api.reanalyze(beat.id) }}>Re-analyze</button>
+      </div>
+    </aside>
+  )
+}

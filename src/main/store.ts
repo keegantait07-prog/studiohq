@@ -83,13 +83,13 @@ export class Store {
       duration: r.duration, bpm: r.bpm, bpmSource: r.bpm_source, bpmConfidence: r.bpm_confidence,
       key: r.key, keySource: r.key_source, status: r.status, notes: r.notes, credits: r.credits,
       groupId: r.group_id, versionLabel: r.version_label, projectPath: r.project_path, projectConfidence: r.project_confidence,
-      missing: !!r.missing, analyzed: r.analyzed_at != null, thumb: r.thumb ? JSON.parse(r.thumb) : [], coverPath: r.cover_path ?? null,
+      missing: !!r.missing, hasPreview: !!r.preview_path, analyzed: r.analyzed_at != null, thumb: r.thumb ? JSON.parse(r.thumb) : [], coverPath: r.cover_path ?? null,
       tags: tags ?? { vibe: [], genre: [], artist: [] }, createdAt: r.created_at
     }
   }
   listBeats(): Beat[] {
     const tags = this.tagMap()
-    const rows = this.db.prepare(`SELECT id,path,filename,title,folder,ext,size,mtime,duration,bpm,bpm_source,bpm_confidence,key,key_source,status,notes,credits,group_id,version_label,project_path,project_confidence,missing,analyzed_at,thumb,cover_path,created_at FROM beats b WHERE missing=0 AND NOT (ext='flp' AND EXISTS (SELECT 1 FROM beats a WHERE a.project_path=b.path AND a.ext!='flp' AND a.missing=0)) ORDER BY mtime DESC`).all() as Row[]
+    const rows = this.db.prepare(`SELECT id,path,filename,title,folder,ext,size,mtime,duration,bpm,bpm_source,bpm_confidence,key,key_source,status,notes,credits,group_id,version_label,project_path,project_confidence,missing,analyzed_at,thumb,cover_path,preview_path,created_at FROM beats b WHERE missing=0 AND NOT (ext='flp' AND EXISTS (SELECT 1 FROM beats a WHERE a.project_path=b.path AND a.ext!='flp' AND a.missing=0)) ORDER BY mtime DESC`).all() as Row[]
     return rows.map((r) => this.toBeat(r, tags.get(r.id)))
   }
   getBeat(id: number): BeatDetail | null {
@@ -106,6 +106,23 @@ export class Store {
   }
   pathOf(id: number): string | null {
     return (this.db.prepare(`SELECT path FROM beats WHERE id=?`).get(id) as Row | undefined)?.path ?? null
+  }
+  /** The file to play: the audio itself, or the captured loop for an FL project with no bounce. */
+  playPathOf(id: number): string | null {
+    const r = this.db.prepare(`SELECT path, ext, preview_path FROM beats WHERE id=?`).get(id) as Row | undefined
+    if (!r) return null
+    return r.ext === 'flp' ? r.preview_path ?? null : r.path
+  }
+  /** Where a project beat's loop lives (also creates the beat if the loop arrives before the project does). */
+  previewTarget(flp: string): { id: number; old: string | null } | null {
+    if (!existsSync(flp)) return null
+    this.saveFromPlugin({ name: '', bpm: null, flp })
+    const r = this.db.prepare(`SELECT id, preview_path FROM beats WHERE path=? AND ext='flp'`).get(flp) as Row | undefined
+    return r ? { id: r.id, old: r.preview_path ?? null } : null
+  }
+  setPreview(id: number, path: string): void {
+    this.db.prepare('UPDATE beats SET preview_path=? WHERE id=?').run(path, id)
+    this.touch(id)
   }
 
   // ---- writes from UI ----

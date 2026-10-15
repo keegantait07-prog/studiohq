@@ -165,9 +165,9 @@ export function App() {
   }, [rows, selectedIdx])
 
   const setStatus = async (id: number, s: Status) => { try { await window.api.updateBeat(id, { status: s }) } catch (e) { toast(errMsg(e)) } reload() }
-  const hasAudio = useCallback((id: number) => beats.find((b) => b.id === id)?.ext !== 'flp', [beats])
+  const hasAudio = useCallback((id: number) => { const b = beats.find((x) => x.id === id); return !!b && (b.ext !== 'flp' || b.hasPreview) }, [beats])
   const safePlay = useCallback((id: number, at?: number) => {
-    if (!hasAudio(id)) { toast('This is an FL project with no audio yet. Export a bounce into your beat folder and Studio HQ links it.'); return }
+    if (!hasAudio(id)) { toast('This FL project has no audio yet. Put Studio HQ Bridge on the Master and play it once; closing the project keeps a loop to preview.'); return }
     player.play(id, at)
   }, [hasAudio, player, toast])
   const [reindexing, setReindexing] = useState(false)
@@ -327,9 +327,9 @@ export function App() {
               const isPlaying = player.id === b.id && player.playing
               return (
                 <div key={b.id} data-row={b.id} className={`row ${sel ? 'sel' : ''}`} onClick={() => setSelectedId(b.id)} onDoubleClick={() => playBeat(b.id)}>
-                  <button className={`play ${isPlaying ? 'on' : ''} ${b.ext === 'flp' ? 'off' : ''}`} onClick={(e) => { e.stopPropagation(); if (b.ext === 'flp') return toast('FL project, no audio yet. Export a bounce into your beat folder.'); player.id === b.id ? player.toggle() : playBeat(b.id) }} aria-label="play">{isPlaying ? '❚❚' : b.ext === 'flp' ? '–' : '▶'}</button>
+                  <button className={`play ${isPlaying ? 'on' : ''} ${b.ext === 'flp' && !b.hasPreview ? 'off' : ''}`} onClick={(e) => { e.stopPropagation(); if (b.ext === 'flp' && !b.hasPreview) return toast('FL project with no preview yet. Play it once with Studio HQ Bridge on the Master and close it.'); player.id === b.id ? player.toggle() : playBeat(b.id) }} aria-label="play">{isPlaying ? '❚❚' : b.ext === 'flp' && !b.hasPreview ? '–' : '▶'}</button>
                   <div className="name">
-                    {b.ext === 'flp' ? <span className="projthumb" title="FL Studio project, no audio yet">FL project</span> : <Thumb data={b.thumb} />}
+                    {b.ext === 'flp' ? <span className="projthumb" title={b.hasPreview ? 'FL Studio project, preview loop' : 'FL Studio project, no audio yet'}>{b.hasPreview ? 'FL loop' : 'FL project'}</span> : <Thumb data={b.thumb} />}
                     <div className="nt">
                       <div className="t">{b.title}{count > 1 && <em className="ver-badge">{count} versions</em>}{!collapse && b.versionLabel && <em className="ver-badge">{b.versionLabel}</em>}</div>
                       {b.credits && <div className="sub">{b.credits}</div>}

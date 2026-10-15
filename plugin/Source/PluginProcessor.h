@@ -79,6 +79,10 @@ public:
     bool saveToStudioHq (const juce::String& name, const ProjectGuess& project, juce::String& message);
     juce::File lastSaved;
 
+    // ---- preview loop: the last few bars the host played, saved as the beat's preview ----
+    /** Writes the captured loop for the open project and tells Studio HQ. Called on close and when you press Save. */
+    bool saveLoopForProject (juce::String& message);
+
     // ---- sound preview (message thread) ----
     /** Loads and starts playing a sample through this plugin's output. Never part of a recording. */
     bool loadPreview (const juce::File& file, juce::String& error);
@@ -114,6 +118,16 @@ private:
     std::unique_ptr<juce::AudioFormatReaderSource> readerSource;
     juce::AudioBuffer<float> previewBuffer;
     bool looping = false;
+
+    // rolling capture (audio thread writes; a mutex-free snapshot is taken only when nothing is playing or on the message thread)
+    juce::AudioBuffer<float> loopRing;
+    juce::int64 ringTotal = 0;          // samples written since the ring was prepared
+    juce::int64 lastBarMark = -1;       // ringTotal at the most recent bar line
+    double lastBarIndex = -1.0;
+    double ringBpm = 0.0;
+    int ringBeatsPerBar = 4;
+    std::atomic<bool> ringHasAudio { false };
+    juce::CriticalSection ringLock;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BridgeProcessor)
 };

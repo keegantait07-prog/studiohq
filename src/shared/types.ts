@@ -27,6 +27,8 @@ export interface Beat {
   projectConfidence: number | null
   missing: boolean
   analyzed: boolean
+  /** FL-project beats only: a loop captured by the plugin so the beat can still be heard */
+  hasPreview: boolean
   thumb: number[]
   coverPath: string | null
   tags: Record<TagKind, string[]>

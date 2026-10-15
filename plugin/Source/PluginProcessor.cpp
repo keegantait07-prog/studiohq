@@ -15,6 +15,7 @@ BridgeProcessor::BridgeProcessor()
 
 BridgeProcessor::~BridgeProcessor()
 {
+    { String ignored; saveLoopForProject (ignored); } // closing the project / removing the plugin keeps a loop to remember it by
     cancelPendingUpdate();
     closeWriter (true);
     transport.setSource (nullptr);
@@ -56,6 +57,13 @@ void BridgeProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     currentRate = sampleRate;
     previewBuffer.setSize (2, samplesPerBlock, false, false, true);
     transport.prepareToPlay (samplesPerBlock, sampleRate);
+    {
+        const ScopedLock rl (ringLock);
+        loopRing.setSize (2, (int) (sampleRate * 40.0)); // 40 s is 16 bars at 96 bpm
+        loopRing.clear();
+        ringTotal = 0; lastBarMark = -1; lastBarIndex = -1.0;
+        ringHasAudio = false;
+    }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -77,6 +85,33 @@ void BridgeProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer&)
         }
     hostBpm = bpm;
     hostPlaying = playing;
+
+    // rolling capture for the preview loop (only while the host plays; never includes the sound preview)
+    if (playing && loopRing.getNumSamples() > 0)
+    {
+        const ScopedTryLock rl (ringLock);
+        if (rl.isLocked())
+        {
+            const int size = loopRing.getNumSamples();
+            if (bpm > 20.0) ringBpm = bpm;
+            ringBeatsPerBar = jmax (1, (int) std::round (timeSigNum.load() * 4.0 / jmax (1, timeSigDen.load())));
+            double barIdx = -1.0;
+            if (auto* ph2 = getPlayHead())
+                if (auto pos2 = ph2->getPosition())
+                    if (auto ppq = pos2->getPpqPosition()) barIdx = std::floor (*ppq / ringBeatsPerBar);
+            if (barIdx >= 0.0 && barIdx != lastBarIndex) { if (barIdx < lastBarIndex) lastBarMark = -1; lastBarIndex = barIdx; lastBarMark = ringTotal; }
+            for (int c = 0; c < 2; ++c)
+            {
+                const float* src = buffer.getReadPointer (jmin (c, chans - 1));
+                int w = (int) (ringTotal % size);
+                const int first = jmin (n, size - w);
+                loopRing.copyFrom (c, w, src, first);
+                if (first < n) loopRing.copyFrom (c, 0, src + first, n - first);
+            }
+            ringTotal += n;
+            ringHasAudio = true;
+        }
+    }
 
     // meters
     // the editor reads these and lets them fall, so keep the highest value since it last looked
@@ -407,5 +442,66 @@ bool BridgeProcessor::saveToStudioHq (const String& name, const ProjectGuess& pr
     if (! tmp.replaceWithText (JSON::toString (var (o))) || ! tmp.moveFileTo (dest)) { message = "Couldn't write to Studio HQ's inbox."; tmp.deleteFile(); return false; }
 
     message = "Saved \"" + (name.trim().isEmpty() ? project.name : name.trim()) + "\"" + (bpm > 20.0 ? " at " + String (bpm, std::abs (bpm - std::round (bpm)) < 0.05 ? 0 : 1) + " BPM" : String()) + " to Studio HQ.";
+    { String loopMsg; if (saveLoopForProject (loopMsg)) message += " Kept a loop of what you played as its preview."; }
+    return true;
+}
+
+// ---------------------------------------------------------------------------------------------
+bool BridgeProcessor::saveLoopForProject (String& message)
+{
+    if (! ringHasAudio.load()) { message = "Nothing played yet, so there is no loop to keep."; return false; }
+    const auto guess = guessCurrentProject();
+    if (! guess.flp.existsAsFile()) { message = "Save the project in FL Studio first, so the loop has a project to belong to."; return false; }
+
+    AudioBuffer<float> out;
+    {
+        const ScopedLock rl (ringLock);
+        const int size = loopRing.getNumSamples();
+        const juce::int64 have = jmin<juce::int64> (ringTotal, size);
+        if (have < (juce::int64) (rate * 2.0)) { message = "Not enough audio played to make a loop (needs a couple of seconds)."; return false; }
+        const double barSamples = ringBpm > 20.0 ? rate * 60.0 / ringBpm * ringBeatsPerBar : 0.0;
+        juce::int64 end = ringTotal, len = (juce::int64) (rate * 8.0);
+        // prefer whole bars ending on the last bar line: 4 bars, else 2, else 1
+        if (barSamples > 0.0 && lastBarMark > 0)
+            for (int bars : { 4, 2, 1 })
+            {
+                const auto l = (juce::int64) std::llround (barSamples * bars);
+                if (l <= have && l <= lastBarMark && ringTotal - lastBarMark < (juce::int64) (barSamples * 1.5)) { end = lastBarMark; len = l; break; }
+            }
+        len = jmin (len, have);
+        out.setSize (2, (int) len);
+        for (int c = 0; c < 2; ++c)
+            for (juce::int64 i = 0; i < len; ++i)
+                out.setSample (c, (int) i, loopRing.getSample (c, (int) ((end - len + i) % size)));
+    }
+    // a click-free loop point: 5 ms fade at both ends
+    const int fade = jmin (out.getNumSamples() / 4, (int) (rate * 0.005));
+    for (int i = 0; i < fade; ++i)
+    {
+        const float g = (float) i / (float) fade;
+        for (int c = 0; c < 2; ++c) { out.setSample (c, i, out.getSample (c, i) * g); const int j = out.getNumSamples() - 1 - i; out.setSample (c, j, out.getSample (c, j) * g); }
+    }
+    const auto dir = supportDir().getChildFile ("loops");
+    dir.createDirectory();
+    auto wavFile = dir.getChildFile ("loop-" + String (Time::currentTimeMillis()) + ".wav");
+    {
+        WavAudioFormat wav;
+        std::unique_ptr<OutputStream> stream (wavFile.createOutputStream());
+        if (stream == nullptr) { message = "Couldn't write the loop."; return false; }
+        auto w = wav.createWriterFor (stream, AudioFormatWriterOptions().withSampleRate (rate).withNumChannels (2).withBitsPerSample (16));
+        if (w == nullptr) { message = "Couldn't write the loop."; return false; }
+        w->writeFromAudioSampleBuffer (out, 0, out.getNumSamples());
+    }
+    auto* o = new DynamicObject();
+    o->setProperty ("version", 2);
+    o->setProperty ("kind", "loop");
+    o->setProperty ("flp", guess.flp.getFullPathName());
+    o->setProperty ("wav", wavFile.getFullPathName());
+    o->setProperty ("bpm", ringBpm);
+    const auto inbox = supportDir().getChildFile ("inbox");
+    inbox.createDirectory();
+    auto tmp = inbox.getChildFile ("loop-" + String (Time::currentTimeMillis()) + ".tmp");
+    if (! tmp.replaceWithText (JSON::toString (var (o))) || ! tmp.moveFileTo (tmp.withFileExtension ("json"))) { message = "Couldn't hand the loop to Studio HQ."; return false; }
+    message = "Kept a " + String (out.getNumSamples() / rate, 1) + " s loop as the preview for " + guess.name + ".";
     return true;
 }

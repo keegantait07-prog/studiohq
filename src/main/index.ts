@@ -1,5 +1,5 @@
 import { app, BrowserWindow, ipcMain, dialog, shell, protocol, Menu, Notification, nativeImage } from 'electron'
-import { writeFileSync } from 'fs'
+import { writeFileSync, unlinkSync } from 'fs'
 import { join } from 'path'
 import { createReadStream, statSync, mkdirSync } from 'fs'
 import { Readable } from 'stream'
@@ -14,7 +14,7 @@ import { Sounds } from './sounds'
 import { ProjectIndex } from './flpindex'
 import { Feedback } from './feedback'
 import { Sessions } from './sessions'
-import { wavToMp3 } from './bounce'
+import { wavToMp3, loopToMp3 } from './bounce'
 import { startInbox } from './inbox'
 import { VideoExporter, coverData, pickCover, previewStill } from './video'
 import type { Post, VideoOptions } from '../shared/types'
@@ -59,7 +59,7 @@ function createWindow(): void {
 function serveAudio(req: Request): Response {
   const u = new URL(req.url)
   const id = Number(u.pathname.replace('/', ''))
-  const path = u.hostname === 'sound' ? sounds.pathOf(id) : store.pathOf(id)
+  const path = u.hostname === 'sound' ? sounds.pathOf(id) : store.playPathOf(id)
   if (!path) return new Response('not found', { status: 404 })
   let size: number
   try { size = statSync(path).size } catch { return new Response('missing', { status: 404 }) }
@@ -333,6 +333,18 @@ app.whenReady().then(async () => {
   writeBridgeConfig()
   startInbox(join(app.getPath('userData'), 'inbox'), (d) => {
     if (d.kind === 'bounce' && d.wav) { wavToMp3(d.wav).then((mp3) => { if (!mp3) console.error('bounce conversion failed', d.wav); else win?.webContents.send('beats:changed', [-1]) }); return }
+    if (d.kind === 'loop' && d.wav) {
+      const t = store.previewTarget(d.flp)
+      if (!t) { try { unlinkSync(d.wav) } catch { /* gone */ } return }
+      const out = join(app.getPath('userData'), 'previews', `${t.id}-${Date.now()}.mp3`)
+      loopToMp3(d.wav, out).then((ok) => {
+        if (!ok) return
+        store.setPreview(t.id, out)
+        if (t.old) { try { unlinkSync(t.old) } catch { /* gone */ } }
+        win?.webContents.send('beats:changed', [t.id])
+      })
+      return
+    }
     store.saveFromPlugin(d); win?.webContents.send('beats:changed', [-1])
   })
   watcher.restart()

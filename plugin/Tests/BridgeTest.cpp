@@ -12,12 +12,14 @@ struct FakeHost : AudioPlayHead
 {
     double bpm = 128.0;
     bool playing = false;
+    double ppq = -1.0;
     Optional<PositionInfo> getPosition() const override
     {
         PositionInfo p;
         p.setBpm (bpm);
         p.setIsPlaying (playing);
         p.setTimeSignature (TimeSignature { 4, 4 });
+        if (ppq >= 0.0) p.setPpqPosition (ppq);
         return p;
     }
 };
@@ -253,6 +255,36 @@ int main()
         }
         CHECK (sup.getChildFile ("inbox").findChildFiles (File::findFiles, false, "*.tmp").isEmpty(), "no half-written temp files are left");
 
+
+        // ---- preview loop: the last bars the host played, kept as the project's preview ----
+        {
+            touch (projects.getChildFile ("Backup/Moon (autosaved on 15-10-26 at 15h00).flp"), 0); // back to working on Moon
+            host.bpm = 120.0; host.playing = true; host.ppq = 0.0;
+            proc.setRateAndBufferSizeDetails (sr, block); proc.prepareToPlay (sr, block);
+            String lm;
+            CHECK (! proc.saveLoopForProject (lm), "no loop is saved before anything has played (" + lm.substring (0, 30) + "...)");
+            const int blocks = (int) (sr * 2.0 * 6.3 / block); // 6.3 bars of 120 bpm 4/4
+            for (int b = 0; b < blocks; ++b) { feed (1); host.ppq += (double) block / sr * 2.0; }
+            host.playing = false;
+            CHECK (proc.saveLoopForProject (lm), "saves a loop after playing (" + lm + ")");
+            auto loops = sup.getChildFile ("loops").findChildFiles (File::findFiles, false, "*.wav");
+            CHECK (loops.size() == 1, "one loop WAV is written");
+            if (loops.size() == 1)
+            {
+                WavAudioFormat wf;
+                std::unique_ptr<AudioFormatReader> rd (wf.createReaderFor (loops[0].createInputStream().release(), true));
+                const double secs = rd ? (double) rd->lengthInSamples / rd->sampleRate : 0.0;
+                CHECK (std::abs (secs - 8.0) < 0.02, "it is exactly 4 bars at 120 bpm (8 s), got " + String (secs, 3));
+                AudioBuffer<float> chk (2, (int) rd->lengthInSamples); rd->read (&chk, 0, (int) rd->lengthInSamples, 0, true, true);
+                CHECK (chk.getMagnitude (0, chk.getNumSamples()) > 0.1f, "and it contains the audio that played");
+            }
+            bool found = false;
+            for (auto& f : sup.getChildFile ("inbox").findChildFiles (File::findFiles, false, "*.json"))
+                if (JSON::parse (f).getProperty ("kind", {}).toString() == "loop") found = true;
+            CHECK (found, "the app is told about the loop through the inbox");
+        }
+
+        touch (projects.getChildFile ("Backup/untitled (autosaved on 15-10-26 at 14h50).flp"), 0);
         // the panel uses the same logic
         SavePanel sp (proc);
         sp.setBounds (0, 0, 660, 400);

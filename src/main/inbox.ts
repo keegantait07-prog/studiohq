@@ -3,7 +3,7 @@
 import { mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, watch } from 'fs'
 import { join } from 'path'
 
-export interface InboxItem { name: string; bpm: number | null; flp: string; kind?: 'bounce'; wav?: string }
+export interface InboxItem { name: string; bpm: number | null; flp: string; kind?: 'bounce' | 'loop'; wav?: string }
 
 export function startInbox(dir: string, handle: (d: InboxItem) => void): void {
   mkdirSync(dir, { recursive: true })
@@ -15,7 +15,7 @@ export function startInbox(dir: string, handle: (d: InboxItem) => void): void {
       const p = join(dir, f)
       try {
         const j = JSON.parse(readFileSync(p, 'utf8'))
-        handle({ kind: j.kind === 'bounce' ? 'bounce' : undefined, wav: j.wav ? String(j.wav) : undefined, name: String(j.name ?? ''), bpm: Number.isFinite(+j.bpm) && +j.bpm > 20 ? +j.bpm : null, flp: String(j.flp ?? '') })
+        handle({ kind: j.kind === 'bounce' || j.kind === 'loop' ? j.kind : undefined, wav: j.wav ? String(j.wav) : undefined, name: String(j.name ?? ''), bpm: Number.isFinite(+j.bpm) && +j.bpm > 20 ? +j.bpm : null, flp: String(j.flp ?? '') })
         unlinkSync(p)
       } catch (e) {
         // half-written file: try again on the next change; anything unreadable is removed so it can't loop forever

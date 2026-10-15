@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, dialog, shell, protocol, Menu, Notification } from 'electron'
+import { writeFileSync } from 'fs'
 import { join } from 'path'
 import { createReadStream, statSync, mkdirSync } from 'fs'
 import { Readable } from 'stream'
@@ -7,6 +8,9 @@ import { Store } from './store'
 import { Watcher } from './watcher'
 import { Crm } from './crm'
 import { Packs } from './packs'
+import { Sales } from './sales'
+import { splitSheetHtml, writePdf } from './splitsheet'
+import type { LogSaleInput, License, Sale, SplitRow } from '../shared/types'
 import type { BeatPatch, Settings, TagKind, LogPitchInput, PackRequest, Template, Contact, PitchStatus } from '../shared/types'
 
 app.setName('Studio HQ')
@@ -21,6 +25,7 @@ let store: Store
 let watcher: Watcher
 let crm: Crm
 let packs: Packs
+let sales: Sales
 
 const MIME: Record<string, string> = { mp3: 'audio/mpeg', wav: 'audio/wav', flac: 'audio/flac', m4a: 'audio/mp4', aif: 'audio/aiff', aiff: 'audio/aiff', ogg: 'audio/ogg' }
 
@@ -126,6 +131,47 @@ function registerIpc(): void {
     else sendCrm()
   })
 
+  // ---- Sales & Collabs ----
+  const sale = <A extends unknown[], R>(fn: (...a: A) => R) => (_: unknown, ...a: A): R => { const r = fn(...a); store.bumpAll(); sendCrm(); return r }
+  h('sales:all', () => sales.all())
+  h('sales:log', sale((i: LogSaleInput) => sales.log(i)))
+  h('sales:update', sale((id: number, p: Partial<Sale>) => sales.update(id, p)))
+  h('sales:delete', sale((id: number) => sales.delete(id)))
+  h('sales:saveLicense', (_, l: Partial<License> & { name: string; exclusive: boolean }) => sales.saveLicense(l))
+  h('sales:deleteLicense', (_, id: number) => sales.deleteLicense(id))
+  h('splits:get', (_, groupId: number) => ({ rows: sales.getSplits(groupId), known: sales.knownCollaborators() }))
+  h('splits:save', (_, groupId: number, rows: SplitRow[]) => sales.saveSplits(groupId, rows))
+  h('splits:pdf', async (_, groupId: number) => {
+    const rows = sales.getSplits(groupId)
+    const g = sales.all().groups.find((x) => x.groupId === groupId)
+    if (!g) throw new Error('Beat not found.')
+    if (rows.length < 2) throw new Error('Add at least two people to create a split sheet.')
+    if (Math.abs(rows.reduce((a, r) => a + r.pubPct, 0) - 100) > 0.01 || Math.abs(rows.reduce((a, r) => a + r.masterPct, 0) - 100) > 0.01) throw new Error('Publishing and master splits must each total 100% before you can create the sheet.')
+    const beat = store.getBeat(g.beatId)
+    const safe = g.title.replace(/[\\/:*?"<>|]/g, '').trim() || 'Beat'
+    let path = process.env.SHQ_TEST_SAVE_PATH ?? ''
+    if (!path) {
+      const r = await dialog.showSaveDialog(win!, { title: 'Save split sheet', defaultPath: join(app.getPath('documents'), `Split Sheet - ${safe}.pdf`), filters: [{ name: 'PDF', extensions: ['pdf'] }] })
+      if (r.canceled || !r.filePath) return null
+      path = r.filePath
+    }
+    await writePdf(splitSheetHtml({ title: g.title, bpm: beat?.bpm ?? null, key: beat?.key ?? null, producer: store.getSettings().producerName, rows, date: new Date() }), path)
+    sales.markSheet(groupId)
+    sendCrm()
+    if (!process.env.SHQ_TEST_SAVE_PATH) shell.showItemInFolder(path)
+    return path
+  })
+  h('sales:csv', async () => {
+    let path = process.env.SHQ_TEST_SAVE_PATH ?? ''
+    if (!path) {
+      const r = await dialog.showSaveDialog(win!, { title: 'Export sales', defaultPath: join(app.getPath('documents'), 'Studio HQ sales.csv'), filters: [{ name: 'CSV', extensions: ['csv'] }] })
+      if (r.canceled || !r.filePath) return null
+      path = r.filePath
+    }
+    writeFileSync(path, sales.csv())
+    return path
+  })
+
   // ---- Pitch CRM ----
   const mut = <A extends unknown[], R>(fn: (...a: A) => R) => (_: unknown, ...a: A): R => { const r = fn(...a); sendCrm(); return r }
   h('crm:all', () => crm.all())
@@ -154,6 +200,7 @@ app.whenReady().then(async () => {
   store = new Store(db, (ids) => send('beats:changed', ids), (s) => send('scan:status', s))
   watcher = new Watcher(store)
   crm = new Crm(db, () => store.getSettings().followupDays, () => store.bumpAll())
+  sales = new Sales(db)
   packs = new Packs(db, () => store.getSettings().producerName)
   registerIpc()
   Menu.setApplicationMenu(Menu.buildFromTemplate([

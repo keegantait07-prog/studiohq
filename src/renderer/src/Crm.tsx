@@ -205,7 +205,7 @@ function PitchCard({ p, onOpenBeat, onDraft, reload }: { p: Pitch; onOpenBeat: (
       <div className="chips pb">
         {p.beats.map((b) => (
           <span key={b.beatId} className={`chip resp-${b.response || 'none'}`}>
-            <a onClick={() => onOpenBeat(b.beatId)}>{b.title}</a>
+            <a onClick={() => onOpenBeat(b.beatId)}>{b.title}</a>{b.status === 'sold' && <em className="soldtag">sold</em>}
             <button title="Mark liked / passed" onClick={async () => { await window.api.setPitchBeatResponse(p.id, b.beatId, NEXT_RESP[b.response]); reload() }}>{b.response === 'liked' ? '♥' : b.response === 'passed' ? '✕' : '○'}</button>
           </span>
         ))}

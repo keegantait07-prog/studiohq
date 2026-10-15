@@ -102,7 +102,11 @@ export class Store {
     const val: unknown[] = []
     const add = (col: string, v: unknown) => { set.push(`${col}=?`); val.push(v) }
     if (p.title !== undefined) add('title', p.title.trim() || 'Untitled')
-    if (p.status !== undefined) add('status', p.status)
+    if (p.status !== undefined) {
+      const lock = this.db.prepare(`SELECT s.buyer FROM sales s JOIN beats b ON b.group_id=s.group_id WHERE b.id=? AND s.exclusive=1 LIMIT 1`).get(id) as { buyer: string } | undefined
+      if (lock && p.status !== 'sold') throw new Error(`This beat was sold exclusively to ${lock.buyer}, so it stays "sold". Delete that sale first if it was a mistake.`)
+      add('status', p.status)
+    }
     if (p.bpm !== undefined) { add('bpm', p.bpm); add('bpm_source', p.bpm == null ? null : 'user'); add('bpm_confidence', p.bpm == null ? null : 'high') }
     if (p.key !== undefined) { const k = p.key ? normalizeKey(p.key) : null; add('key', k); add('key_source', k ? 'user' : null) }
     if (p.notes !== undefined) add('notes', p.notes)
@@ -190,6 +194,8 @@ export class Store {
     hints.vibe.forEach((v) => ins.run(id, 'vibe', v))
     hints.genre.forEach((v) => ins.run(id, 'genre', v))
     if (folderGenre && !hints.genre.includes(folderGenre)) ins.run(id, 'genre', folderGenre)
+    // a new version of an exclusively sold beat is sold too
+    if (this.db.prepare('SELECT 1 FROM sales WHERE group_id=? AND exclusive=1').get(gid)) this.db.prepare(`UPDATE beats SET status='sold' WHERE id=?`).run(id)
     this.touch(id)
     this.enqueue(id)
   }

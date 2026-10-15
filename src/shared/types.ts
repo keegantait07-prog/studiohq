@@ -57,6 +57,46 @@ export interface Settings {
   notify: boolean
 }
 
+// ---- Sales & Collabs ----
+export type SaleSource = 'beatstars' | 'paypal' | 'venmo' | 'cashapp' | 'zelle' | 'other'
+export const SALE_SOURCES: SaleSource[] = ['beatstars', 'paypal', 'venmo', 'cashapp', 'zelle', 'other']
+export interface License { id: number; name: string; exclusive: boolean; defaultPrice: number | null }
+export interface Sale {
+  id: number
+  beatId: number
+  groupId: number
+  beatTitle: string
+  buyer: string
+  buyerEmail: string
+  contactId: number | null
+  licenseName: string
+  exclusive: boolean
+  price: number
+  fee: number
+  source: SaleSource
+  soldAt: number
+  notes: string
+}
+export interface LogSaleInput {
+  beatId: number
+  buyer: string
+  buyerEmail: string
+  contactId: number | null
+  licenseId: number | null
+  licenseName: string
+  exclusive: boolean
+  price: number
+  fee: number
+  source: SaleSource
+  soldAt: number
+  notes: string
+}
+export type SplitRole = 'producer' | 'writer' | 'artist' | 'other'
+export const SPLIT_ROLES: SplitRole[] = ['producer', 'writer', 'artist', 'other']
+export interface SplitRow { name: string; role: SplitRole; email: string; pro: string; ipi: string; pubPct: number; masterPct: number }
+export interface SplitGroup { groupId: number; beatId: number; title: string; count: number; parties: number; pubTotal: number; masterTotal: number; sheetAt: number | null }
+export interface SalesData { sales: Sale[]; licenses: License[]; groups: SplitGroup[] }
+
 // ---- Pitch CRM ----
 export type ContactRole = 'artist' | 'manager' | 'a&r' | 'other'
 export const CONTACT_ROLES: ContactRole[] = ['artist', 'manager', 'a&r', 'other']
@@ -76,7 +116,7 @@ export type PitchStatus = 'sent' | 'listened' | 'replied' | 'liked' | 'passed' |
 export const PITCH_STATUSES: PitchStatus[] = ['sent', 'listened', 'replied', 'liked', 'passed', 'placed']
 /** statuses where we are still waiting to hear back */
 export const AWAITING: PitchStatus[] = ['sent', 'listened']
-export interface PitchBeat { beatId: number; title: string; bpm: number | null; key: string | null; response: '' | 'liked' | 'passed' }
+export interface PitchBeat { beatId: number; title: string; bpm: number | null; key: string | null; status: Status; response: '' | 'liked' | 'passed' }
 export interface Pitch {
   id: number
   contactId: number
@@ -122,6 +162,16 @@ export interface Api {
   setSetting(patch: Partial<Pick<Settings, 'includeIdeas' | 'ownHandles' | 'producerName' | 'followupDays' | 'notify'>>): Promise<void>
   backup(): Promise<string>
   dataPath(): Promise<string>
+  salesAll(): Promise<SalesData>
+  logSale(input: LogSaleInput): Promise<number>
+  updateSale(id: number, patch: Partial<Pick<Sale, 'buyer' | 'buyerEmail' | 'price' | 'fee' | 'source' | 'soldAt' | 'notes'>>): Promise<void>
+  deleteSale(id: number): Promise<void>
+  saveLicense(l: Partial<License> & { name: string; exclusive: boolean }): Promise<number>
+  deleteLicense(id: number): Promise<void>
+  getSplits(groupId: number): Promise<{ rows: SplitRow[]; known: SplitRow[] }>
+  saveSplits(groupId: number, rows: SplitRow[]): Promise<void>
+  exportSplitSheet(groupId: number): Promise<string | null>
+  exportSalesCsv(): Promise<string | null>
   crmAll(): Promise<CrmData>
   saveContact(c: Partial<Contact> & { name: string }): Promise<number>
   deleteContact(id: number): Promise<void>
@@ -138,7 +188,7 @@ export interface Api {
   setNetlifyToken(token: string | null): Promise<void>
   openExternal(url: string): Promise<void>
   onCrmChanged(cb: () => void): () => void
-  onNavigate(cb: (view: 'vault' | 'crm') => void): () => void
+  onNavigate(cb: (view: 'vault' | 'crm' | 'sales') => void): () => void
   onBeatsChanged(cb: (ids: number[]) => void): () => void
   onScanStatus(cb: (s: ScanStatus) => void): () => void
 }

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { STATUSES, TAG_KINDS, type BeatDetail, type Pitch, type Status, type TagKind } from '@shared/types'
+import { STATUSES, TAG_KINDS, type BeatDetail, type Pitch, type Sale, type SplitGroup, type Status, type TagKind } from '@shared/types'
 import { displayKey } from '@shared/key'
 import { fmtBpm, fmtDur } from './format'
+import { errMsg, fmtDay, money } from './salesUtils'
 
 const KIND_LABEL: Record<TagKind, string> = { vibe: 'Vibe', genre: 'Genre', artist: 'Type beat artist' }
 
@@ -45,9 +46,15 @@ interface Props {
   pitchedTo: { pitch: Pitch; contact: string; response: '' | 'liked' | 'passed' }[]
   onPitch: () => void
   onOpenContact: (id: number) => void
+  sales: Sale[]
+  splitGroup?: SplitGroup
+  onLogSale: () => void
+  onEditSplits: () => void
+  onSheet: () => void
+  onError: (m: string) => void
 }
 
-export function Detail({ beat, allTags, onSelect, onPlay, refresh, pitchedTo, onPitch, onOpenContact }: Props) {
+export function Detail({ beat, allTags, onSelect, onPlay, refresh, pitchedTo, onPitch, onOpenContact, sales, splitGroup, onLogSale, onEditSplits, onSheet, onError }: Props) {
   const [title, setTitle] = useState(beat.title)
   const [bpm, setBpm] = useState(fmtBpm(beat.bpm).replace('–', ''))
   const [key, setKey] = useState(displayKey(beat.key))
@@ -57,7 +64,7 @@ export function Detail({ beat, allTags, onSelect, onPlay, refresh, pitchedTo, on
     setTitle(beat.title); setBpm(fmtBpm(beat.bpm).replace('–', '')); setKey(displayKey(beat.key)); setNotes(beat.notes); setLabel(beat.versionLabel)
   }, [beat.id, beat.title, beat.bpm, beat.key, beat.notes, beat.versionLabel])
 
-  const save = async (patch: Parameters<typeof window.api.updateBeat>[1]) => { await window.api.updateBeat(beat.id, patch); refresh() }
+  const save = async (patch: Parameters<typeof window.api.updateBeat>[1]) => { try { await window.api.updateBeat(beat.id, patch) } catch (e) { onError(errMsg(e)) } refresh() }
   const setBpmNum = (n: number | null) => save({ bpm: n })
   const projectName = beat.projectPath?.split('/').slice(-2).join(' / ')
 
@@ -139,6 +146,30 @@ export function Detail({ beat, allTags, onSelect, onPlay, refresh, pitchedTo, on
           </div>
         ))}
         <button className="wide" onClick={onPitch} disabled={beat.status === 'sold'}>{beat.status === 'sold' ? 'Sold. Can’t pitch' : 'Pitch this beat…'}</button>
+      </div>
+
+      <div className="field">
+        <label>Sales ({sales.length})</label>
+        {sales.map((x) => (
+          <div key={x.id} className="ver" style={{ gridTemplateColumns: '1fr auto auto' }}>
+            <span>{x.exclusive ? '🔒 ' : ''}{x.licenseName} · {x.buyer}</span><span className="dim">{fmtDay(x.soldAt)}</span><span className="mono">{money(x.price)}</span>
+          </div>
+        ))}
+        <button className="wide" onClick={onLogSale} disabled={sales.some((x) => x.exclusive)}>{sales.some((x) => x.exclusive) ? '🔒 Sold exclusively' : 'Log a sale…'}</button>
+      </div>
+
+      <div className="field">
+        <label>Splits {splitGroup?.parties ? `(${splitGroup.parties} people)` : ''}</label>
+        {splitGroup?.parties ? (
+          <div className="meta-line" style={{ marginTop: 0 }}>
+            Publishing {splitGroup.pubTotal}% · Master {splitGroup.masterTotal}%{(Math.abs(splitGroup.pubTotal - 100) > 0.01 || Math.abs(splitGroup.masterTotal - 100) > 0.01) && <span className="warn"> (not 100%)</span>}
+            {splitGroup.sheetAt ? ` · sheet ${fmtDay(splitGroup.sheetAt)}` : ''}
+          </div>
+        ) : <div className="meta-line" style={{ marginTop: 0 }}>No collaborators recorded. You own 100% by default.</div>}
+        <div className="actions" style={{ marginTop: 6 }}>
+          <button onClick={onEditSplits}>{splitGroup?.parties ? 'Edit splits' : 'Add splits'}</button>
+          {splitGroup?.parties ? <button onClick={onSheet} disabled={Math.abs(splitGroup.pubTotal - 100) > 0.01 || Math.abs(splitGroup.masterTotal - 100) > 0.01}>Split sheet PDF</button> : null}
+        </div>
       </div>
 
       <div className="actions">

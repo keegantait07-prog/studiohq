@@ -15,10 +15,10 @@ export class Crm {
     const contacts = (this.db.prepare('SELECT * FROM contacts ORDER BY name COLLATE NOCASE').all() as Row[]).map((r) => this.toContact(r))
     const beatsByPitch = new Map<number, Pitch['beats']>()
     for (const r of this.db.prepare(
-      `SELECT pb.pitch_id, pb.beat_id, pb.response, b.title, b.bpm, b.key FROM pitch_beats pb JOIN beats b ON b.id=pb.beat_id ORDER BY b.title`
+      `SELECT pb.pitch_id, pb.beat_id, pb.response, b.title, b.bpm, b.key, b.status FROM pitch_beats pb JOIN beats b ON b.id=pb.beat_id ORDER BY b.title`
     ).all() as Row[]) {
       const list = beatsByPitch.get(r.pitch_id) ?? []
-      list.push({ beatId: r.beat_id, title: r.title, bpm: r.bpm, key: r.key, response: r.response })
+      list.push({ beatId: r.beat_id, title: r.title, bpm: r.bpm, key: r.key, status: r.status, response: r.response })
       beatsByPitch.set(r.pitch_id, list)
     }
     const pitches = (this.db.prepare('SELECT * FROM pitches ORDER BY sent_at DESC').all() as Row[]).map((r) => ({
@@ -63,6 +63,8 @@ export class Crm {
 
   logPitch(i: LogPitchInput): number {
     const now = Date.now()
+    const sold = i.beatIds.length ? this.db.prepare(`SELECT title FROM beats WHERE status='sold' AND id IN (${i.beatIds.map(() => '?').join(',')})`).all(...i.beatIds) as { title: string }[] : []
+    if (sold.length) throw new Error(`Already sold: ${sold.map((b) => b.title).join(', ')}. Remove ${sold.length > 1 ? 'them' : 'it'} from the pitch.`)
     const tx = this.db.transaction(() => {
       const id = Number(
         this.db.prepare('INSERT INTO pitches(contact_id,pack_id,subject,channel,link,sent_at,next_followup_at) VALUES(?,?,?,?,?,?,?)')

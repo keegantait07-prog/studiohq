@@ -99,6 +99,44 @@ export function openDb(dir: string): Database.Database {
       response TEXT NOT NULL DEFAULT '',
       PRIMARY KEY (pitch_id, beat_id)
     );
+    CREATE TABLE IF NOT EXISTS license_types (
+      id INTEGER PRIMARY KEY,
+      name TEXT NOT NULL,
+      exclusive INTEGER NOT NULL DEFAULT 0,
+      default_price REAL,
+      sort INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS sales (
+      id INTEGER PRIMARY KEY,
+      beat_id INTEGER NOT NULL REFERENCES beats(id),
+      group_id INTEGER NOT NULL REFERENCES groups(id),
+      buyer TEXT NOT NULL,
+      buyer_email TEXT NOT NULL DEFAULT '',
+      contact_id INTEGER REFERENCES contacts(id) ON DELETE SET NULL,
+      license_id INTEGER REFERENCES license_types(id) ON DELETE SET NULL,
+      license_name TEXT NOT NULL,
+      exclusive INTEGER NOT NULL DEFAULT 0,
+      price REAL NOT NULL,
+      fee REAL NOT NULL DEFAULT 0,
+      source TEXT NOT NULL DEFAULT 'other',
+      sold_at INTEGER NOT NULL,
+      notes TEXT NOT NULL DEFAULT '',
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS sales_group ON sales(group_id);
+    CREATE TABLE IF NOT EXISTS beat_splits (
+      id INTEGER PRIMARY KEY,
+      group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'producer',
+      email TEXT NOT NULL DEFAULT '',
+      pro TEXT NOT NULL DEFAULT '',
+      ipi TEXT NOT NULL DEFAULT '',
+      pub_pct REAL NOT NULL DEFAULT 0,
+      master_pct REAL NOT NULL DEFAULT 0,
+      sort INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS splits_group ON beat_splits(group_id);
     CREATE TABLE IF NOT EXISTS templates (
       id INTEGER PRIMARY KEY,
       name TEXT NOT NULL,
@@ -107,8 +145,18 @@ export function openDb(dir: string): Database.Database {
       body TEXT NOT NULL
     );
   `)
+  const gcols = db.prepare('PRAGMA table_info(groups)').all() as { name: string }[]
+  if (!gcols.some((c) => c.name === 'split_sheet_at')) db.exec('ALTER TABLE groups ADD COLUMN split_sheet_at INTEGER')
   seedTemplates(db)
+  seedLicenses(db)
   return db
+}
+
+function seedLicenses(db: Database.Database): void {
+  if ((db.prepare('SELECT COUNT(*) c FROM license_types').get() as { c: number }).c) return
+  const ins = db.prepare('INSERT INTO license_types(name,exclusive,default_price,sort) VALUES(?,?,?,?)')
+  // starter prices only; edit them under Sales > Licenses
+  ;[['MP3 Lease', 0, 25], ['WAV Lease', 0, 50], ['Trackout Lease', 0, 100], ['Unlimited Lease', 0, 200], ['Exclusive', 1, 500]].forEach(([n, e, p], i) => ins.run(n, e, p, i))
 }
 
 function seedTemplates(db: Database.Database): void {

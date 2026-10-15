@@ -2,7 +2,7 @@
 
 A local-first desktop app for your whole producer workflow. Built with Electron, React and SQLite. Runs on macOS.
 
-**Status: Milestones 1–2 (Beat Vault, Pitch CRM).** Later milestones add Sales & Collabs, Content Machine, Sound Library, Feedback Links and the Daily Dashboard.
+**Status: Milestones 1–3 (Beat Vault, Pitch CRM, Sales & Collabs).** Later milestones add Content Machine, Sound Library, Feedback Links and the Daily Dashboard.
 
 ## Setup
 
@@ -59,11 +59,29 @@ Open it from the sidebar or with **⌘2** (⌘1 returns to the Vault).
 
 Pages go to one Netlify site that Studio HQ creates for you, each under a random unguessable path with `noindex` headers. The link is **unlisted, not password-protected**: anyone who has the link can listen. Every publish sends the whole local `pitch-site` folder, so existing links keep working, and only new or changed files are uploaded.
 
+## What M3 does (Sales & Collabs)
+
+Open it from the sidebar or with **⌘3**.
+
+- **Sales log.** Record every lease and exclusive: beat, buyer, license, price, fees, source (BeatStars, PayPal, Venmo, Cash App, Zelle, other), date and notes. Edit or delete any sale, and **Export CSV** for your accountant or taxes. BeatStars has no sales API Studio HQ can use, so log those by hand for now.
+- **Never double-sell.** Logging an exclusive marks the beat, and every version of it, as **sold**, and from then on:
+  - no further sale of that beat can be logged (the dialog shows the lock and disables saving),
+  - its status can't be changed away from "sold",
+  - it can't be added to a pitch, and any new version file that appears later is marked sold too.
+  
+  The one exception is a **back-dated** lease from before the exclusive, so you can record history. If an exclusive was a mistake, delete that sale and the beat goes back to "finished".
+  Non-exclusive leases don't change a beat's status, so "unsold" in search means "no exclusive sale".
+- **Licenses.** Starter license types (MP3, WAV, Trackout, Unlimited, Exclusive) with placeholder prices. Edit them under Sales & Collabs → Licenses. Past sales keep the license name they were sold under.
+- **Splits and collaborators.** For any beat, record who worked on it with role, email, PRO and IPI, a **publishing %** and a **master %** (the master follows publishing until you change it). Splits apply to all versions of a beat. Totals must be exactly 100% in both columns before a sheet can be made.
+- **Split sheet PDF.** One click creates a Letter-size PDF with the work, date, a table of everyone's shares, agreement text, and a signature and date line per person. This is a record of what you agreed, not legal advice. Saving a changed split clears the "sheet made" marker, so you know the PDF is out of date.
+- **Revenue dashboard.** Monthly revenue (leases and exclusives stacked), plus top beats, top buyers (repeat buyers flagged) and revenue by source, with a gross / net-of-fees toggle and last-12-months / this-year / all-time ranges. A "Show table" button gives the same data as a table.
+- In the Vault, each beat's detail panel shows its sales and splits, and Cmd+K also finds sales by buyer or beat.
+
 ## Shortcuts
 
 | Key | Action |
 |---|---|
-| ⌘1 / ⌘2 | Beat Vault / Pitch CRM |
+| ⌘1 / ⌘2 / ⌘3 | Beat Vault / Pitch CRM / Sales & Collabs |
 
 | Key | Action |
 |---|---|
@@ -79,7 +97,7 @@ Pages go to one Netlify site that Studio HQ creates for you, each under a random
 
 ## Where your data is stored
 
-Everything is in one folder. Contacts, pitches, templates and settings live in the same database as your beats, so one backup covers them all (the Netlify token is stored encrypted inside it).
+Everything is in one folder. Contacts, pitches, sales, splits, templates and settings live in the same database as your beats, so one backup covers them all (the Netlify token is stored encrypted inside it).
 
 ```
 ~/Library/Application Support/Studio HQ/

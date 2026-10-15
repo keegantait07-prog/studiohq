@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { STATUSES, TAG_KINDS, type Beat, type BeatDetail, type Pitch, type Post, type ProjectSection, type Sale, type SplitGroup, type Status, type TagKind } from '@shared/types'
 import { displayKey, camelot } from '@shared/key'
+import { artUrl, artPng } from './genart'
+import { keyColor } from './keyColor'
 import { fmtBpm, fmtDur } from './format'
 import { errMsg, fmtDay, money } from './salesUtils'
 
@@ -76,6 +78,13 @@ export function Detail({ beat, allTags, onSelect, onPlay, refresh, pitchedTo, on
 
   return (
     <aside className="detail">
+      <div className="arthero">
+        <img src={artUrl({ seed: `g${beat.groupId}`, peaks: beat.thumb, key: beat.key, bpm: beat.bpm })} alt="" />
+        <div className="arthero-side">
+          <button onClick={async () => { try { const ok = await window.api.saveCover(beat.id, await artPng({ seed: `g${beat.groupId}`, peaks: beat.thumb, key: beat.key, bpm: beat.bpm })); if (ok) refresh() } catch (e) { onError(errMsg(e)) } }}>Use as cover art</button>
+          <span className="help">{beat.coverPath ? 'A cover is set for videos.' : 'Drawn from this beat: key colour, tempo and waveform.'}</span>
+        </div>
+      </div>
       <input className="title-input" value={title} onChange={(e) => setTitle(e.target.value)} onBlur={() => title !== beat.title && save({ title })} />
       <div className="filename" title={beat.path}>{beat.filename}</div>
 
@@ -102,7 +111,7 @@ export function Detail({ beat, allTags, onSelect, onPlay, refresh, pitchedTo, on
           </div>
         </div>
         <div className="field">
-          <label>Key {camelot(beat.key) && <span className="cam" title="Camelot wheel code">{camelot(beat.key)}</span>} {beat.keySource && <span className="src">{beat.keySource}</span>}</label>
+          <label>Key {camelot(beat.key) && <span className="cam" style={{ background: keyColor(beat.key) }} title="Camelot wheel code">{camelot(beat.key)}</span>} {beat.keySource && <span className="src">{beat.keySource}</span>}</label>
           <input value={key} placeholder="e.g. Cm, F#" onChange={(e) => setKey(e.target.value)} onBlur={() => key !== displayKey(beat.key) && save({ key })} />
         </div>
       </div>

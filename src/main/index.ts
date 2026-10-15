@@ -232,6 +232,17 @@ function registerIpc(): void {
   h('content:export', (_, o: VideoOptions) => videos.run(o, (p) => win?.webContents.send('video:progress', p)))
   h('content:cancel', () => videos.cancel())
   h('content:preview', (_, o: Parameters<typeof previewStill>[1]) => previewStill(store.db, o))
+  h('content:saveCover', (_, id: number, png: string) => {
+    const m = /^data:image\/png;base64,(.+)$/.exec(png)
+    if (!m) return false
+    const dir = join(app.getPath('userData'), 'covers')
+    mkdirSync(dir, { recursive: true })
+    const file = join(dir, `${id}-${Date.now()}.png`)
+    writeFileSync(file, Buffer.from(m[1], 'base64'))
+    store.db.prepare('UPDATE beats SET cover_path=? WHERE id=?').run(file, id)
+    store.bumpAll()
+    return true
+  })
   h('content:coverData', (_, id: number) => coverData(store.db, id))
   h('content:chooseCover', async (_, id: number) => { const ok = await pickCover(store.db, win!, id); if (ok) store.bumpAll(); return ok })
   h('content:clearCover', (_, id: number) => { store.db.prepare('UPDATE beats SET cover_path=NULL WHERE id=?').run(id); store.bumpAll() })

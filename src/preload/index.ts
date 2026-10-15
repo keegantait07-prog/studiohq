@@ -53,6 +53,7 @@ const api: Api = {
   previewVideo: (o) => ipcRenderer.invoke('content:preview', o),
   cancelVideo: () => ipcRenderer.invoke('content:cancel'),
   coverData: (id) => ipcRenderer.invoke('content:coverData', id),
+  saveCover: (id, png) => ipcRenderer.invoke('content:saveCover', id, png),
   chooseCover: (id) => ipcRenderer.invoke('content:chooseCover', id),
   clearCover: (id) => ipcRenderer.invoke('content:clearCover', id),
   revealPath: (p) => ipcRenderer.invoke('app:revealPath', p),

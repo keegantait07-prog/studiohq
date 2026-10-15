@@ -5,6 +5,10 @@ import { parseQuery } from './query'
 import { keysCompatible, bpmCompatible } from '@shared/key'
 import { usePlayer } from './player'
 import { Thumb, Waveform } from './Waveform'
+import { artUrl } from './genart'
+import { SonicMap } from './SonicMap'
+import { hotspot, takesOf } from './audition'
+import { keyColor } from './keyColor'
 import { Detail } from './Detail'
 import { Palette, type Command } from './Palette'
 import { Settings } from './Settings'
@@ -55,7 +59,7 @@ export function App() {
   const [scan, setScan] = useState<ScanStatus>({ pending: 0, done: 0, total: 0 })
   const [palette, setPalette] = useState(false)
   const [settings, setSettings] = useState(false)
-  const [view, setView] = useState<'dashboard' | 'vault' | 'crm' | 'sales' | 'content' | 'sounds' | 'feedback'>('dashboard')
+  const [view, setView] = useState<'dashboard' | 'vault' | 'map' | 'crm' | 'sales' | 'content' | 'sounds' | 'feedback'>('dashboard')
   const [crm, setCrm] = useState<CrmData | null>(null)
   const [appSettings, setAppSettings] = useState<AppSettings | null>(null)
   const [netlify, setNetlify] = useState<NetlifyStatus | null>(null)
@@ -179,6 +183,22 @@ export function App() {
     if (!hasAudio(id)) { toast('This FL project has no audio yet. Put Studio HQ Bridge on the Master and play it once; closing the project keeps a loop to preview.'); return }
     player.play(id, at)
   }, [hasAudio, player, toast])
+  const [audition, setAudition] = useState(false)
+  // audition mode: picking a beat plays it from its fullest part, so you can flick through the vault like a record bin
+  useEffect(() => {
+    if (!audition || selectedId == null) return
+    const b = beats.find((x) => x.id === selectedId)
+    if (b && b.ext !== 'flp') player.play(b.id, hotspot(b) ?? undefined)
+  }, [selectedId, audition]) // eslint-disable-line react-hooks/exhaustive-deps
+  const flipTake = useCallback(() => {
+    if (player.id == null) return
+    const takes = takesOf(beats, player.id)
+    if (takes.length < 2) return toast('Only one take of this beat. Export another version to A/B them.')
+    const i = takes.findIndex((t) => t.id === player.id)
+    const next = takes[(i + 1) % takes.length]
+    player.play(next.id, player.time)
+    toast(`${i === 0 ? 'B' : 'A'}: ${next.versionLabel || next.filename}`)
+  }, [beats, player, toast])
   const [reindexing, setReindexing] = useState(false)
   const lastReindex = useRef(0)
   const reindexNow = useCallback(async (loud: boolean) => {
@@ -246,6 +266,8 @@ export function App() {
       else if (e.key === 'Enter' && selectedId != null) playBeat(selectedId)
       else if (/^[1-5]$/.test(e.key) && selectedId != null) setStatus(selectedId, STATUSES[+e.key - 1])
       else if (e.key.toLowerCase() === 'g') setCollapse((c) => !c)
+      else if (e.key.toLowerCase() === 'a') { setAudition((a) => { toast(a ? 'Audition mode off' : 'Audition mode on. Moving through beats plays each from its fullest part.'); return !a }) }
+      else if (e.key.toLowerCase() === 'b') flipTake()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -253,6 +275,8 @@ export function App() {
 
   const commands: Command[] = [
     { id: 'go-dash', label: 'Go to Dashboard', hint: '⌘0', run: () => setView('dashboard') },
+    { id: 'go-map', label: 'Go to Sonic Map', run: () => setView('map') },
+    { id: 'audition', label: audition ? 'Turn audition mode off' : 'Turn audition mode on', hint: 'A', run: () => setAudition((a) => !a) },
     { id: 'go-sounds', label: 'Go to Sound Library', hint: '⌘5', run: () => setView('sounds') },
     { id: 'go-feedback', label: 'Go to Feedback', hint: '⌘6', run: () => setView('feedback') },
     { id: 'new-feedback', label: 'New feedback link…', run: () => setFbDlg({}) },
@@ -286,6 +310,7 @@ export function App() {
             </a>
           ))}
         </div>
+        <a className={`nav ${view === 'map' ? 'on' : ''}`} onClick={() => setView('map')}>Sonic Map <span>◎</span></a>
         <a className={`nav ${view === 'crm' ? 'on' : ''}`} onClick={() => setView('crm')}>Pitch CRM {dueCount > 0 ? <span className="badge">{dueCount}</span> : <span>{crm?.contacts.length ?? 0}</span>}</a>
         <a className={`nav ${view === 'sales' ? 'on' : ''}`} onClick={() => setView('sales')}>Sales & Collabs <span>{salesData.sales.length}</span></a>
         <a className={`nav ${view === 'content' ? 'on' : ''}`} onClick={() => setView('content')}>Content {overduePosts > 0 ? <span className="badge">{overduePosts}</span> : <span>{content.posts.filter((p) => p.status === 'posted').length}</span>}</a>
@@ -303,6 +328,8 @@ export function App() {
           onOpenContact={(id) => { setCrmSel(id); setView('crm') }} onPitchBeat={(id) => setPitchDlg({ beatIds: [id] })}
           onMakeVideo={(id) => { setContentBeat(id); setView('content') }} onSetStatus={setStatus} reloadSessions={reloadSessions}
         />
+      ) : view === 'map' ? (
+        <SonicMap beats={beats} onQuery={openCollection} onPlay={(id) => { setSelectedId(id); safePlay(id) }} onOpen={(id) => { setView('vault'); setStatusTab('all'); setQuery(''); setSelectedId(id) }} />
       ) : view === 'sounds' ? (
         <SoundLibrary data={sounds} roots={appSettings?.soundFolders ?? []} status={soundStatus} query={soundQuery} onQuery={setSoundQuery} projectSel={soundProject} onProjectSel={setSoundProject} onReload={reloadSounds} onPauseMain={() => { if (player.playing) player.toggle() }} toast={toast} />
       ) : view === 'feedback' ? (
@@ -361,6 +388,7 @@ export function App() {
                 <div key={b.id} data-row={b.id} className={`row ${sel ? 'sel' : ''}`} onClick={() => setSelectedId(b.id)} onDoubleClick={() => playBeat(b.id)}>
                   <button className={`play ${isPlaying ? 'on' : ''} ${b.ext === 'flp' && !b.hasPreview ? 'off' : ''}`} onClick={(e) => { e.stopPropagation(); if (b.ext === 'flp' && !b.hasPreview) return toast('FL project with no preview yet. Play it once with Studio HQ Bridge on the Master and close it.'); player.id === b.id ? player.toggle() : playBeat(b.id) }} aria-label="play">{isPlaying ? '❚❚' : b.ext === 'flp' && !b.hasPreview ? '–' : '▶'}</button>
                   <div className="name">
+                    <img className="arttile" alt="" src={artUrl({ seed: `g${b.groupId}`, peaks: b.thumb, key: b.key, bpm: b.bpm })} />
                     {b.ext === 'flp' ? <span className="projthumb" title={b.hasPreview ? 'FL Studio project, preview loop' : 'FL Studio project, no audio yet'}>{b.hasPreview ? 'FL loop' : 'FL project'}</span> : <Thumb data={b.thumb} />}
                     <div className="nt">
                       <div className="t">{b.title}{count > 1 && <em className="ver-badge">{count} versions</em>}{!collapse && b.versionLabel && <em className="ver-badge">{b.versionLabel}</em>}</div>
@@ -369,7 +397,7 @@ export function App() {
                   </div>
                   <div className="tg">{[...b.tags.genre.map((t) => ['genre', t]), ...b.tags.vibe.map((t) => ['vibe', t]), ...b.tags.artist.map((t) => ['artist', t])].slice(0, 4).map(([k, t]) => <span key={k + t} className={`chip ${k}`}>{t}</span>)}</div>
                   <span className={`r mono ${b.bpmConfidence === 'low' ? 'warn' : ''}`} title={b.bpmConfidence === 'low' ? 'Low confidence. Check half/double time.' : ''}>{fmtBpm(b.bpm)}{!b.analyzed && b.bpm == null ? '…' : ''}</span>
-                  <span className="mono">{displayKey(b.key) || (b.analyzed ? '–' : '…')}</span>
+                  <span className="mono keycell" style={b.key ? { color: keyColor(b.key) } : undefined}>{b.key && <i className="kdotc" style={{ background: keyColor(b.key) }} />}{displayKey(b.key) || (b.analyzed ? '–' : '…')}</span>
                   <span className="r mono dim">{fmtDur(b.duration)}</span>
                   <span><i className={`dot st-${b.status}`} />{b.status}</span>
                   <span className="r dim">{ago(b.mtime)}</span>
@@ -406,6 +434,10 @@ export function App() {
         </div>
         <div className="wavewrap">
           <Waveform peaks={playingDetail?.peaks ?? []} progress={player.duration ? player.time / player.duration : 0} onSeek={(f) => player.duration && player.seek(f * player.duration)} />
+        </div>
+        <div className="pchips">
+          <button className={`pchip2 ${audition ? 'on' : ''}`} onClick={() => setAudition((a) => !a)} title="Audition mode (A): play beats from their fullest part as you move through them">Audition</button>
+          <button className="pchip2" onClick={flipTake} disabled={player.id == null || takesOf(beats, player.id).length < 2} title="A/B the takes of this beat at the same moment (B)">A/B</button>
         </div>
         {scanning && <div className="scan">Analyzing {scan.total - scan.pending}/{scan.total}<div className="bar"><div style={{ width: `${((scan.total - scan.pending) / Math.max(1, scan.total)) * 100}%` }} /></div></div>}
       </footer>

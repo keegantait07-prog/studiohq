@@ -217,3 +217,10 @@ The Content view's video builder now has ten animation styles and four frame mot
 - **Styles:** Mirror bars, Bars, Waveform (the originals), plus **Ribbon**, **LED stack**, **Beads**, **Sonar** (a ring per kick), **Aurora** (light ribbons driven by bass, mids and highs), **Heartbeat** (a monitor line that spikes on kicks) and **Sparks** (kicks throw embers that fall back). Kicks are found from the rise of the raw low end, so a held bass note does not trigger them.
 - **Frame motion:** Still, Slow push-in, Breathe, and Beat bounce (locked to the beat's BPM; falls back to Breathe if the tempo is unknown).
 - Verified by rendering frames from a synthetic kick pattern and encoding clips with the real ffmpeg graph. The live preview in the app is an approximation of the motion styles.
+
+## Signature features
+
+- **Key colours.** Every key gets a hue from its place on the Camelot wheel, used on key cells, the Camelot badge and the map, so related keys look related.
+- **Generated cover art.** Each beat gets its own artwork drawn from its waveform (a ring of rays), key (colour) and tempo (orbiting dots). It shows in the vault and the detail panel. "Use as cover art" saves a 1400 px PNG as the beat's cover for videos, and the video builder has "Generate from the music".
+- **Sonic Map.** A Camelot-wheel view of the catalogue: outer ring major, inner ring minor, further out is faster. Hover a beat to draw lines to everything that mixes with it; click to pin, double-click to play.
+- **Audition mode (A).** Moving through the vault plays each beat from its fullest part, found from the waveform. **A/B (B)** flips between takes of the same beat at the same moment.

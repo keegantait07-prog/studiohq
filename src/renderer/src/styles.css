@@ -301,3 +301,26 @@ kbd { border-radius: 6px; background: #0a0a0e; }
 .stylecard { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left; border-radius: 14px; padding: 9px 12px; background: #0d0d12; }
 .stylecard b { font-size: 12.5px; } .stylecard span { color: var(--dim); font-size: 10.5px; line-height: 1.3; }
 .stylecard.on { border-color: var(--accent); background: var(--accent-soft); box-shadow: var(--glow); } .stylecard.on b { color: var(--accent); }
+
+/* signature: key colours and generated art */
+.arttile { width: 34px; height: 34px; border-radius: 9px; flex: none; box-shadow: 0 2px 10px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.06); }
+.keycell { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; } .kdotc { width: 6px; height: 6px; border-radius: 50%; box-shadow: 0 0 8px currentColor; display: inline-block; }
+.arthero { display: flex; gap: 12px; align-items: flex-end; } .arthero img { width: 112px; height: 112px; border-radius: 18px; box-shadow: 0 14px 40px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.07); flex: none; }
+.arthero-side { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; } .arthero-side .help { font-size: 11px; margin: 0; }
+
+/* sonic map */
+.mapv { grid-column: 2 / 4; display: grid; grid-template-columns: 1fr 320px; min-height: 0; padding-top: 38px; }
+.map-stage { display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 0; padding: 8px 12px 12px; }
+.mapsvg { width: 100%; height: 100%; max-height: 100%; }
+.maplab { font: 700 15px -apple-system, sans-serif; text-anchor: middle; dominant-baseline: middle; pointer-events: none; } .mapnote { font-weight: 500; font-size: 11px; opacity: .65; }
+.mapdot { cursor: pointer; transition: r .12s, fill-opacity .15s; filter: drop-shadow(0 0 5px rgba(0,0,0,.6)); }
+.mapcentre { fill: var(--text); text-anchor: middle; font: 500 15px -apple-system, sans-serif; pointer-events: none; } .mapcentre.big { font-size: 22px; font-weight: 800; letter-spacing: .04em; } .mapcentre.dim { fill: #8a8a99; font-size: 13px; }
+.map-side { border-left: 1px solid #1b1b23; padding: 12px 16px 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: linear-gradient(180deg, #101015, #0c0c11); }
+.map-side h3 { margin: 0; font-size: 18px; letter-spacing: -.01em; }
+.map-legend { display: flex; flex-wrap: wrap; gap: 6px; } .maplegend { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; text-transform: capitalize; padding: 3px 10px; } .maplegend i { width: 9px; height: 9px; border-radius: 50%; border: 2px solid; display: inline-block; } .maplegend span { color: var(--dim); } .maplegend.off { opacity: .35; }
+.lnk { color: var(--accent); cursor: pointer; }
+.map-sel { display: flex; flex-direction: column; gap: 10px; } .map-sel img { width: 100%; aspect-ratio: 1; border-radius: 18px; box-shadow: 0 14px 40px rgba(0,0,0,.6); }
+.maplist-h { color: var(--dim); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; } .maplist { display: flex; flex-direction: column; gap: 2px; }
+
+.pchips { display: flex; gap: 6px; flex: none; } .pchip2 { font-size: 11px; padding: 3px 11px; letter-spacing: .06em; text-transform: uppercase; }
+.pchip2.on { background: var(--accent); color: #0c1004; border-color: var(--accent); box-shadow: 0 0 16px rgba(198,255,74,.35); }

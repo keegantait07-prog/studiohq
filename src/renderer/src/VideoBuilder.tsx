@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { artPng } from './genart'
 import type { Beat, BeatDetail, Settings, VideoExport, VideoFormat, VideoLook, VideoMotion, VideoProgress, VizStyle } from '@shared/types'
 import { LAYOUT, previewWaveSvg } from '@shared/videoTemplate'
 import { displayKey } from '@shared/key'
@@ -157,6 +158,7 @@ export function VideoBuilder({ beat, settings, videos, onPlayAt, onExported, toa
             <div className="cover-thumb" style={cover ? { backgroundImage: `url(${cover})` } : undefined}>{!cover && 'No art'}</div>
             <div className="cover-btns">
               <button onClick={async () => { if (await window.api.chooseCover(beat.id)) onExported() }}>Choose image…</button>
+              <button onClick={async () => { const ok = await window.api.saveCover(beat.id, await artPng({ seed: `g${beat.groupId}`, peaks: beat.thumb, key: beat.key, bpm: beat.bpm })); if (ok) onExported() }}>Generate from the music</button>
               {beat.coverPath && <button onClick={async () => { await window.api.clearCover(beat.id); onExported() }}>Remove</button>}
               <span className="help">{beat.coverPath ? 'Using your image.' : cover ? 'Using art embedded in the file.' : 'A colored placeholder is used until you add art.'}</span>
             </div>

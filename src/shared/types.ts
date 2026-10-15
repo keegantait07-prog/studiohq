@@ -273,6 +273,7 @@ export interface Api {
   cancelVideo(): Promise<void>
   previewVideo(o: Omit<VideoOptions, 'formats'> & { format: VideoFormat }): Promise<string>
   coverData(beatId: number): Promise<string | null>
+  saveCover(beatId: number, pngDataUrl: string): Promise<boolean>
   chooseCover(beatId: number): Promise<boolean>
   clearCover(beatId: number): Promise<void>
   revealPath(path: string): Promise<void>

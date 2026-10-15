@@ -28,7 +28,11 @@ export function usePlayer() {
       a.src = `shqa://beat/${id}`
       setState((s) => ({ ...s, id, time: 0, duration: 0 }))
     }
-    if (at != null) a.currentTime = at
+    if (at != null) {
+      // a new source ignores a seek until its metadata is in, so wait for it
+      if (a.readyState >= 1) a.currentTime = at
+      else a.addEventListener('loadedmetadata', () => { a.currentTime = at }, { once: true })
+    }
     a.play().catch((e) => console.error('play rejected', String(e)))
   }, [])
 

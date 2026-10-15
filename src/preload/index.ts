@@ -22,6 +22,7 @@ const api: Api = {
   removeFolder: (k, p) => ipcRenderer.invoke('settings:removeFolder', k, p),
   setSetting: (p) => ipcRenderer.invoke('settings:set', p),
   backup: () => ipcRenderer.invoke('app:backup'),
+  exportCsv: () => ipcRenderer.invoke('app:export'),
   dataPath: () => ipcRenderer.invoke('app:dataPath'),
   soundsList: () => ipcRenderer.invoke('sounds:list'),
   soundsScan: () => ipcRenderer.invoke('sounds:scan'),

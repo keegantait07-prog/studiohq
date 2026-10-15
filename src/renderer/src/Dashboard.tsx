@@ -3,6 +3,7 @@ import type { Beat, ContentData, CrmData, FeedbackData, SalesData, Settings, Sta
 import { isDue, daysSince } from './crmUtils'
 import { activity, beatsMadeSince, dayKey, DAY, fmtClock, fmtHM, isActive, sessionMs, startOfDay, streaks, weekStart } from './dashUtils'
 import { money, net } from './salesUtils'
+import { HEALTH } from './query'
 
 type View = 'vault' | 'crm' | 'sales' | 'content' | 'sounds' | 'feedback'
 interface Props {
@@ -16,6 +17,7 @@ interface Props {
   now: number
   onGo: (v: View) => void
   onOpenBeat: (id: number) => void
+  onQuery: (q: string) => void
   onOpenContact: (id: number) => void
   onPitchBeat: (id: number) => void
   onMakeVideo: (id: number) => void
@@ -30,6 +32,30 @@ function Goal({ label, value, goal, onGoal }: { label: string; value: number; go
     <div className="goal">
       <div className="gh"><span>{label}</span><span className="mono">{value} / {edit ? <input autoFocus defaultValue={goal} style={{ width: 44 }} onBlur={(e) => { const n = parseInt(e.target.value, 10); if (n > 0) onGoal(n); setEdit(false) }} onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} /> : <a onClick={() => setEdit(true)} title="Click to change your goal">{goal}</a>}</span></div>
       <div className="gtrack"><div className={`gfill ${pct >= 1 ? 'done' : ''}`} style={{ width: `${pct * 100}%` }} /></div>
+    </div>
+  )
+}
+
+const HEALTH_ROWS: { q: string; label: string; hint: string }[] = [
+  { q: 'nobpm', label: 'missing a BPM', hint: 'bounces with no tempo' },
+  { q: 'nokey', label: 'missing a key', hint: 'bounces with no key' },
+  { q: 'untagged', label: 'with no vibe or genre', hint: 'harder to search and pitch' },
+  { q: 'stale', label: 'stale WIPs', hint: 'untouched for 30+ days' },
+  { q: 'noloop', label: 'FL projects with no preview', hint: 'play it once with the plugin on the Master' }
+]
+
+function CatalogHealth({ beats, onQuery }: { beats: Beat[]; onQuery: (q: string) => void }) {
+  const rows = HEALTH_ROWS.map((r) => ({ ...r, n: beats.filter(HEALTH[r.q]).length }))
+  const issues = rows.reduce((a, r) => a + r.n, 0)
+  const audioN = beats.filter((b) => b.ext !== 'flp').length
+  const score = audioN ? Math.round(100 * (1 - Math.min(1, rows.slice(0, 3).reduce((a, r) => a + r.n, 0) / (audioN * 3)))) : 100
+  return (
+    <div className="panel health">
+      <h3>Catalog health <span className="hscore">{score}%</span></h3>
+      <div className="gtrack"><div className={`gfill ${score >= 90 ? 'done' : ''}`} style={{ width: `${score}%` }} /></div>
+      {issues === 0 ? <p className="dim">Everything is tagged and up to date.</p> : rows.filter((r) => r.n > 0).map((r) => (
+        <div key={r.q} className="drow"><a onClick={() => onQuery(r.q)}>{r.n} {r.label}</a><span className="dim">{r.hint}</span></div>
+      ))}
     </div>
   )
 }
@@ -78,6 +104,7 @@ export function Dashboard(p: Props) {
       </div>
 
       <div className="dgrid">
+        <CatalogHealth beats={p.beats} onQuery={p.onQuery} />
         <div className="panel timer">
           <h3>Studio session</h3>
           <div className={`clock ${open ? 'run' : ''}`}>{fmtClock(open ? now - open.startedAt : 0)}</div>

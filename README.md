@@ -201,3 +201,11 @@ Your audio is not part of the backup. It stays in your own folders, so back thos
 - Version groups are automatic. A manual "move to group" control isn't built yet.
 - Netlify publishing was tested against a mock of the Netlify API, not yet against a live account. If it fails, the error is shown in the pitch dialog and the page is still built locally.
 - The app is run from source for now (`npm run dev`). Packaging as a `.app` comes at the end.
+
+## What is new in 2.0
+
+- **Smart collections.** Save any search to the sidebar (kept in the app, per machine). New search words: `nobpm`, `nokey`, `untagged`, `needsinfo`, `stale` (WIP untouched 30+ days), `noloop`, and Camelot codes such as `8A`.
+- **Camelot keys and "Plays well with".** The detail panel shows the Camelot code and lists up to 8 beats in the same or a neighbouring key (and relative major/minor) with a tempo within 6%, or half/double.
+- **Catalog health** on the dashboard, with a score and one-click jumps to the beats that need attention.
+- **CSV export** of beats and sales (Settings, Your data).
+- Everything from the FL work: Save to Studio HQ, preview loops, MP3-only bounces, the new look.

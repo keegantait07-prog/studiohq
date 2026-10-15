@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { STATUSES, TAG_KINDS, type BeatDetail, type Pitch, type Post, type ProjectSection, type Sale, type SplitGroup, type Status, type TagKind } from '@shared/types'
-import { displayKey } from '@shared/key'
+import { STATUSES, TAG_KINDS, type Beat, type BeatDetail, type Pitch, type Post, type ProjectSection, type Sale, type SplitGroup, type Status, type TagKind } from '@shared/types'
+import { displayKey, camelot } from '@shared/key'
 import { fmtBpm, fmtDur } from './format'
 import { errMsg, fmtDay, money } from './salesUtils'
 
@@ -55,11 +55,12 @@ interface Props {
   posts: Post[]
   onContent: () => void
   onFeedback: () => void
+  compatible: Beat[]
   projectSection: ProjectSection | null
   onProjectSounds: (id: number) => void
 }
 
-export function Detail({ beat, allTags, onSelect, onPlay, refresh, pitchedTo, onPitch, onOpenContact, sales, splitGroup, onLogSale, onEditSplits, onSheet, onError, posts, onContent, onFeedback, projectSection, onProjectSounds }: Props) {
+export function Detail({ beat, allTags, onSelect, onPlay, refresh, pitchedTo, onPitch, onOpenContact, sales, splitGroup, onLogSale, onEditSplits, onSheet, onError, posts, onContent, onFeedback, compatible, projectSection, onProjectSounds }: Props) {
   const [title, setTitle] = useState(beat.title)
   const [bpm, setBpm] = useState(fmtBpm(beat.bpm).replace('–', ''))
   const [key, setKey] = useState(displayKey(beat.key))
@@ -101,7 +102,7 @@ export function Detail({ beat, allTags, onSelect, onPlay, refresh, pitchedTo, on
           </div>
         </div>
         <div className="field">
-          <label>Key {beat.keySource && <span className="src">{beat.keySource}</span>}</label>
+          <label>Key {camelot(beat.key) && <span className="cam" title="Camelot wheel code">{camelot(beat.key)}</span>} {beat.keySource && <span className="src">{beat.keySource}</span>}</label>
           <input value={key} placeholder="e.g. Cm, F#" onChange={(e) => setKey(e.target.value)} onBlur={() => key !== displayKey(beat.key) && save({ key })} />
         </div>
       </div>
@@ -135,6 +136,22 @@ export function Detail({ beat, allTags, onSelect, onPlay, refresh, pitchedTo, on
         <label>Notes</label>
         <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} onBlur={() => notes !== beat.notes && save({ notes })} />
       </div>
+
+      {compatible.length > 0 && (
+        <div className="field">
+          <label>Plays well with ({compatible.length})</label>
+          <div className="versions">
+            {compatible.map((c) => (
+              <div key={c.id} className="ver compat" onClick={() => onSelect(c.id)} onDoubleClick={() => onPlay(c.id)}>
+                <span className="vl">{camelot(c.key)}</span>
+                <span className="vf">{c.title}</span>
+                <span className="vd">{fmtBpm(c.bpm)}</span>
+              </div>
+            ))}
+          </div>
+          <div className="meta-line">Same or neighbouring key on the Camelot wheel, and a tempo within 6% (or half/double).</div>
+        </div>
+      )}
 
       <div className="field">
         <label>Versions ({beat.versions.length})</label>

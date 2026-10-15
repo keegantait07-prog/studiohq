@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { STATUSES, type Beat, type BeatDetail, type ContentData, type CrmData, type FeedbackData, type SoundList, type SoundStatus, type StudioSession, type SalesData, type Sale, type ScanStatus, type Settings as AppSettings, type Status, type TagKind, type NetlifyStatus } from '@shared/types'
 import { displayKey } from '@shared/key'
 import { parseQuery } from './query'
+import { keysCompatible, bpmCompatible } from '@shared/key'
 import { usePlayer } from './player'
 import { Thumb, Waveform } from './Waveform'
 import { Detail } from './Detail'
@@ -37,6 +38,14 @@ export function App() {
   const [beats, setBeats] = useState<Beat[]>([])
   const [loaded, setLoaded] = useState(false)
   const [query, setQuery] = useState('')
+  const [collections, setCollections] = useState<{ name: string; q: string }[]>(() => {
+    try { const v = JSON.parse(localStorage.getItem('shq.collections') ?? ''); if (Array.isArray(v)) return v } catch { /* first run */ }
+    return [{ name: 'Ready to pitch', q: 'finished, unsent' }, { name: 'Needs info', q: 'needsinfo' }, { name: 'Stale WIPs', q: 'stale' }]
+  })
+  const [naming, setNaming] = useState<string | null>(null)
+  const [whatsNew, setWhatsNew] = useState(() => { try { return localStorage.getItem('shq.seen') !== '2.0' } catch { return false } })
+  useEffect(() => { try { localStorage.setItem('shq.collections', JSON.stringify(collections)) } catch { /* private mode */ } }, [collections])
+  const openCollection = (q: string) => { setView('vault'); setStatusTab('all'); setQuery(q) }
   const [statusTab, setStatusTab] = useState<Status | 'all'>('all')
   const [collapse, setCollapse] = useState(true)
   const [selectedId, setSelectedId] = useState<number | null>(null)
@@ -191,6 +200,17 @@ export function App() {
     return () => { clearTimeout(t); window.removeEventListener('focus', onFocus) }
   }, [reindexNow])
   const audioBeats = useMemo(() => beats.filter((b) => b.ext !== 'flp'), [beats])
+  const compatible = useMemo(() => {
+    const d = detail
+    if (!d || !d.key || !d.bpm) return []
+    const seen = new Set<number>([d.groupId])
+    return audioBeats
+      .filter((b) => keysCompatible(d.key, b.key) && bpmCompatible(d.bpm, b.bpm))
+      .sort((a, b) => Math.abs(a.bpm! - d.bpm!) - Math.abs(b.bpm! - d.bpm!))
+      .filter((b) => (seen.has(b.groupId) ? false : (seen.add(b.groupId), true)))
+      .slice(0, 8)
+  }, [audioBeats, detail])
+
   const playBeat = (id: number) => { setSelectedId(id); safePlay(id) }
 
   // ---- keyboard ----
@@ -259,6 +279,13 @@ export function App() {
         <div className="brand">Studio HQ</div>
         <a className={`nav ${view === 'dashboard' ? 'on' : ''}`} onClick={() => setView('dashboard')}>Dashboard</a>
         <a className={`nav ${view === 'vault' ? 'on' : ''}`} onClick={() => setView('vault')}>Beat Vault <span>{beats.length}</span></a>
+        <div className="colls">
+          {collections.map((c) => (
+            <a key={c.name} className={`coll ${view === 'vault' && query === c.q ? 'on' : ''}`} onClick={() => openCollection(c.q)} title={c.q}>
+              <span>{c.name}</span><button className="x" aria-label="remove" onClick={(e) => { e.stopPropagation(); setCollections(collections.filter((x) => x !== c)) }}>×</button>
+            </a>
+          ))}
+        </div>
         <a className={`nav ${view === 'crm' ? 'on' : ''}`} onClick={() => setView('crm')}>Pitch CRM {dueCount > 0 ? <span className="badge">{dueCount}</span> : <span>{crm?.contacts.length ?? 0}</span>}</a>
         <a className={`nav ${view === 'sales' ? 'on' : ''}`} onClick={() => setView('sales')}>Sales & Collabs <span>{salesData.sales.length}</span></a>
         <a className={`nav ${view === 'content' ? 'on' : ''}`} onClick={() => setView('content')}>Content {overduePosts > 0 ? <span className="badge">{overduePosts}</span> : <span>{content.posts.filter((p) => p.status === 'posted').length}</span>}</a>
@@ -272,7 +299,7 @@ export function App() {
       {view === 'dashboard' ? (
         <Dashboard
           beats={beats} crm={crm} content={content} sales={salesData} feedback={feedback} sessions={sessions} settings={appSettings} now={clock}
-          onGo={setView} onOpenBeat={(id) => { setView('vault'); setStatusTab('all'); setQuery(''); setSelectedId(id) }}
+          onGo={setView} onQuery={openCollection} onOpenBeat={(id) => { setView('vault'); setStatusTab('all'); setQuery(''); setSelectedId(id) }}
           onOpenContact={(id) => { setCrmSel(id); setView('crm') }} onPitchBeat={(id) => setPitchDlg({ beatIds: [id] })}
           onMakeVideo={(id) => { setContentBeat(id); setView('content') }} onSetStatus={setStatus} reloadSessions={reloadSessions}
         />
@@ -313,6 +340,11 @@ export function App() {
             ))}
           </div>
           <div className="chips-inline">{parsed.chips.map((c, i) => <span key={i} className="qchip">{c}</span>)}</div>
+          {query.trim() && !collections.some((c) => c.q === query) && (naming == null
+            ? <button className="ghost" onClick={() => setNaming(query.length > 24 ? '' : query)} title="Keep this search in the sidebar">Save search</button>
+            : <span className="savesearch"><input autoFocus value={naming} placeholder="Name it" onChange={(e) => setNaming(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && naming.trim()) { setCollections([...collections, { name: naming.trim(), q: query }]); setNaming(null) } if (e.key === 'Escape') setNaming(null) }} />
+              <button className="primary" disabled={!naming.trim()} onClick={() => { setCollections([...collections, { name: naming.trim(), q: query }]); setNaming(null) }}>Save</button></span>)}
           <button className="ghost" disabled={reindexing} onClick={() => reindexNow(true)} title="Look for new FL Studio projects now">{reindexing ? 'Scanning…' : 'Rescan FL projects'}</button>
           <label className="check small"><input type="checkbox" checked={collapse} onChange={(e) => setCollapse(e.target.checked)} /> Group versions</label>
         </div>
@@ -359,7 +391,7 @@ export function App() {
           onLogSale={() => setSaleDlg({ beatId: detail.id })} onEditSplits={() => setSplitsDlg({ groupId: detail.groupId, title: detail.title })}
           onSheet={async () => { try { const f = await window.api.exportSplitSheet(detail.groupId); if (f) toast(`Split sheet saved: ${f.split('/').pop()}`); reloadSales() } catch (e) { toast(errMsg(e)) } }}
           projectSection={sounds?.projects.find((x) => x.path === detail.projectPath) ?? null} onProjectSounds={(id) => { setSoundProject(id); setView('sounds') }}
-          onFeedback={() => setFbDlg({ beatIds: [detail.id] })} posts={content.posts.filter((x) => x.beatId === detail.id)} onContent={() => { setContentBeat(detail.id); setView('content') }}
+          compatible={compatible} onFeedback={() => setFbDlg({ beatIds: [detail.id] })} posts={content.posts.filter((x) => x.beatId === detail.id)} onContent={() => { setContentBeat(detail.id); setView('content') }}
           onError={toast} />
       ) : (
         <aside className="detail empty-detail"><p>Select a beat</p><p className="dim">↑ ↓ to move · Space to play · 1–5 sets status</p></aside>
@@ -379,6 +411,24 @@ export function App() {
       </footer>
 
       {palette && <Palette beats={beats} contacts={crm?.contacts ?? []} sales={salesData.sales} sounds={sounds?.items ?? []} onPickSound={(x) => { setSoundQuery(x.n); setView('sounds') }} onPickSale={(sale) => { setSalesQuery(sale.beatTitle); setView('sales') }} commands={commands} onPickBeat={(b) => { setView('vault'); playBeat(b.id) }} onPickContact={(c) => { setCrmSel(c.id); setView('crm') }} onClose={() => setPalette(false)} />}
+      {whatsNew && (
+        <div className="overlay" onClick={() => { try { localStorage.setItem('shq.seen', '2.0') } catch { /* ok */ } setWhatsNew(false) }}>
+          <div className="modal whatsnew" onClick={(e) => e.stopPropagation()}>
+            <header><h2>Studio HQ 2.0</h2></header>
+            <ul>
+              <li><b>Save to Studio HQ from FL.</b> One click in the plugin adds the project as a beat. No recording.</li>
+              <li><b>Preview loops.</b> Beats you never exported keep a 4-bar loop, saved when you close the project.</li>
+              <li><b>MP3-only bounces.</b> Recordings are converted to MP3 and the WAV is removed.</li>
+              <li><b>Smart collections.</b> Save any search to the sidebar: “Ready to pitch”, “Needs info”, “Stale WIPs” are there already.</li>
+              <li><b>Plays well with.</b> Camelot key codes, and beats that mix with the one you have open.</li>
+              <li><b>Catalog health.</b> The dashboard shows what is missing a BPM, key or tags, and jumps you to it.</li>
+              <li><b>CSV export.</b> Settings → Export beats and sales.</li>
+              <li><b>New look</b> for the app and the plugin.</li>
+            </ul>
+            <button className="primary" onClick={() => { try { localStorage.setItem('shq.seen', '2.0') } catch { /* ok */ } setWhatsNew(false) }}>Let’s go</button>
+          </div>
+        </div>
+      )}
       {settings && <Settings onClose={() => { setSettings(false); reload(); reloadCrm() }} />}
       {fbDlg && (
         <FeedbackDialog beats={audioBeats} initial={fbDlg.beatIds} hasToken={!!netlify?.hasToken} onClose={() => { setFbDlg(null); reloadFeedback() }} onBuilt={() => { reloadFeedback(); setView('feedback') }} />

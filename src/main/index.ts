@@ -16,6 +16,7 @@ import { Feedback } from './feedback'
 import { Sessions } from './sessions'
 import { wavToMp3, loopToMp3 } from './bounce'
 import { startInbox } from './inbox'
+import { writeExports } from './exporter'
 import { VideoExporter, coverData, pickCover, previewStill } from './video'
 import type { Post, VideoOptions } from '../shared/types'
 import { splitSheetHtml, writePdf } from './splitsheet'
@@ -301,6 +302,13 @@ function registerIpc(): void {
   h('netlify:setToken', (_, t: string | null) => packs.setToken(t))
   h('app:openExternal', (_, url: string) => { if (/^(https?|mailto):/i.test(url)) return shell.openExternal(url) })
   h('app:backup', backupNow)
+  h('app:export', async () => {
+    const r = await dialog.showOpenDialog(win!, { title: 'Export to folder', properties: ['openDirectory', 'createDirectory'], buttonLabel: 'Export here' })
+    if (r.canceled || !r.filePaths[0]) return null
+    const files = writeExports(r.filePaths[0], store.listBeats(), sales.all().sales)
+    shell.showItemInFolder(files[0])
+    return r.filePaths[0]
+  })
   h('app:dataPath', () => app.getPath('userData'))
 }
 

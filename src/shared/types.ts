@@ -239,6 +239,7 @@ export interface Api {
   removeFolder(kind: 'watchFolders' | 'projectFolders' | 'soundFolders', path: string): Promise<void>
   setSetting(patch: Partial<Pick<Settings, 'includeIdeas' | 'ownHandles' | 'producerName' | 'followupDays' | 'notify' | 'storeUrl' | 'contactEmail' | 'hashtags' | 'goalBeats' | 'goalPitches' | 'goalPosts' | 'autoTrackFL' | 'includeMidiPacks' | 'projectBeatDays'>>): Promise<void>
   backup(): Promise<string>
+  exportCsv(): Promise<string | null>
   dataPath(): Promise<string>
   soundsList(): Promise<SoundList>
   soundsScan(): Promise<void>

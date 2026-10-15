@@ -1,6 +1,6 @@
 import type { Beat, Status } from '@shared/types'
 import { STATUSES } from '@shared/types'
-import { normalizeKey } from '@shared/key'
+import { normalizeKey, camelot } from '@shared/key'
 
 export interface Parsed {
   chips: string[]
@@ -10,6 +10,18 @@ export interface Parsed {
 const STATUS_WORDS: Record<string, (s: Status) => boolean> = {
   idea: (s) => s === 'idea', wip: (s) => s === 'wip', finished: (s) => s === 'finished', sent: (s) => s === 'sent', sold: (s) => s === 'sold',
   unsold: (s) => s !== 'sold', unsent: (s) => s !== 'sent' && s !== 'sold', unfinished: (s) => s === 'idea' || s === 'wip'
+}
+
+const DAY = 86400000
+const audio = (b: Beat) => b.ext !== 'flp'
+/** Words that find beats that need attention. */
+export const HEALTH: Record<string, (b: Beat) => boolean> = {
+  nobpm: (b) => audio(b) && b.bpm == null,
+  nokey: (b) => audio(b) && b.key == null,
+  untagged: (b) => b.tags.vibe.length + b.tags.genre.length === 0,
+  needsinfo: (b) => audio(b) && (b.bpm == null || b.key == null || b.tags.vibe.length + b.tags.genre.length === 0),
+  stale: (b) => b.status === 'wip' && Date.now() - b.mtime > 30 * DAY,
+  noloop: (b) => b.ext === 'flp' && !b.hasPreview
 }
 
 /** "dark, 140+ BPM, unsold, finished" -> predicate. Every clause must match. */
@@ -30,6 +42,10 @@ export function parseQuery(q: string): Parsed {
       const lo = +m[1], hi = +m[2]; tests.push((b) => b.bpm != null && b.bpm >= lo && b.bpm <= hi); chips.push(`BPM ${lo}–${hi}`)
     } else if ((m = c.match(/^(\d{2,3})\s*bpm$/))) {
       const n = +m[1]; tests.push((b) => b.bpm != null && Math.abs(b.bpm - n) <= 1.5); chips.push(`BPM ${n}`)
+    } else if ((m = c.match(/^(1[0-2]|[1-9])\s*([ab])$/))) {
+      const code = `${m[1]}${m[2].toUpperCase()}`; tests.push((b) => camelot(b.key) === code); chips.push(`camelot ${code}`)
+    } else if (HEALTH[c]) {
+      tests.push(HEALTH[c]); chips.push(c)
     } else if (STATUS_WORDS[c]) {
       const f = STATUS_WORDS[c]; tests.push((b) => f(b.status)); chips.push(c)
     } else if ((m = c.match(/^(?:key:?\s*)?([a-g][#b]?\s?(?:m|min|minor|maj|major)?)$/)) && (c.startsWith('key') || /[#]|m|maj|min/.test(c.slice(1)))) {

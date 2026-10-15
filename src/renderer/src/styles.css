@@ -283,3 +283,16 @@ kbd { border-radius: 6px; background: #0a0a0e; }
 .ver-badge.proj { background: rgba(167,139,250,.14); color: #c4b5fd; }
 ::-webkit-scrollbar-thumb { background: #2a2a36; }
 .projthumb { white-space: nowrap; font-size: 9.5px; letter-spacing: .08em; padding: 3px 0; }
+
+/* v2 */
+.colls { display: flex; flex-direction: column; gap: 1px; margin: 0 0 6px 10px; padding-left: 8px; border-left: 1px solid #1f1f29; }
+.coll { display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; border-radius: 8px; color: var(--dim); font-size: 12px; cursor: pointer; }
+.coll:hover { color: var(--text); background: rgba(255,255,255,.03); } .coll.on { color: var(--accent); background: var(--accent-soft); }
+.coll .x { opacity: 0; font-size: 14px; line-height: 1; } .coll:hover .x { opacity: .7; }
+.savesearch { display: flex; gap: 6px; align-items: center; } .savesearch input { width: 140px; padding: 3px 9px; }
+.cam { text-transform: none; letter-spacing: 0; font: 600 10px ui-monospace, Menlo, monospace; color: #0c1004; background: var(--accent); border-radius: 6px; padding: 1px 6px; margin-left: 4px; }
+.ver.compat { grid-template-columns: 38px 1fr 54px; cursor: pointer; } .ver.compat .vl { font: 600 11px ui-monospace, Menlo, monospace; }
+.hscore { font: 600 12px ui-monospace, Menlo, monospace; color: var(--accent); background: var(--accent-soft); border-radius: 999px; padding: 1px 9px; margin-left: 6px; }
+.health .gtrack { margin-bottom: 8px; }
+.whatsnew { width: 520px; } .whatsnew ul { padding-left: 18px; line-height: 1.55; } .whatsnew li { margin-bottom: 6px; color: #c9c9d4; } .whatsnew b { color: var(--text); }
+.health .gfill { background: var(--accent); }

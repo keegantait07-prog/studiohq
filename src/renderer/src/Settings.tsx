@@ -80,7 +80,8 @@ export function Settings({ onClose }: { onClose: () => void }) {
         <section>
           <h3>Your data</h3>
           <p className="help">Everything lives in one local database:<br /><code>{dataPath}/studio-hq.db</code></p>
-          <button onClick={async () => setMsg('Saved to ' + (await window.api.backup()))}>Back up now</button>
+          <button onClick={async () => setMsg('Saved to ' + (await window.api.backup()))}>Back up now</button>{' '}
+          <button onClick={async () => { const d = await window.api.exportCsv(); if (d) setMsg('Exported beats and sales (CSV) to ' + d) }}>Export beats and sales (CSV)</button>
           {msg && <p className="help">{msg}</p>}
         </section>
       </div>

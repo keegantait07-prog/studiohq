@@ -84,6 +84,14 @@ function backupNow(): Promise<string> {
   return store.db.backup(dest).then(() => dest)
 }
 
+/** Lets the FL Studio plugin default to the folder this app watches for beats. */
+function writeBridgeConfig(): void {
+  try {
+    const vault = store.getSettings().watchFolders[0]
+    writeFileSync(join(app.getPath('userData'), 'bridge.json'), JSON.stringify({ vaultFolder: vault ?? '', updatedAt: Date.now() }, null, 2))
+  } catch { /* the plugin falls back to ~/Desktop/! BEATS */ }
+}
+
 function sendCrm(): void { win?.webContents.send('crm:changed') }
 /** Library scan, then read each FL project's samples and MIDI, then pick up the MIDI files it wrote. */
 async function scanLibrary(): Promise<void> {
@@ -153,12 +161,14 @@ function registerIpc(): void {
     const s = store.getSettings()
     if (!s[kind].includes(r.filePaths[0])) s[kind].push(r.filePaths[0])
     store.saveSettings(s)
+    writeBridgeConfig()
     await watcher.restart()
   })
   h('settings:removeFolder', async (_, kind: 'watchFolders' | 'projectFolders' | 'soundFolders', path: string) => {
     const s = store.getSettings()
     s[kind] = s[kind].filter((f) => f !== path)
     store.saveSettings(s)
+    writeBridgeConfig()
     await watcher.restart()
   })
   h('settings:set', async (_, patch: Partial<Settings>) => {
@@ -300,6 +310,7 @@ app.whenReady().then(async () => {
     { role: 'editMenu' }, { role: 'viewMenu' }, { role: 'windowMenu' }
   ]))
   createWindow()
+  writeBridgeConfig()
   watcher.restart()
   setTimeout(() => { scanLibrary().catch((e) => console.error('library scan failed', e)) }, 3000)
   setTimeout(() => { if (feedback.hasPublished()) syncFeedback(true) }, 9000)

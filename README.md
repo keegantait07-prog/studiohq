@@ -32,6 +32,10 @@ Then open **Studio HQ** from Launchpad, Spotlight, or `~/Applications` (drag it 
 - The install script copies to `~/Applications` instead of signing in place because this project may sit in iCloud-synced Desktop/Documents, where macOS keeps adding file attributes that break code signing.
 - macOS will ask once for access to Desktop, Documents and any external drives; say yes so it can read your beats, projects and sound folders.
 
+## FL Studio plugin
+
+`plugin/` holds **Studio HQ Bridge**, a VST3/AU plugin for FL Studio: put it on the Master track to **bounce your beat straight into the Vault** (named with FL's tempo, so the BPM comes through) and to **browse and audition your sounds and each project's MIDI** from inside FL. Build and install with `cd plugin && ./build.sh`; details in [`plugin/README.md`](plugin/README.md).
+
 ## What M1 does
 
 - **Folder watching.** Every audio file (mp3, wav, flac, m4a, aif, ogg) in your beat folders is imported, and new bounces appear once they finish writing. Renamed or moved files are re-matched by size and date, so your tags and status survive. `Backup/` folders and folders named "ideas"/"scraps" are skipped (toggle in Settings).

@@ -31,6 +31,17 @@ Searches your Studio HQ library (read directly from its database, so the app doe
 - MIDI files show their note count. They have no audio preview.
 - **Drag** a row out of the plugin into FL, or use **Show in Finder** and drag from there.
 
+## Tested in FL Studio 2026
+
+Checked by loading it in FL Studio 2026 itself (Apple Silicon):
+
+- FL's plugin scan finds it (VST3 and AU, status "ok") and it can be added to the Master track.
+- It shows FL's tempo (130 BPM matched FL's display), and *FL is playing / stopped* follows the transport.
+- Arming then pressing play started the recording by itself, and stopping saved `FL Test (130bpm).wav` (24-bit, 48 kHz stereo). Recording sample previews from FL's browser captured real audio (peak −8 dBFS). A second take with the same name became `FL Test (130bpm) (2).wav`.
+- The Sounds & MIDI tab loaded the full library (19,520 sounds) and a preview played with FL stopped. The folder picker works, and the plugin's settings (name, folder, last file) are remembered when its window is reopened.
+
+**Not tested in FL:** dragging a row from the plugin into FL's playlist or channel rack, and recording during FL's *Export* (offline render).
+
 ## Known limits
 
 - The plugin is read-only toward your library. Favorites and tags are changed in the Studio HQ app, then press **Reload**.

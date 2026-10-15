@@ -2,7 +2,9 @@
 #include "../Source/PluginProcessor.h"
 #include "../Source/PluginEditor.h"
 #include "../Source/LibraryDb.h"
+#include "../Source/SavePanel.h"
 #include <cmath>
+#include <cstdlib>
 
 using namespace juce;
 
@@ -205,6 +207,61 @@ int main()
     }
     else std::cout << "      (skipping browser tests: no Studio HQ library on this machine)" << std::endl;
 
+    // 10. "Save to Studio HQ": finds the open FL project from FL's autosave names and drops a file in the inbox
+    {
+        const auto sup = File::getSpecialLocation (File::tempDirectory).getChildFile ("shq-support-" + String (Time::currentTimeMillis()));
+        const auto projects = sup.getChildFile ("Projects");
+        projects.getChildFile ("Moon").createDirectory();
+        projects.getChildFile ("Other").createDirectory();
+        projects.getChildFile ("Backup").createDirectory();
+        projects.getChildFile ("Templates/Tpl").createDirectory();
+        auto touch = [] (const File& f, int minutesAgo) { f.replaceWithText ("x"); f.setLastModificationTime (Time::getCurrentTime() - RelativeTime::minutes (minutesAgo)); };
+        touch (projects.getChildFile ("Moon/Moon.flp"), 300);
+        touch (projects.getChildFile ("Other/Other.flp"), 200);
+        touch (projects.getChildFile ("Templates/Tpl/Tpl.flp"), 1);
+        touch (projects.getChildFile ("Backup/Moon (autosaved on 15-10-26 at 14h41).flp"), 2);       // FL is working on Moon right now
+        touch (projects.getChildFile ("Backup/Other (overwritten on 15-10-26 at 10h00).flp"), 400);
+        sup.getChildFile ("bridge.json").replaceWithText ("{ \"projectFolders\": [\"" + projects.getFullPathName() + "\"] }");
+        setenv ("SHQ_SUPPORT_DIR", sup.getFullPathName().toRawUTF8(), 1);
+
+        std::cout << "      support dir in use: " << BridgeProcessor::supportDir().getFullPathName() << "  (env=" << SystemStats::getEnvironmentVariable ("SHQ_SUPPORT_DIR", "<unset>") << ")" << std::endl;
+        auto g = BridgeProcessor::guessCurrentProject();
+        CHECK (g.name == "Moon", "finds the open project from FL's newest autosave (got '" + g.name + "')");
+        CHECK (g.flp == projects.getChildFile ("Moon/Moon.flp"), "resolves it to the saved project file");
+        CHECK (g.ageSeconds >= 100 && g.ageSeconds < 400, "knows how recently FL touched it");
+        CHECK (! g.unsaved, "a saved project isn't reported as unsaved");
+
+        touch (projects.getChildFile ("Backup/untitled (autosaved on 15-10-26 at 14h50).flp"), 1);
+        auto u = BridgeProcessor::guessCurrentProject();
+        CHECK (u.unsaved && u.name == "untitled", "a brand-new unsaved project is detected and flagged (" + u.note.substring (0, 40) + "...)");
+        String m;
+        CHECK (! proc.saveToStudioHq ("x", u, m), "saving an unsaved project is refused with an explanation");
+        CHECK (! sup.getChildFile ("inbox").findChildFiles (File::findFiles, false, "*.json").size(), "nothing is dropped in the inbox for an unsaved project");
+
+        host.bpm = 133.0;
+        proc.setRateAndBufferSizeDetails (sr, block); proc.prepareToPlay (sr, block);
+        AudioBuffer<float> sb (2, block); sb.clear(); host.playing = false; proc.processBlock (sb, midi); // lets the plugin read the host tempo
+        CHECK (proc.saveToStudioHq ("My Moon Beat", g, m), "saves the project (" + m + ")");
+        auto items = sup.getChildFile ("inbox").findChildFiles (File::findFiles, false, "*.json");
+        CHECK (items.size() == 1, "one file appears in the inbox");
+        if (items.size() == 1)
+        {
+            auto j = JSON::parse (items[0]);
+            CHECK (j.getProperty ("name", {}).toString() == "My Moon Beat", "the inbox file carries the chosen name");
+            CHECK (std::abs ((double) j.getProperty ("bpm", 0) - 133.0) < 0.01, "...and FL's tempo (133)");
+            CHECK (File (j.getProperty ("flp", {}).toString()) == g.flp, "...and the project file path");
+        }
+        CHECK (sup.getChildFile ("inbox").findChildFiles (File::findFiles, false, "*.tmp").isEmpty(), "no half-written temp files are left");
+
+        // the panel uses the same logic
+        SavePanel sp (proc);
+        sp.setBounds (0, 0, 660, 400);
+        CHECK (sp.currentGuess().name == "untitled", "the panel shows what FL is working on");
+
+        unsetenv ("SHQ_SUPPORT_DIR");
+        sup.deleteRecursively();
+    }
+
     // 8. optional: render the editor in a few states to PNGs (SHQ_SNAPSHOT=/folder)
     if (auto snap = SystemStats::getEnvironmentVariable ("SHQ_SNAPSHOT", {}); snap.isNotEmpty())
     {
@@ -222,10 +279,12 @@ int main()
             png.writeImageToStream (img, out);
         };
         sp.hostBpm = 139.0; sp.hostPlaying = false; sp.peakL = 0.f; sp.peakR = 0.f;
-        shot ("editor-idle");
+        shot ("editor-save");
         if (auto* be = dynamic_cast<BridgeEditor*> (ed.get()))
         {
             be->selectTab (1);
+            shot ("editor-idle");
+            be->selectTab (2);
             for (int i = 0; i < 100 && ! be->soundsPanel().loaded(); ++i) MessageManager::getInstance()->runDispatchLoopUntil (100);
             be->soundsPanel().setSearch ("808");
             be->soundsPanel().selectRowForTest (2);

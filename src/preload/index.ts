@@ -29,6 +29,7 @@ const api: Api = {
   soundsFav: (i, f) => ipcRenderer.invoke('sounds:fav', i, f),
   soundsDuplicates: () => ipcRenderer.invoke('sounds:dupes'),
   soundsTrash: (i) => ipcRenderer.invoke('sounds:trash', i),
+  reindexProjects: () => ipcRenderer.invoke('projects:reindex'),
   projectOpen: (i) => ipcRenderer.invoke('projects:open', i),
   projectReveal: (i) => ipcRenderer.invoke('projects:reveal', i),
   soundsReveal: (i) => ipcRenderer.invoke('sounds:reveal', i),

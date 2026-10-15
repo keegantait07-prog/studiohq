@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3'
 import { dirname, basename, extname, relative, sep } from 'path'
+import { existsSync, statSync } from 'fs'
 import { homedir, cpus } from 'os'
 import { Worker } from 'worker_threads'
 import createWorker from './analyze.worker?nodeWorker'
@@ -26,7 +27,8 @@ const DEFAULTS: Settings = {
   goalPitches: 5,
   goalPosts: 3,
   autoTrackFL: false,
-  includeMidiPacks: false
+  includeMidiPacks: false,
+  projectBeatDays: 30
 }
 
 type Row = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -87,7 +89,7 @@ export class Store {
   }
   listBeats(): Beat[] {
     const tags = this.tagMap()
-    const rows = this.db.prepare(`SELECT id,path,filename,title,folder,ext,size,mtime,duration,bpm,bpm_source,bpm_confidence,key,key_source,status,notes,credits,group_id,version_label,project_path,project_confidence,missing,analyzed_at,thumb,cover_path,created_at FROM beats WHERE missing=0 ORDER BY mtime DESC`).all() as Row[]
+    const rows = this.db.prepare(`SELECT id,path,filename,title,folder,ext,size,mtime,duration,bpm,bpm_source,bpm_confidence,key,key_source,status,notes,credits,group_id,version_label,project_path,project_confidence,missing,analyzed_at,thumb,cover_path,created_at FROM beats b WHERE missing=0 AND NOT (ext='flp' AND EXISTS (SELECT 1 FROM beats a WHERE a.project_path=b.path AND a.ext!='flp' AND a.missing=0)) ORDER BY mtime DESC`).all() as Row[]
     return rows.map((r) => this.toBeat(r, tags.get(r.id)))
   }
   getBeat(id: number): BeatDetail | null {
@@ -210,6 +212,66 @@ export class Store {
     this.enqueue(id)
   }
 
+  /** FL projects as beats: every project in your project folders appears in the Vault, even before it has a bounce. */
+  syncProjectBeats(files: { path: string; mtime: number; size: number }[], days: number): number {
+    const now = Date.now()
+    const present = new Set(files.map((f) => f.path))
+    let added = 0
+    const ownHandles = this.getSettings().ownHandles
+    this.db.transaction(() => {
+      for (const f of files) {
+        const ex = this.db.prepare('SELECT id FROM beats WHERE path=?').get(f.path) as Row | undefined
+        if (ex) { this.db.prepare('UPDATE beats SET mtime=?, size=?, missing=0 WHERE id=?').run(f.mtime, f.size, ex.id); continue }
+        if (days > 0 && now - f.mtime > days * 86400000) continue
+        this.insertProjectBeat(f.path, f.size, f.mtime, ownHandles)
+        added++
+      }
+      for (const r of this.db.prepare(`SELECT id,path FROM beats WHERE ext='flp' AND missing=0`).all() as Row[]) {
+        if (!present.has(r.path) && !existsSync(r.path)) this.db.prepare('UPDATE beats SET missing=1 WHERE id=?').run(r.id)
+      }
+    })()
+    if (added) this.touchAll()
+    return added
+  }
+
+  private insertProjectBeat(path: string, size: number, mtime: number, ownHandles: string[]): number {
+    const hints = parseName(path, '', ownHandles)
+    const gid = this.groupFor(hints.groupKey || path, hints.title)
+    const id = Number(
+      this.db.prepare(
+        `INSERT INTO beats(path,filename,title,folder,ext,size,mtime,bpm,bpm_source,bpm_confidence,key,key_source,status,credits,group_id,version_label,project_path,project_confidence,analyzed_at,created_at)
+         VALUES(?,?,?,?,'flp',?,?,?,?,?,?,?,'wip',?,?,?,?,1,?,?)`
+      ).run(
+        path, basename(path), hints.title, dirname(path), size, mtime,
+        hints.bpm, hints.bpm ? 'filename' : null, hints.bpm ? 'high' : null, hints.key, hints.key ? 'filename' : null,
+        hints.credits.join(' '), gid, hints.versionLabel, path, Date.now(), Date.now()
+      ).lastInsertRowid
+    )
+    const ins = this.db.prepare('INSERT OR IGNORE INTO tags(beat_id,kind,value) VALUES(?,?,?)')
+    hints.vibe.forEach((v) => ins.run(id, 'vibe', v))
+    hints.genre.forEach((v) => ins.run(id, 'genre', v))
+    return id
+  }
+
+  /** "Save to Studio HQ" from the FL plugin: the project becomes (or updates) a beat, no audio needed. */
+  saveFromPlugin(d: { name: string; bpm: number | null; flp: string }): void {
+    if (!d.flp || !existsSync(d.flp)) return
+    let st
+    try { st = statSync(d.flp) } catch { return }
+    this.db.transaction(() => {
+      let row = this.db.prepare('SELECT id, ext FROM beats WHERE path=?').get(d.flp) as Row | undefined
+      if (!row) row = { id: this.insertProjectBeat(d.flp, st.size, st.mtimeMs, this.getSettings().ownHandles), ext: 'flp' }
+      // a bounce already linked to this project gets the tempo too, if it has none
+      const linked = this.db.prepare(`SELECT id FROM beats WHERE project_path=? AND ext!='flp' AND missing=0 AND bpm IS NULL`).all(d.flp) as Row[]
+      for (const l of linked) if (d.bpm) this.db.prepare(`UPDATE beats SET bpm=?, bpm_source='user', bpm_confidence='high' WHERE id=?`).run(d.bpm, l.id)
+      if (d.bpm) this.db.prepare(`UPDATE beats SET bpm=?, bpm_source='user', bpm_confidence='high' WHERE id=?`).run(d.bpm, row.id)
+      const title = d.name.trim()
+      if (title) this.db.prepare('UPDATE beats SET title=? WHERE id=? AND ext=?').run(title, row.id, 'flp')
+      this.db.prepare('UPDATE beats SET missing=0 WHERE id=?').run(row.id)
+    })()
+    this.touchAll()
+  }
+
   markMissing(path: string): void {
     const r = this.db.prepare(`SELECT id FROM beats WHERE path=?`).get(path) as Row | undefined
     if (!r) return
@@ -217,7 +279,7 @@ export class Store {
     this.touch(r.id)
   }
   markUnseenMissing(roots: string[], seen: Set<string>): void {
-    const rows = this.db.prepare(`SELECT id,path FROM beats WHERE missing=0`).all() as Row[]
+    const rows = this.db.prepare(`SELECT id,path FROM beats WHERE missing=0 AND ext!='flp'`).all() as Row[]
     const upd = this.db.prepare(`UPDATE beats SET missing=1 WHERE id=?`)
     let n = 0
     this.db.transaction(() => {
@@ -237,6 +299,7 @@ export class Store {
     this.pump()
   }
   reanalyze(id: number): void {
+    if ((this.db.prepare('SELECT ext FROM beats WHERE id=?').get(id) as Row | undefined)?.ext === 'flp') return // nothing to analyse until a bounce exists
     this.db.prepare(`UPDATE beats SET analyzed_at=NULL WHERE id=?`).run(id)
     this.enqueue(id)
   }

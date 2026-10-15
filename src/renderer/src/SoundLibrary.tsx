@@ -306,7 +306,7 @@ export function SoundLibrary({ data, roots: settingsRoots, status, query, onQuer
                 <button onClick={() => onProjectSel(null)}>×</button>
               </div>
               <div className="dim pb-sub">
-                {project.samples.length} sample{project.samples.length === 1 ? '' : 's'} used{project.byName ? ` (${project.byName} found by file name, not by original path)` : ''} · {project.midis.length} MIDI pattern{project.midis.length === 1 ? '' : 's'} exported{project.partial ? ' · this older project could only be read partly' : ''}
+                {project.samples.length} sample{project.samples.length === 1 ? '' : 's'} used{project.byName ? ` (${project.byName} found by file name, not by original path)` : ''} · {project.midis.length} MIDI pattern{project.midis.length === 1 ? '' : 's'} exported{project.partial ? ' · newer or unusual project format: samples found, MIDI not available' : ''}
               </div>
               {project.missing.length > 0 && (
                 <details className="pb-missing"><summary>{project.missing.length} sample{project.missing.length === 1 ? '' : 's'} not found on this Mac</summary>

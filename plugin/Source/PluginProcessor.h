@@ -61,6 +61,22 @@ public:
     std::function<void (const juce::String&)> onMessage;
 
     static juce::File defaultVaultFolder();
+
+    // ---- "Save to Studio HQ": register the project as a beat, no recording needed ----
+    struct ProjectGuess
+    {
+        juce::File flp;            // the saved project file, if found
+        juce::String name;         // project name FL is using
+        juce::int64 ageSeconds = -1; // how long ago FL last touched it
+        bool unsaved = false;      // FL is working on a project that has no file yet
+        juce::String note;         // human-readable explanation for the UI
+    };
+    /** Supports a folder override for tests (SHQ_SUPPORT_DIR). */
+    static juce::File supportDir();
+    /** Works out which FL project is open from FL's autosave file names ("<name> (autosaved on ... ).flp"). */
+    static ProjectGuess guessCurrentProject();
+    /** Drops a small file in Studio HQ's inbox. The app adds the beat when it sees it. */
+    bool saveToStudioHq (const juce::String& name, const ProjectGuess& project, juce::String& message);
     juce::File lastSaved;
 
     // ---- sound preview (message thread) ----

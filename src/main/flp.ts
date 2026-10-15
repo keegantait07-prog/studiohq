@@ -6,6 +6,17 @@ export interface FlpSample { ref: string; channel: string }
 export interface ParsedFlp { ppq: number; version: string; tempo: number | null; samples: FlpSample[]; channels: Map<number, string>; patterns: FlpPattern[]; partial: boolean }
 
 const NOTE_SIZE = 24
+const AUDIO_PATH = /(?:[A-Za-z]:[\\/]|\/|%[A-Za-z]+%[\\/])[^\u0000-\u001f<>"|?*]{3,400}?\.(?:wav|mp3|flac|aiff?|ogg|m4a)/gi
+
+/** Newer FL versions keep samples inside larger blocks the event reader can't open, so read the text directly. */
+function scanAudioPaths(b: Buffer): string[] {
+  const found = new Set<string>()
+  for (const off of [0, 1]) {
+    const text = b.toString('utf16le', off, off + ((b.length - off) & ~1))
+    for (const m of text.matchAll(AUDIO_PATH)) found.add(m[0])
+  }
+  return [...found]
+}
 
 export function parseFlp(b: Buffer): ParsedFlp {
   if (b.length < 22 || b.toString('ascii', 0, 4) !== 'FLhd') throw new Error('Not an FL Studio project')
@@ -69,5 +80,6 @@ export function parseFlp(b: Buffer): ParsedFlp {
     seen.add(s.ref)
     uniq.push({ ref: s.ref, channel: channels.get(s.chan) ?? '' })
   }
+  if (partial) for (const ref of scanAudioPaths(b)) if (!seen.has(ref)) { seen.add(ref); uniq.push({ ref, channel: '' }) }
   return { ppq, version, tempo, samples: uniq, channels, patterns: [...pats.values()].filter((p) => p.notes.length).sort((a, c) => a.id - c.id), partial }
 }

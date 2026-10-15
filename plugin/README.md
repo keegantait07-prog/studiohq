@@ -14,9 +14,18 @@ It installs to `~/Library/Audio/Plug-Ins/VST3/` and `~/Library/Audio/Plug-Ins/Co
 1. **Options → Manage plugins → Find installed plugins** (if it doesn't appear, make sure `~/Library/Audio/Plug-Ins/VST3` is in the plugin search paths).
 2. Open the **Mixer**, click an empty slot on the **Master** track, and choose **Studio HQ Bridge** (look under *Studio HQ* or search for it).
 
-## Bounce to Vault
+## Save to Studio HQ (the main tab)
 
-Records what FL sends to the Master and saves it into your Studio HQ beat folder, named `<name> (<tempo>bpm).wav`. The tempo comes from FL itself, and Studio HQ reads it from the file name, so the beat arrives in the Vault with the right BPM.
+One button, no recording. It works out which FL project is open (from FL's own autosave file names, so it even notices a brand-new project), reads FL's tempo, and tells Studio HQ. The project appears in your Vault as a beat with that BPM; open Studio HQ to see it (if the app is closed, it's added the next time the app starts).
+
+- If you haven't saved the project yet, it says so. Press **Cmd+S** in FL, then **Refresh**.
+- Leave the name empty to use the project's own name, or type a different one.
+- Press it again later to update the tempo or name; it won't create duplicates.
+- When you export a bounce into your beat folder, it links to the project by itself.
+
+## Record audio (optional)
+
+Only needed if you want a quick audio capture. Records what FL sends to the Master, in real time, and saves it into your Studio HQ beat folder, named `<name> (<tempo>bpm).wav`. The tempo comes from FL itself, and Studio HQ reads it from the file name, so the beat arrives in the Vault with the right BPM.
 
 - **Arm, then press play** (default): the plugin waits for FL to start playing, records until FL stops, then saves. Turn off *Record automatically…* for a plain *Record now / Stop* button.
 - The file is a 24-bit WAV at FL's sample rate. A name that already exists gets `(2)`, `(3)`, … instead of being overwritten. Recordings under half a second are discarded.
@@ -40,7 +49,7 @@ Checked by loading it in FL Studio 2026 itself (Apple Silicon):
 - Arming then pressing play started the recording by itself, and stopping saved `FL Test (130bpm).wav` (24-bit, 48 kHz stereo). Recording sample previews from FL's browser captured real audio (peak −8 dBFS). A second take with the same name became `FL Test (130bpm) (2).wav`.
 - The Sounds & MIDI tab loaded the full library (19,520 sounds) and a preview played with FL stopped. The folder picker works, and the plugin's settings (name, folder, last file) are remembered when its window is reopened.
 
-**Not tested in FL:** dragging a row from the plugin into FL's playlist or channel rack, and recording during FL's *Export* (offline render).
+**Not tested in FL:** the new *Save to Studio HQ* tab (checked with a simulated host and against the app's inbox instead, and its project detection ran correctly against your real FL autosave files), dragging a row from the plugin into FL's playlist or channel rack, and recording during FL's *Export* (offline render).
 
 ## Known limits
 

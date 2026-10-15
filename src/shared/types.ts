@@ -66,6 +66,8 @@ export interface Settings {
   goalPosts: number
   autoTrackFL: boolean
   includeMidiPacks: boolean
+  /** FL projects saved within this many days appear in the Vault as beats (0 = every project) */
+  projectBeatDays: number
 }
 
 // ---- Sound Library ----
@@ -233,7 +235,7 @@ export interface Api {
   getSettings(): Promise<Settings>
   addFolder(kind: 'watchFolders' | 'projectFolders' | 'soundFolders'): Promise<void>
   removeFolder(kind: 'watchFolders' | 'projectFolders' | 'soundFolders', path: string): Promise<void>
-  setSetting(patch: Partial<Pick<Settings, 'includeIdeas' | 'ownHandles' | 'producerName' | 'followupDays' | 'notify' | 'storeUrl' | 'contactEmail' | 'hashtags' | 'goalBeats' | 'goalPitches' | 'goalPosts' | 'autoTrackFL' | 'includeMidiPacks'>>): Promise<void>
+  setSetting(patch: Partial<Pick<Settings, 'includeIdeas' | 'ownHandles' | 'producerName' | 'followupDays' | 'notify' | 'storeUrl' | 'contactEmail' | 'hashtags' | 'goalBeats' | 'goalPitches' | 'goalPosts' | 'autoTrackFL' | 'includeMidiPacks' | 'projectBeatDays'>>): Promise<void>
   backup(): Promise<string>
   dataPath(): Promise<string>
   soundsList(): Promise<SoundList>
@@ -244,6 +246,7 @@ export interface Api {
   soundsTrash(ids: number[]): Promise<number>
   soundsReveal(id: number): Promise<void>
   projectOpen(id: number): Promise<void>
+  reindexProjects(): Promise<{ added: number; total: number }>
   projectReveal(id: number): Promise<void>
   startDrag(kind: 'sound' | 'beat', ids: number[]): void
   onSoundsStatus(cb: (s: SoundStatus) => void): () => void

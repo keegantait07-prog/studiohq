@@ -24,7 +24,8 @@ target_sources(StudioHQBridge PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp
     Source/LibraryDb.cpp
-    Source/SoundsPanel.cpp)
+    Source/SoundsPanel.cpp
+    Source/SavePanel.cpp)
 
 target_compile_definitions(StudioHQBridge PUBLIC
     JUCE_WEB_BROWSER=0
@@ -43,6 +44,6 @@ target_link_libraries(StudioHQBridge
 
 # Headless test: drives the processor with a fake host (tempo, play/stop) and checks the recorded file.
 juce_add_console_app(BridgeTest PRODUCT_NAME "BridgeTest")
-target_sources(BridgeTest PRIVATE Tests/BridgeTest.cpp Source/PluginProcessor.cpp Source/PluginEditor.cpp Source/LibraryDb.cpp Source/SoundsPanel.cpp)
+target_sources(BridgeTest PRIVATE Tests/BridgeTest.cpp Source/PluginProcessor.cpp Source/PluginEditor.cpp Source/LibraryDb.cpp Source/SoundsPanel.cpp Source/SavePanel.cpp)
 target_compile_definitions(BridgeTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_MODAL_LOOPS_PERMITTED=1)
 target_link_libraries(BridgeTest PRIVATE sqlite3 juce::juce_audio_utils juce::juce_audio_processors juce::juce_recommended_config_flags)

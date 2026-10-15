@@ -14,6 +14,7 @@ import { Sounds } from './sounds'
 import { ProjectIndex } from './flpindex'
 import { Feedback } from './feedback'
 import { Sessions } from './sessions'
+import { startInbox } from './inbox'
 import { VideoExporter, coverData, pickCover, previewStill } from './video'
 import type { Post, VideoOptions } from '../shared/types'
 import { splitSheetHtml, writePdf } from './splitsheet'
@@ -36,6 +37,7 @@ let sales: Sales
 let content: Content
 let sounds: Sounds
 let projectIndex: ProjectIndex
+let projectsAdded = 0
 let feedback: Feedback
 let sessions: Sessions
 let videos: VideoExporter
@@ -88,11 +90,22 @@ function backupNow(): Promise<string> {
 function writeBridgeConfig(): void {
   try {
     const vault = store.getSettings().watchFolders[0]
-    writeFileSync(join(app.getPath('userData'), 'bridge.json'), JSON.stringify({ vaultFolder: vault ?? '', updatedAt: Date.now() }, null, 2))
+    writeFileSync(join(app.getPath('userData'), 'bridge.json'), JSON.stringify({ vaultFolder: vault ?? '', projectFolders: store.getSettings().projectFolders, inbox: join(app.getPath('userData'), 'inbox'), updatedAt: Date.now() }, null, 2))
   } catch { /* the plugin falls back to ~/Desktop/! BEATS */ }
 }
 
 function sendCrm(): void { win?.webContents.send('crm:changed') }
+/** Re-reads your FL project folders: new projects appear in the Vault as beats. Fast, so it runs on focus and on a timer. */
+async function reindexProjects(): Promise<{ added: number; total: number }> {
+  projectsAdded = 0
+  const changed = await projectIndex.index()
+  if (changed) { await sounds.scan(); projectIndex.linkMidi() }
+  const total = (store.db.prepare(`SELECT COUNT(*) c FROM beats WHERE ext='flp' AND missing=0`).get() as { c: number }).c
+  const added = projectsAdded
+  if (added) store.bumpAll()
+  return { added, total }
+}
+
 /** Library scan, then read each FL project's samples and MIDI, then pick up the MIDI files it wrote. */
 async function scanLibrary(): Promise<void> {
   await sounds.scan()
@@ -180,6 +193,7 @@ function registerIpc(): void {
   // ---- Sound Library ----
   h('sounds:list', () => sounds.list(projectIndex.list()))
   h('sounds:scan', () => scanLibrary())
+  h('projects:reindex', () => reindexProjects())
   h('projects:open', (_, id: number) => { const p = (store.db.prepare('SELECT path FROM flp_projects WHERE id=?').get(id) as { path: string } | undefined)?.path; if (p) return shell.openPath(p) })
   h('projects:reveal', (_, id: number) => { const p = (store.db.prepare('SELECT path FROM flp_projects WHERE id=?').get(id) as { path: string } | undefined)?.path; if (p) shell.showItemInFolder(p) })
   h('sounds:tag', (_, ids: number[], add: string[], remove: string[]) => sounds.tag(ids, add, remove))
@@ -298,7 +312,12 @@ app.whenReady().then(async () => {
   content = new Content(db)
   const midiDir = join(app.getPath('userData'), 'FL project MIDI')
   sounds = new Sounds(db, () => [...store.getSettings().soundFolders, midiDir], () => ({ midiRoot: midiDir, packsMidi: store.getSettings().includeMidiPacks }), (st) => win?.webContents.send('sounds:status', st), () => win?.webContents.send('sounds:changed'))
-  projectIndex = new ProjectIndex(db, sounds, () => [...store.getSettings().projectFolders, ...store.getSettings().soundFolders], midiDir, () => win?.webContents.send('sounds:changed'))
+  projectIndex = new ProjectIndex(db, sounds, () => [...store.getSettings().projectFolders, ...store.getSettings().soundFolders], midiDir, () => win?.webContents.send('sounds:changed'), (files) => {
+    // only your own project folders become beats (not templates or projects that ship inside sample packs)
+    const own = store.getSettings().projectFolders
+    const mine = files.filter((f) => own.some((r) => f.path.startsWith(r + '/')) && !/\/Templates\//i.test(f.path))
+    projectsAdded += store.syncProjectBeats(mine, store.getSettings().projectBeatDays)
+  })
   feedback = new Feedback(db, () => packs.token_(), () => packs.siteId())
   sessions = new Sessions(db)
   videos = new VideoExporter(db, () => store.getSettings().exportDir)
@@ -311,8 +330,10 @@ app.whenReady().then(async () => {
   ]))
   createWindow()
   writeBridgeConfig()
+  startInbox(join(app.getPath('userData'), 'inbox'), (d) => { store.saveFromPlugin(d); win?.webContents.send('beats:changed', [-1]) })
   watcher.restart()
   setTimeout(() => { scanLibrary().catch((e) => console.error('library scan failed', e)) }, 3000)
+  setInterval(() => { reindexProjects().catch((e) => console.error('reindex failed', e)) }, 3 * 60 * 1000)
   setTimeout(() => { if (feedback.hasPublished()) syncFeedback(true) }, 9000)
   setInterval(() => { if (feedback.hasPublished()) syncFeedback(true) }, 5 * 60 * 1000)
   setInterval(async () => { if (store.getSettings().autoTrackFL && (await sessions.autoTrack())) sendFeedback() }, 20000)

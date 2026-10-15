@@ -165,7 +165,33 @@ export function App() {
   }, [rows, selectedIdx])
 
   const setStatus = async (id: number, s: Status) => { try { await window.api.updateBeat(id, { status: s }) } catch (e) { toast(errMsg(e)) } reload() }
-  const playBeat = (id: number) => { setSelectedId(id); player.play(id) }
+  const hasAudio = useCallback((id: number) => beats.find((b) => b.id === id)?.ext !== 'flp', [beats])
+  const safePlay = useCallback((id: number, at?: number) => {
+    if (!hasAudio(id)) { toast('This is an FL project with no audio yet. Export a bounce into your beat folder and Studio HQ links it.'); return }
+    player.play(id, at)
+  }, [hasAudio, player, toast])
+  const [reindexing, setReindexing] = useState(false)
+  const lastReindex = useRef(0)
+  const reindexNow = useCallback(async (loud: boolean) => {
+    if (loud === false && Date.now() - lastReindex.current < 60000) return // focus changes are frequent: at most once a minute
+    lastReindex.current = Date.now()
+    setReindexing(true)
+    try {
+      const r = await window.api.reindexProjects()
+      if (r.added) toast(`Found ${r.added} new FL project${r.added > 1 ? 's' : ''} and added ${r.added > 1 ? 'them' : 'it'} to the Vault`)
+      else if (loud) toast('No new FL projects.')
+      reload()
+    } catch { if (loud) toast('Could not read your FL project folders.') }
+    setReindexing(false)
+  }, [reload, toast])
+  useEffect(() => {
+    const t = setTimeout(() => reindexNow(false), 1500) // each time Studio HQ starts
+    const onFocus = () => reindexNow(false)
+    window.addEventListener('focus', onFocus)
+    return () => { clearTimeout(t); window.removeEventListener('focus', onFocus) }
+  }, [reindexNow])
+  const audioBeats = useMemo(() => beats.filter((b) => b.ext !== 'flp'), [beats])
+  const playBeat = (id: number) => { setSelectedId(id); safePlay(id) }
 
   // ---- keyboard ----
   useEffect(() => {
@@ -192,7 +218,7 @@ export function App() {
       if (typing || palette || settings || pitchDlg || saleDlg || splitsDlg || mod) return
       if (view !== 'vault') return
       if (e.key === '/') { e.preventDefault(); search.current?.focus() }
-      else if (e.key === ' ') { e.preventDefault(); player.id == null && selectedId != null ? player.play(selectedId) : player.toggle() }
+      else if (e.key === ' ') { e.preventDefault(); player.id == null && selectedId != null ? safePlay(selectedId) : player.toggle() }
       else if (e.key === 'ArrowDown') { e.preventDefault(); move(1) }
       else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1) }
       else if (e.key === 'ArrowRight') { e.preventDefault(); player.skip(e.shiftKey ? 15 : 5) }
@@ -253,11 +279,11 @@ export function App() {
       ) : view === 'sounds' ? (
         <SoundLibrary data={sounds} roots={appSettings?.soundFolders ?? []} status={soundStatus} query={soundQuery} onQuery={setSoundQuery} projectSel={soundProject} onProjectSel={setSoundProject} onReload={reloadSounds} onPauseMain={() => { if (player.playing) player.toggle() }} toast={toast} />
       ) : view === 'feedback' ? (
-        <FeedbackView data={feedback} beats={beats} onNew={() => setFbDlg({})} onPlayAt={(id, at) => player.play(id, at)} reload={reloadFeedback} toast={toast} />
+        <FeedbackView data={feedback} beats={audioBeats} onNew={() => setFbDlg({})} onPlayAt={(id, at) => safePlay(id, at)} reload={reloadFeedback} toast={toast} />
       ) : view === 'content' ? (
         <ContentView
-          beats={beats} sales={salesData.sales} content={content} settings={appSettings} beatId={contentBeat} onSelectBeat={setContentBeat}
-          onPlayAt={(id, at) => player.play(id, at)} reload={reloadContent} reloadBeats={reload} toast={toast}
+          beats={audioBeats} sales={salesData.sales} content={content} settings={appSettings} beatId={contentBeat} onSelectBeat={setContentBeat}
+          onPlayAt={(id, at) => safePlay(id, at)} reload={reloadContent} reloadBeats={reload} toast={toast}
         />
       ) : view === 'sales' ? (
         <SalesView
@@ -287,6 +313,7 @@ export function App() {
             ))}
           </div>
           <div className="chips-inline">{parsed.chips.map((c, i) => <span key={i} className="qchip">{c}</span>)}</div>
+          <button className="ghost" disabled={reindexing} onClick={() => reindexNow(true)} title="Look for new FL Studio projects now">{reindexing ? 'Scanning…' : 'Rescan FL projects'}</button>
           <label className="check small"><input type="checkbox" checked={collapse} onChange={(e) => setCollapse(e.target.checked)} /> Group versions</label>
         </div>
 
@@ -300,9 +327,9 @@ export function App() {
               const isPlaying = player.id === b.id && player.playing
               return (
                 <div key={b.id} data-row={b.id} className={`row ${sel ? 'sel' : ''}`} onClick={() => setSelectedId(b.id)} onDoubleClick={() => playBeat(b.id)}>
-                  <button className={`play ${isPlaying ? 'on' : ''}`} onClick={(e) => { e.stopPropagation(); player.id === b.id ? player.toggle() : playBeat(b.id) }} aria-label="play">{isPlaying ? '❚❚' : '▶'}</button>
+                  <button className={`play ${isPlaying ? 'on' : ''} ${b.ext === 'flp' ? 'off' : ''}`} onClick={(e) => { e.stopPropagation(); if (b.ext === 'flp') return toast('FL project, no audio yet. Export a bounce into your beat folder.'); player.id === b.id ? player.toggle() : playBeat(b.id) }} aria-label="play">{isPlaying ? '❚❚' : b.ext === 'flp' ? '–' : '▶'}</button>
                   <div className="name">
-                    <Thumb data={b.thumb} />
+                    {b.ext === 'flp' ? <span className="projthumb" title="FL Studio project, no audio yet">FL project</span> : <Thumb data={b.thumb} />}
                     <div className="nt">
                       <div className="t">{b.title}{count > 1 && <em className="ver-badge">{count} versions</em>}{!collapse && b.versionLabel && <em className="ver-badge">{b.versionLabel}</em>}</div>
                       {b.credits && <div className="sub">{b.credits}</div>}
@@ -340,7 +367,7 @@ export function App() {
       </>)}
 
       <footer className="player">
-        <button className="big-play" onClick={() => (player.id == null && selectedId != null ? player.play(selectedId) : player.toggle())}>{player.playing ? '❚❚' : '▶'}</button>
+        <button className="big-play" onClick={() => (player.id == null && selectedId != null ? safePlay(selectedId) : player.toggle())}>{player.playing ? '❚❚' : '▶'}</button>
         <div className="now">
           <div className="t">{playingDetail?.title ?? 'Nothing playing'}</div>
           <div className="sub mono">{fmtDur(player.time)} / {fmtDur(player.duration || playingDetail?.duration || null)}</div>
@@ -354,11 +381,11 @@ export function App() {
       {palette && <Palette beats={beats} contacts={crm?.contacts ?? []} sales={salesData.sales} sounds={sounds?.items ?? []} onPickSound={(x) => { setSoundQuery(x.n); setView('sounds') }} onPickSale={(sale) => { setSalesQuery(sale.beatTitle); setView('sales') }} commands={commands} onPickBeat={(b) => { setView('vault'); playBeat(b.id) }} onPickContact={(c) => { setCrmSel(c.id); setView('crm') }} onClose={() => setPalette(false)} />}
       {settings && <Settings onClose={() => { setSettings(false); reload(); reloadCrm() }} />}
       {fbDlg && (
-        <FeedbackDialog beats={beats} initial={fbDlg.beatIds} hasToken={!!netlify?.hasToken} onClose={() => { setFbDlg(null); reloadFeedback() }} onBuilt={() => { reloadFeedback(); setView('feedback') }} />
+        <FeedbackDialog beats={audioBeats} initial={fbDlg.beatIds} hasToken={!!netlify?.hasToken} onClose={() => { setFbDlg(null); reloadFeedback() }} onBuilt={() => { reloadFeedback(); setView('feedback') }} />
       )}
       {saleDlg && crm && (
         <LogSaleDialog
-          beats={beats} sales={salesData.sales} licenses={salesData.licenses} contacts={crm.contacts} beatId={saleDlg.beatId} edit={saleDlg.edit}
+          beats={audioBeats} sales={salesData.sales} licenses={salesData.licenses} contacts={crm.contacts} beatId={saleDlg.beatId} edit={saleDlg.edit}
           onClose={() => setSaleDlg(null)} onSaved={(m) => { setSaleDlg(null); toast(m); reload(); reloadSales(); reloadCrm() }}
         />
       )}
@@ -368,7 +395,7 @@ export function App() {
       {toastMsg && <div className="toast" onClick={() => setToastMsg('')}>{toastMsg}</div>}
       {pitchDlg && crm && (
         <PitchDialog
-          beats={beats} crm={crm} myName={appSettings?.producerName ?? ''} hasToken={!!netlify?.hasToken} contactId={pitchDlg.contactId} beatIds={pitchDlg.beatIds}
+          beats={audioBeats} crm={crm} myName={appSettings?.producerName ?? ''} hasToken={!!netlify?.hasToken} contactId={pitchDlg.contactId} beatIds={pitchDlg.beatIds}
           onClose={() => setPitchDlg(null)}
           onLogged={(cid) => { setPitchDlg(null); setCrmSel(cid); setView('crm'); reloadCrm(); reload() }}
         />

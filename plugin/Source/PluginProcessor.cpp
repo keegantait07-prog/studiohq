@@ -23,10 +23,16 @@ BridgeProcessor::~BridgeProcessor()
     writerThread.stopThread (2000);
 }
 
+File BridgeProcessor::supportDir()
+{
+    if (auto o = SystemStats::getEnvironmentVariable ("SHQ_SUPPORT_DIR", {}); o.isNotEmpty()) return File (o);
+    return File::getSpecialLocation (File::userHomeDirectory).getChildFile ("Library/Application Support/Studio HQ");
+}
+
 File BridgeProcessor::defaultVaultFolder()
 {
     // Studio HQ writes its first watched beat folder here, so a new plugin lands in the right place.
-    const auto cfg = File::getSpecialLocation (File::userHomeDirectory).getChildFile ("Library/Application Support/Studio HQ/bridge.json");
+    const auto cfg = supportDir().getChildFile ("bridge.json");
     if (cfg.existsAsFile())
     {
         auto v = JSON::parse (cfg);
@@ -287,3 +293,107 @@ void BridgeProcessor::setStateInformation (const void* data, int size)
 
 AudioProcessorEditor* BridgeProcessor::createEditor() { return new BridgeEditor (*this); }
 AudioProcessor* JUCE_CALLTYPE createPluginFilter() { return new BridgeProcessor(); }
+
+
+// ---------------------------------------------------------------------------------------------
+namespace
+{
+    // FL names its autosaves like "Level Above (autosaved on 15-10-26 at 14h41).flp" (or "overwritten on").
+    String projectNameFromBackup (const String& fileName)
+    {
+        auto n = fileName.upToLastOccurrenceOf (".flp", false, true);
+        const int i = n.lastIndexOf (" (autosaved on ");
+        const int j = n.lastIndexOf (" (overwritten on ");
+        const int cut = jmax (i, j);
+        return cut > 0 ? n.substring (0, cut) : String();
+    }
+
+    void collectFlps (const File& dir, int depth, Array<File>& mains, Array<File>& backups)
+    {
+        for (const auto& e : RangedDirectoryIterator (dir, false, "*", File::findFilesAndDirectories))
+        {
+            const auto f = e.getFile();
+            if (f.getFileName().startsWithChar ('.')) continue;
+            if (e.isDirectory())
+            {
+                if (depth >= 4) continue;
+                if (f.getFileName() == "Backup") { for (const auto& b : RangedDirectoryIterator (f, false, "*.flp")) backups.add (b.getFile()); continue; }
+                if (f.getFileName().equalsIgnoreCase ("Templates")) continue;
+                collectFlps (f, depth + 1, mains, backups);
+            }
+            else if (f.hasFileExtension (".flp")) mains.add (f);
+        }
+    }
+}
+
+BridgeProcessor::ProjectGuess BridgeProcessor::guessCurrentProject()
+{
+    ProjectGuess g;
+    StringArray roots;
+    if (auto cfg = supportDir().getChildFile ("bridge.json"); cfg.existsAsFile())
+    {
+        const var parsed = JSON::parse (cfg);           // keep the value alive while we read its array
+        const var folders = parsed.getProperty ("projectFolders", {});
+        if (auto* arr = folders.getArray()) for (auto& r : *arr) roots.add (r.toString());
+    }
+    if (roots.isEmpty()) roots.add (File::getSpecialLocation (File::userHomeDirectory).getChildFile ("Documents/Image-Line/FL Studio/Projects").getFullPathName());
+
+    Array<File> mains, backups;
+    for (auto& r : roots) if (File (r).isDirectory()) collectFlps (File (r), 0, mains, backups);
+
+    // the most recent thing FL touched: either a saved project file or one of its autosaves
+    File newestMain, newestBackup;
+    for (auto& f : mains) if (newestMain == File() || f.getLastModificationTime() > newestMain.getLastModificationTime()) newestMain = f;
+    for (auto& f : backups) if (projectNameFromBackup (f.getFileName()).isNotEmpty() && (newestBackup == File() || f.getLastModificationTime() > newestBackup.getLastModificationTime())) newestBackup = f;
+
+    if (newestMain == File() && newestBackup == File())
+    {
+        g.note = "No FL projects found. Save your project in FL (Cmd+S), then press Refresh.";
+        return g;
+    }
+
+    const bool useBackup = newestBackup != File() && (newestMain == File() || newestBackup.getLastModificationTime() > newestMain.getLastModificationTime());
+    File touched = useBackup ? newestBackup : newestMain;
+    g.name = useBackup ? projectNameFromBackup (newestBackup.getFileName()) : newestMain.getFileNameWithoutExtension();
+    g.ageSeconds = (Time::getCurrentTime() - touched.getLastModificationTime()).inSeconds();
+
+    // find the saved file with that name
+    for (auto& f : mains) if (f.getFileNameWithoutExtension() == g.name) { if (g.flp == File() || f.getLastModificationTime() > g.flp.getLastModificationTime()) g.flp = f; }
+    if (g.flp == File())
+    {
+        g.unsaved = true;
+        g.note = "FL is working on \"" + g.name + "\", which hasn't been saved yet. Save it in FL (Cmd+S), then press Refresh.";
+    }
+    else
+    {
+        const auto mins = g.ageSeconds / 60;
+        g.note = mins < 1 ? "Active just now" : mins < 90 ? "Last activity " + String (mins) + " min ago" : "Last activity " + String (mins / 60) + " h ago. If this isn't the project you're on, save yours in FL and press Refresh.";
+    }
+    return g;
+}
+
+bool BridgeProcessor::saveToStudioHq (const String& name, const ProjectGuess& project, String& message)
+{
+    if (! project.flp.existsAsFile()) { message = project.note.isNotEmpty() ? project.note : "Save your project in FL (Cmd+S) first, then press Refresh."; return false; }
+    const auto inbox = supportDir().getChildFile ("inbox");
+    if (! inbox.createDirectory().wasOk()) { message = "Can't write to " + inbox.getFullPathName(); return false; }
+
+    auto* o = new DynamicObject();
+    const auto bpm = hostBpm.load();
+    o->setProperty ("version", 1);
+    o->setProperty ("name", name.trim()); // empty = let Studio HQ tidy the project name itself
+    o->setProperty ("bpm", bpm > 20.0 ? var (bpm) : var());
+    o->setProperty ("timeSignature", var (Array<var> { timeSigNum.load(), timeSigDen.load() }));
+    o->setProperty ("flp", project.flp.getFullPathName());
+    o->setProperty ("savedAt", (juce::int64) Time::currentTimeMillis());
+    o->setProperty ("source", "fl-plugin");
+
+    // write to a temp name and rename, so the app never reads half a file
+    const auto stem = String (Time::currentTimeMillis()) + "-" + String (Random::getSystemRandom().nextInt (100000));
+    const auto tmp = inbox.getChildFile (stem + ".tmp");
+    const auto dest = inbox.getChildFile (stem + ".json");
+    if (! tmp.replaceWithText (JSON::toString (var (o))) || ! tmp.moveFileTo (dest)) { message = "Couldn't write to Studio HQ's inbox."; tmp.deleteFile(); return false; }
+
+    message = "Saved \"" + (name.trim().isEmpty() ? project.name : name.trim()) + "\"" + (bpm > 20.0 ? " at " + String (bpm, std::abs (bpm - std::round (bpm)) < 0.05 ? 0 : 1) + " BPM" : String()) + " to Studio HQ.";
+    return true;
+}

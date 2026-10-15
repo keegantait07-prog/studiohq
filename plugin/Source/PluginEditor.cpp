@@ -30,7 +30,7 @@ void BridgeLookAndFeel::drawButtonBackground (Graphics& g, Button& b, const Colo
     g.drawRoundedRectangle (r, 8.0f, 1.0f);
 }
 
-BridgeEditor::BridgeEditor (BridgeProcessor& p) : AudioProcessorEditor (&p), proc (p), sounds (p)
+BridgeEditor::BridgeEditor (BridgeProcessor& p) : AudioProcessorEditor (&p), proc (p), sounds (p), savePanel (p)
 {
     setLookAndFeel (&laf);
     setSize (700, 620);
@@ -72,7 +72,7 @@ BridgeEditor::BridgeEditor (BridgeProcessor& p) : AudioProcessorEditor (&p), pro
     if (proc.lastSaved.existsAsFile()) { lastSaved.setText (u8 ("✓ ") + proc.lastSaved.getFileName(), dontSendNotification); revealBtn.setVisible (true); }
 
     bounceParts = { &nameLabel, &folderLabel, &folderPath, &status, &lastSaved, &nameEdit, &chooseBtn, &openBtn, &recBtn, &autoToggle, &keepToggle };
-    for (auto* t : { &bounceTab, &soundsTab })
+    for (auto* t : { &saveTab, &bounceTab, &soundsTab })
     {
         t->setClickingTogglesState (true);
         t->setRadioGroupId (7);
@@ -80,9 +80,11 @@ BridgeEditor::BridgeEditor (BridgeProcessor& p) : AudioProcessorEditor (&p), pro
         t->setColour (TextButton::textColourOnId, Colours::white);
         addAndMakeVisible (*t);
     }
-    bounceTab.onClick = [this] { showTab (0); };
-    soundsTab.onClick = [this] { showTab (1); };
+    saveTab.onClick = [this] { showTab (0); };
+    bounceTab.onClick = [this] { showTab (1); };
+    soundsTab.onClick = [this] { showTab (2); };
     addChildComponent (sounds);
+    addChildComponent (savePanel);
     showTab (0);
 
     startTimerHz (30);
@@ -91,12 +93,15 @@ BridgeEditor::BridgeEditor (BridgeProcessor& p) : AudioProcessorEditor (&p), pro
 void BridgeEditor::showTab (int t)
 {
     tab = t;
-    bounceTab.setToggleState (t == 0, dontSendNotification);
-    soundsTab.setToggleState (t == 1, dontSendNotification);
-    for (auto* c : bounceParts) c->setVisible (t == 0);
-    revealBtn.setVisible (t == 0 && proc.lastSaved.existsAsFile());
-    sounds.setVisible (t == 1);
-    if (t == 1) sounds.grabKeyboardFocus();
+    saveTab.setToggleState (t == 0, dontSendNotification);
+    bounceTab.setToggleState (t == 1, dontSendNotification);
+    soundsTab.setToggleState (t == 2, dontSendNotification);
+    for (auto* c : bounceParts) c->setVisible (t == 1);
+    revealBtn.setVisible (t == 1 && proc.lastSaved.existsAsFile());
+    savePanel.setVisible (t == 0);
+    sounds.setVisible (t == 2);
+    if (t == 0) savePanel.refresh();
+    if (t == 2) sounds.grabKeyboardFocus();
     repaint();
 }
 
@@ -158,7 +163,7 @@ void BridgeEditor::timerCallback()
     chooseBtn.setEnabled (! busy);
 
     status.setText (statusText, dontSendNotification);
-    if (tab == 0) repaint (tempoArea.getUnion (meterArea));
+    if (tab == 1) repaint (tempoArea.getUnion (meterArea));
 }
 
 void BridgeEditor::paint (Graphics& g)
@@ -171,8 +176,8 @@ void BridgeEditor::paint (Graphics& g)
     g.drawText ("Studio HQ Bridge", b.removeFromTop (28), Justification::centredLeft);
     g.setColour (kDim);
     g.setFont (FontOptions (12.5f));
-    g.drawText (u8 ("Put this on the Master track. Bounce your beat into the Vault, or audition your sounds."), b.removeFromTop (20), Justification::centredLeft);
-    if (tab != 0) return;
+    g.drawText (u8 ("Put this on the Master track. Save your beat to Studio HQ, or audition your sounds."), b.removeFromTop (20), Justification::centredLeft);
+    if (tab != 1) return;
 
     // tempo + transport
     g.setColour (kPanel);
@@ -213,11 +218,14 @@ void BridgeEditor::resized()
     auto b = getLocalBounds().reduced (20);
     b.removeFromTop (54);
     auto tabs = b.removeFromTop (30);
-    bounceTab.setBounds (tabs.removeFromLeft (150));
+    saveTab.setBounds (tabs.removeFromLeft (170));
     tabs.removeFromLeft (6);
-    soundsTab.setBounds (tabs.removeFromLeft (150));
-    b.removeFromTop (12);
+    bounceTab.setBounds (tabs.removeFromLeft (130));
+    tabs.removeFromLeft (6);
+    soundsTab.setBounds (tabs.removeFromLeft (140));
+    b.removeFromTop (14);
     sounds.setBounds (b);
+    savePanel.setBounds (b);
     tempoArea = b.removeFromTop (64);
     b.removeFromTop (8);
     meterArea = b.removeFromTop (20);

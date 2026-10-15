@@ -78,6 +78,13 @@ export function Detail({ beat, allTags, onSelect, onPlay, refresh, pitchedTo, on
       <input className="title-input" value={title} onChange={(e) => setTitle(e.target.value)} onBlur={() => title !== beat.title && save({ title })} />
       <div className="filename" title={beat.path}>{beat.filename}</div>
 
+      {beat.ext === 'flp' && (
+        <div className="notice proj-note">
+          <b>FL project, no audio yet.</b> Studio HQ found this project in FL Studio. When you export a bounce into your beat folder it links up automatically
+          (or use <i>Link .flp…</i> on the bounce). Until then you can track it, tag it, and open it in FL.
+          <div style={{ marginTop: 8 }}><button onClick={() => window.api.openProject(beat.id)}>Open in FL Studio</button></div>
+        </div>
+      )}
       <div className="status-row">
         {STATUSES.map((s: Status, i) => (
           <button key={s} className={`st st-${s} ${beat.status === s ? 'on' : ''}`} onClick={() => save({ status: s })} title={`Press ${i + 1}`}>{s}</button>
@@ -146,6 +153,7 @@ export function Detail({ beat, allTags, onSelect, onPlay, refresh, pitchedTo, on
         </div>
       </div>
 
+      {beat.ext !== 'flp' && (<>
       <div className="field">
         <label>Pitched to ({pitchedTo.length})</label>
         {pitchedTo.map(({ pitch, contact, response }) => (
@@ -186,10 +194,11 @@ export function Detail({ beat, allTags, onSelect, onPlay, refresh, pitchedTo, on
         <button className="wide" onClick={onContent}>Make video, titles & tags…</button>
         <button className="wide" style={{ marginTop: 6 }} onClick={onFeedback}>Get timestamped feedback…</button>
       </div>
+      </>)}
 
       <div className="actions">
         <button onClick={() => window.api.reveal(beat.id)}>Reveal in Finder</button>
-        <button onClick={async () => { await window.api.reanalyze(beat.id) }}>Re-analyze</button>
+        {beat.ext !== 'flp' && <button onClick={async () => { await window.api.reanalyze(beat.id) }}>Re-analyze</button>}
       </div>
     </aside>
   )

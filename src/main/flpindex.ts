@@ -15,7 +15,7 @@ const lastName = (ref: string) => ref.split(/[\\/]/).pop() ?? ref
 
 export class ProjectIndex {
   private running = false
-  constructor(private db: Database.Database, private sounds: Sounds, private roots: () => string[], private midiDir: string, private done: () => void) {}
+  constructor(private db: Database.Database, private sounds: Sounds, private roots: () => string[], private midiDir: string, private done: () => void, private onProjects: (files: { path: string; mtime: number; size: number }[]) => void = () => {}) {}
 
   private macro(ref: string): string {
     const m = ref.match(/^%(\w+)%[\\/](.*)$/)
@@ -63,6 +63,11 @@ export class ProjectIndex {
         ;(byName.get(k) ?? byName.set(k, []).get(k)!).push({ id: r.id, path: r.path })
       }
       const byPath = new Map((this.db.prepare(`SELECT id,path FROM sounds WHERE missing=0`).all() as Row[]).map((r) => [r.path as string, r.id as number]))
+
+      // every project file we can see, for the Vault's "FL projects as beats"
+      const seen: { path: string; mtime: number; size: number }[] = []
+      for (const f of files) { try { const st = await fs.stat(f); seen.push({ path: f, mtime: st.mtimeMs, size: st.size }) } catch { /* vanished */ } }
+      this.onProjects(seen)
 
       for (const f of files) {
         let st

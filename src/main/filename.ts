@@ -50,7 +50,7 @@ export function parseName(file: string, folderName: string, ownHandles: string[]
     s = s.slice(lead[0].length)
   }
 
-  s = s.replace(/\([^)]*bpm[^)]*\)/gi, ' ').replace(/\d{2,3}(?:\.\d+)?\s*bpm/gi, ' ')
+  s = s.replace(/\([^)]*bpm[^)]*\)/gi, ' ').replace(/\[[^\]]*bpm[^\]]*\]/gi, ' ').replace(/\d{2,3}(?:\.\d+)?\s*bpm/gi, ' ')
   s = s.replace(/(?<![A-Za-z])[A-Ga-g][#b]?\s?(?:min(?:or)?|maj(?:or)?)(?![a-z])/gi, ' ')
 
   let versionLabel = ''
@@ -62,6 +62,8 @@ export function parseName(file: string, folderName: string, ownHandles: string[]
   else if (paren.length && /mix|empty|instrumental|inst\b|acapella|demo|clean|stripped|alt|remix|\bid\b/i.test(paren[paren.length - 1])) versionLabel = paren[paren.length - 1].toLowerCase()
 
   let core = s
+    .replace(/\.(mp3|wav|flac|m4a|aiff?)\b/gi, ' ')
+    .replace(/(^|\s)[+&](?=\s|$)/g, ' ')
     .replace(/\([^)]*\)/g, ' ')
     .replace(/\b(v\d+|final|stems?)\b/gi, ' ')
     .replace(/\s+x\s*$/i, ' ')

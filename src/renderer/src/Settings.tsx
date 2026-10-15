@@ -39,6 +39,11 @@ export function Settings({ onClose }: { onClose: () => void }) {
           <label className="check"><input type="checkbox" checked={s.includeMidiPacks} onChange={async (e) => { await window.api.setSetting({ includeMidiPacks: e.target.checked }); load(); window.api.soundsScan() }} /> Also index MIDI files inside my sound folders (MIDI packs can be tens of thousands of files)</label>
           <p className="help">MIDI made from your own FL projects is always included.</p>
         </section>
+        <section>
+          <h3>FL projects as beats</h3>
+          <p className="help">Every FL Studio project in your project folders shows up in the Vault as a beat, even before you export it, so a new beat never goes missing. This is how far back to look (0 = every project you've ever made).</p>
+          <div className="field"><label>Show projects saved in the last (days)</label><input style={{ width: 100 }} defaultValue={s.projectBeatDays} onBlur={async (e) => { const n = parseInt(e.target.value, 10); if (n >= 0) { await window.api.setSetting({ projectBeatDays: n }); window.api.reindexProjects() } }} /></div>
+        </section>
         {list('projectFolders', 'FL Studio project folders', 'Searched for .flp files to link to your bounces. FL’s Backup folders are skipped.')}
         <section>
           <h3>Pitching</h3>

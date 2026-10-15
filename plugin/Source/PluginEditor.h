@@ -1,6 +1,7 @@
 #pragma once
 #include "PluginProcessor.h"
 #include "SoundsPanel.h"
+#include "SavePanel.h"
 
 class BridgeLookAndFeel : public juce::LookAndFeel_V4
 {
@@ -14,6 +15,7 @@ class BridgeEditor : public juce::AudioProcessorEditor, public juce::DragAndDrop
 public:
     explicit BridgeEditor (BridgeProcessor&);
     SoundsPanel& soundsPanel() { return sounds; }
+    SavePanel& saveTabPanel() { return savePanel; }
     void selectTab (int t) { showTab (t); }
     ~BridgeEditor() override;
     void paint (juce::Graphics&) override;
@@ -25,8 +27,9 @@ private:
     void chooseFolder();
     void showTab (int tab);
     int tab = 0;
-    juce::TextButton bounceTab { "Bounce to Vault" }, soundsTab { "Sounds & MIDI" };
+    juce::TextButton saveTab { "Save to Studio HQ" }, bounceTab { "Record audio" }, soundsTab { "Sounds & MIDI" };
     SoundsPanel sounds;
+    SavePanel savePanel;
     juce::Array<juce::Component*> bounceParts;
 
     BridgeProcessor& proc;

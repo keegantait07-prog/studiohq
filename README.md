@@ -36,6 +36,16 @@ Then open **Studio HQ** from Launchpad, Spotlight, or `~/Applications` (drag it 
 
 `plugin/` holds **Studio HQ Bridge**, a VST3/AU plugin for FL Studio: put it on the Master track to **bounce your beat straight into the Vault** (named with FL's tempo, so the BPM comes through) and to **browse and audition your sounds and each project's MIDI** from inside FL. Build and install with `cd plugin && ./build.sh`; details in [`plugin/README.md`](plugin/README.md).
 
+## FL projects show up as beats
+
+Every FL Studio project in your project folders appears in the **Vault** as a beat, even before you've exported audio, so a new beat never goes missing. They're marked **FL project**, start as **WIP** (which also feeds the Dashboard's "close to finished" list), and pick up BPM, key and tags from the project's file name.
+
+- **When it looks for new projects:** every time Studio HQ starts, whenever you switch back to the app (at most once a minute), every 3 minutes while it's open, and on demand with **Rescan FL projects** in the Vault toolbar.
+- **How far back:** projects saved in the last **30 days** (Settings → *FL projects as beats*; 0 shows everything). Templates are skipped.
+- **When you export a bounce:** it links to its project (by name, or with *Link .flp…*), and the project-only entry disappears, so there are no duplicates.
+- A project with no audio can't be played, pitched, sold, posted or sent for feedback yet. Everything else (status, tags, notes, *Open in FL*) works.
+- FL 26.1 changed how projects are stored: Studio HQ still finds those projects' samples, but can't read their MIDI yet.
+
 ## What M1 does
 
 - **Folder watching.** Every audio file (mp3, wav, flac, m4a, aif, ogg) in your beat folders is imported, and new bounces appear once they finish writing. Renamed or moved files are re-matched by size and date, so your tags and status survive. `Backup/` folders and folders named "ideas"/"scraps" are skipped (toggle in Settings).

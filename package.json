@@ -66,6 +66,7 @@
         "NSDesktopFolderUsageDescription": "Studio HQ reads your beat and sound folders.",
         "NSDocumentsFolderUsageDescription": "Studio HQ reads your FL Studio projects and saves exports and split sheets.",
         "NSDownloadsFolderUsageDescription": "Studio HQ can read files you choose from Downloads.",
+        "NSAppleEventsUsageDescription": "Studio HQ asks Finder to move FL projects you choose to the Trash.",
         "NSRemovableVolumesUsageDescription": "Studio HQ reads sound folders on external drives."
       }
     }

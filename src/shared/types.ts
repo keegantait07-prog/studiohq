@@ -92,6 +92,32 @@ export interface ProjectSection {
   /** how many of the samples were matched by file name rather than by their original path */
   byName: number
 }
+// ---- FL project cleanup ----
+export interface CleanupItem {
+  id: number            // flp_projects id
+  name: string
+  path: string
+  mtime: number
+  size: number
+  samples: number
+  midis: number
+  /** audio bounces linked to this project: it has been exported */
+  bounces: number
+  /** a beat in the vault: lets us show status, key, tempo and tags */
+  beatId: number | null
+  groupId: number | null
+  title: string | null
+  status: Status | null
+  bpm: number | null
+  key: string | null
+  thumb: number[]
+  hasPreview: boolean
+  /** a beat id that has audio to play: an exported bounce, else the captured loop */
+  playId: number | null
+  backups: number
+  backupBytes: number
+}
+export interface CleanupResult { trashed: number; bytes: number; backups: number; failed: string[] }
 export interface SoundList { dirs: string[]; items: SoundRow[]; projects: ProjectSection[]; roots: string[] }
 export interface SoundStatus { phase: 'scanning' | 'reading' | 'hashing' | 'idle'; done: number; total: number }
 export interface DupGroup { hash: string; size: number; files: { id: number; path: string; mtime: number; fav: boolean }[] }
@@ -252,6 +278,8 @@ export interface Api {
   soundsTrash(ids: number[]): Promise<number>
   soundsReveal(id: number): Promise<void>
   projectOpen(id: number): Promise<void>
+  cleanupList(): Promise<CleanupItem[]>
+  cleanupTrash(ids: number[], withBackups: boolean): Promise<CleanupResult>
   reindexProjects(): Promise<{ added: number; total: number }>
   projectReveal(id: number): Promise<void>
   startDrag(kind: 'sound' | 'beat', ids: number[]): void

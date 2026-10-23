@@ -7,6 +7,7 @@ import { usePlayer } from './player'
 import { Thumb, Waveform } from './Waveform'
 import { artUrl } from './genart'
 import { SonicMap } from './SonicMap'
+import { Cleanup } from './Cleanup'
 import { hotspot, takesOf } from './audition'
 import { keyColor } from './keyColor'
 import { Detail } from './Detail'
@@ -184,6 +185,7 @@ export function App() {
     player.play(id, at)
   }, [hasAudio, player, toast])
   const [audition, setAudition] = useState(false)
+  const [cleanup, setCleanup] = useState(false)
   // audition mode: picking a beat plays it from its fullest part, so you can flick through the vault like a record bin
   useEffect(() => {
     if (!audition || selectedId == null) return
@@ -275,6 +277,7 @@ export function App() {
 
   const commands: Command[] = [
     { id: 'go-dash', label: 'Go to Dashboard', hint: '⌘0', run: () => setView('dashboard') },
+    { id: 'cleanup', label: 'Clean up FL projects…', run: () => setCleanup(true) },
     { id: 'go-map', label: 'Go to Sonic Map', run: () => setView('map') },
     { id: 'audition', label: audition ? 'Turn audition mode off' : 'Turn audition mode on', hint: 'A', run: () => setAudition((a) => !a) },
     { id: 'go-sounds', label: 'Go to Sound Library', hint: '⌘5', run: () => setView('sounds') },
@@ -372,6 +375,7 @@ export function App() {
             : <span className="savesearch"><input autoFocus value={naming} placeholder="Name it" onChange={(e) => setNaming(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && naming.trim()) { setCollections([...collections, { name: naming.trim(), q: query }]); setNaming(null) } if (e.key === 'Escape') setNaming(null) }} />
               <button className="primary" disabled={!naming.trim()} onClick={() => { setCollections([...collections, { name: naming.trim(), q: query }]); setNaming(null) }}>Save</button></span>)}
+          <button className="ghost" onClick={() => setCleanup(true)} title="Sift through FL projects and move the ones you don't want to the Trash">Clean up projects…</button>
           <button className="ghost" disabled={reindexing} onClick={() => reindexNow(true)} title="Look for new FL Studio projects now">{reindexing ? 'Scanning…' : 'Rescan FL projects'}</button>
           <label className="check small"><input type="checkbox" checked={collapse} onChange={(e) => setCollapse(e.target.checked)} /> Group versions</label>
         </div>
@@ -461,6 +465,7 @@ export function App() {
           </div>
         </div>
       )}
+      {cleanup && <Cleanup onClose={() => setCleanup(false)} onChanged={() => { reload(); reloadSounds() }} />}
       {settings && <Settings onClose={() => { setSettings(false); reload(); reloadCrm() }} />}
       {fbDlg && (
         <FeedbackDialog beats={audioBeats} initial={fbDlg.beatIds} hasToken={!!netlify?.hasToken} onClose={() => { setFbDlg(null); reloadFeedback() }} onBuilt={() => { reloadFeedback(); setView('feedback') }} />

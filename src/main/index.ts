@@ -17,6 +17,7 @@ import { Sessions } from './sessions'
 import { wavToMp3, loopToMp3 } from './bounce'
 import { startInbox } from './inbox'
 import { writeExports } from './exporter'
+import { cleanupList, trashProjects } from './cleanup'
 import { VideoExporter, coverData, pickCover, previewStill } from './video'
 import type { Post, VideoOptions } from '../shared/types'
 import { splitSheetHtml, writePdf } from './splitsheet'
@@ -198,6 +199,13 @@ function registerIpc(): void {
   h('sounds:list', () => sounds.list(projectIndex.list()))
   h('sounds:scan', () => scanLibrary())
   h('projects:reindex', () => reindexProjects())
+  h('cleanup:list', () => cleanupList(store.db, store.getSettings().projectFolders))
+  h('cleanup:trash', async (_, ids: number[], withBackups: boolean) => {
+    const r = await trashProjects(store.db, store.getSettings().projectFolders, (path) => (store.db.prepare('SELECT m.path FROM flp_midis m JOIN flp_projects p ON p.id=m.project_id WHERE p.path=?').all(path) as { path: string }[]).map((m) => m.path), ids.filter((n) => Number.isInteger(n)), !!withBackups)
+    store.bumpAll()
+    win?.webContents.send('sounds:changed')
+    return r
+  })
   h('projects:open', (_, id: number) => { const p = (store.db.prepare('SELECT path FROM flp_projects WHERE id=?').get(id) as { path: string } | undefined)?.path; if (p) return shell.openPath(p) })
   h('projects:reveal', (_, id: number) => { const p = (store.db.prepare('SELECT path FROM flp_projects WHERE id=?').get(id) as { path: string } | undefined)?.path; if (p) shell.showItemInFolder(p) })
   h('sounds:tag', (_, ids: number[], add: string[], remove: string[]) => sounds.tag(ids, add, remove))

@@ -26,6 +26,9 @@ import { SoundLibrary } from './SoundLibrary'
 import { FeedbackView } from './FeedbackView'
 import { FeedbackDialog } from './FeedbackDialog'
 import { Dashboard } from './Dashboard'
+import { ThemesView } from './ThemesView'
+import { BrandMark, Defs, Icon } from './Icons'
+import { THEMES, applyTheme, getTheme } from './themes'
 import { fmtClock } from './dashUtils'
 import { ago, fmtBpm, fmtDur } from './format'
 
@@ -60,7 +63,9 @@ export function App() {
   const [scan, setScan] = useState<ScanStatus>({ pending: 0, done: 0, total: 0 })
   const [palette, setPalette] = useState(false)
   const [settings, setSettings] = useState(false)
-  const [view, setView] = useState<'dashboard' | 'vault' | 'map' | 'crm' | 'sales' | 'content' | 'sounds' | 'feedback'>('dashboard')
+  const [view, setView] = useState<'dashboard' | 'vault' | 'map' | 'crm' | 'sales' | 'content' | 'sounds' | 'feedback' | 'themes'>('dashboard')
+  const [theme, setTheme] = useState(getTheme)
+  const pickTheme = useCallback((id: string) => { applyTheme(id); setTheme(id) }, [])
   const [crm, setCrm] = useState<CrmData | null>(null)
   const [appSettings, setAppSettings] = useState<AppSettings | null>(null)
   const [netlify, setNetlify] = useState<NetlifyStatus | null>(null)
@@ -104,6 +109,7 @@ export function App() {
   useEffect(() => { reloadSales() }, [beats, reloadSales])
   const search = useRef<HTMLInputElement>(null)
   const player = usePlayer()
+  useEffect(() => { document.documentElement.toggleAttribute('data-playing', player.playing) }, [player.playing])
 
   const reload = useCallback(async () => {
     setBeats(await window.api.listBeats())
@@ -245,6 +251,7 @@ export function App() {
       if (mod && e.key === '0') { e.preventDefault(); setView('dashboard'); return }
       if (mod && e.key === '5') { e.preventDefault(); setView('sounds'); return }
       if (mod && e.key === '6') { e.preventDefault(); setView('feedback'); return }
+      if (mod && e.key === '7') { e.preventDefault(); setView('themes'); return }
       if (mod && e.key === '1') { e.preventDefault(); setView('vault'); return }
       if (mod && e.key === '2') { e.preventDefault(); setView('crm'); return }
       if (mod && e.key === '3') { e.preventDefault(); setView('sales'); return }
@@ -281,6 +288,8 @@ export function App() {
     { id: 'go-map', label: 'Go to Sonic Map', run: () => setView('map') },
     { id: 'audition', label: audition ? 'Turn audition mode off' : 'Turn audition mode on', hint: 'A', run: () => setAudition((a) => !a) },
     { id: 'go-sounds', label: 'Go to Sound Library', hint: '⌘5', run: () => setView('sounds') },
+    { id: 'go-themes', label: 'Go to Themes', hint: '⌘7', run: () => setView('themes') },
+    ...THEMES.map((t) => ({ id: 'theme-' + t.id, label: `Theme: ${t.name}`, run: () => pickTheme(t.id) })),
     { id: 'go-feedback', label: 'Go to Feedback', hint: '⌘6', run: () => setView('feedback') },
     { id: 'new-feedback', label: 'New feedback link…', run: () => setFbDlg({}) },
     { id: 'session', label: openSession ? 'Stop studio session' : 'Start studio session', run: async () => { await (openSession ? window.api.stopSession() : window.api.startSession()); reloadSessions() } },
@@ -301,11 +310,12 @@ export function App() {
   const scanning = scan.pending > 0
   return (
     <div className="app">
+      <Defs />
       <div className="titlebar" />
       <nav className="side">
-        <div className="brand">Studio HQ</div>
-        <a className={`nav ${view === 'dashboard' ? 'on' : ''}`} onClick={() => setView('dashboard')}>Dashboard</a>
-        <a className={`nav ${view === 'vault' ? 'on' : ''}`} onClick={() => setView('vault')}>Beat Vault <span>{beats.length}</span></a>
+        <div className="brand"><BrandMark /><span>Studio HQ</span></div>
+        <a className={`nav ${view === 'dashboard' ? 'on' : ''}`} onClick={() => setView('dashboard')}><em className="nl"><Icon name="dashboard" />Dashboard</em></a>
+        <a className={`nav ${view === 'vault' ? 'on' : ''}`} onClick={() => setView('vault')}><em className="nl"><Icon name="vault" />Beat Vault</em> <span>{beats.length}</span></a>
         <div className="colls">
           {collections.map((c) => (
             <a key={c.name} className={`coll ${view === 'vault' && query === c.q ? 'on' : ''}`} onClick={() => openCollection(c.q)} title={c.q}>
@@ -313,15 +323,16 @@ export function App() {
             </a>
           ))}
         </div>
-        <a className={`nav ${view === 'map' ? 'on' : ''}`} onClick={() => setView('map')}>Sonic Map <span>◎</span></a>
-        <a className={`nav ${view === 'crm' ? 'on' : ''}`} onClick={() => setView('crm')}>Pitch CRM {dueCount > 0 ? <span className="badge">{dueCount}</span> : <span>{crm?.contacts.length ?? 0}</span>}</a>
-        <a className={`nav ${view === 'sales' ? 'on' : ''}`} onClick={() => setView('sales')}>Sales & Collabs <span>{salesData.sales.length}</span></a>
-        <a className={`nav ${view === 'content' ? 'on' : ''}`} onClick={() => setView('content')}>Content {overduePosts > 0 ? <span className="badge">{overduePosts}</span> : <span>{content.posts.filter((p) => p.status === 'posted').length}</span>}</a>
-        <a className={`nav ${view === 'sounds' ? 'on' : ''}`} onClick={() => setView('sounds')}>Sound Library <span>{sounds ? sounds.items.length.toLocaleString() : ''}</span></a>
-        <a className={`nav ${view === 'feedback' ? 'on' : ''}`} onClick={() => setView('feedback')}>Feedback {unseenFeedback > 0 ? <span className="badge">{unseenFeedback}</span> : <span>{feedback.links.length}</span>}</a>
+        <a className={`nav ${view === 'map' ? 'on' : ''}`} onClick={() => setView('map')}><em className="nl"><Icon name="map" />Sonic Map</em> <span>◎</span></a>
+        <a className={`nav ${view === 'crm' ? 'on' : ''}`} onClick={() => setView('crm')}><em className="nl"><Icon name="crm" />Pitch CRM</em> {dueCount > 0 ? <span className="badge">{dueCount}</span> : <span>{crm?.contacts.length ?? 0}</span>}</a>
+        <a className={`nav ${view === 'sales' ? 'on' : ''}`} onClick={() => setView('sales')}><em className="nl"><Icon name="sales" />Sales & Collabs</em> <span>{salesData.sales.length}</span></a>
+        <a className={`nav ${view === 'content' ? 'on' : ''}`} onClick={() => setView('content')}><em className="nl"><Icon name="content" />Content</em> {overduePosts > 0 ? <span className="badge">{overduePosts}</span> : <span>{content.posts.filter((p) => p.status === 'posted').length}</span>}</a>
+        <a className={`nav ${view === 'sounds' ? 'on' : ''}`} onClick={() => setView('sounds')}><em className="nl"><Icon name="sounds" />Sound Library</em> <span>{sounds ? sounds.items.length.toLocaleString() : ''}</span></a>
+        <a className={`nav ${view === 'feedback' ? 'on' : ''}`} onClick={() => setView('feedback')}><em className="nl"><Icon name="feedback" />Feedback</em> {unseenFeedback > 0 ? <span className="badge">{unseenFeedback}</span> : <span>{feedback.links.length}</span>}</a>
+        <a className={`nav ${view === 'themes' ? 'on' : ''}`} onClick={() => setView('themes')}><em className="nl"><Icon name="themes" />Themes</em> <span>{THEMES.find((t) => t.id === theme)?.name}</span></a>
         <div className="grow" />
         {openSession && <a className="timerpill" onClick={() => setView('dashboard')} title="Studio session running">● {fmtClock(clock - openSession.startedAt)}</a>}
-        <button className="ghost" onClick={() => setSettings(true)}>Settings <kbd>⌘,</kbd></button>
+        <button className="ghost" onClick={() => setSettings(true)}><em className="nl"><Icon name="settings" />Settings</em> <kbd>⌘,</kbd></button>
       </nav>
 
       {view === 'dashboard' ? (
@@ -331,6 +342,8 @@ export function App() {
           onOpenContact={(id) => { setCrmSel(id); setView('crm') }} onPitchBeat={(id) => setPitchDlg({ beatIds: [id] })}
           onMakeVideo={(id) => { setContentBeat(id); setView('content') }} onSetStatus={setStatus} reloadSessions={reloadSessions}
         />
+      ) : view === 'themes' ? (
+        <ThemesView current={theme} onPick={pickTheme} />
       ) : view === 'map' ? (
         <SonicMap beats={beats} onQuery={openCollection} onPlay={(id) => { setSelectedId(id); safePlay(id) }} onOpen={(id) => { setView('vault'); setStatusTab('all'); setQuery(''); setSelectedId(id) }} />
       ) : view === 'sounds' ? (

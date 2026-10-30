@@ -67,14 +67,14 @@ export function SonicMap({ beats, onOpen, onPlay, onQuery }: { beats: Beat[]; on
             const lb = pt(centre(n), R * BANDS.B[1] - 18), la = pt(centre(n), R * BANDS.A[1] - 18)
             return (
               <g key={n}>
-                <path d={sector(n, BANDS.B[0] * R, BANDS.B[1] * R)} fill={hueB} fillOpacity=".07" stroke="#2a2a36" strokeWidth="1" />
-                <path d={sector(n, BANDS.A[0] * R, BANDS.A[1] * R)} fill={hueA} fillOpacity=".07" stroke="#2a2a36" strokeWidth="1" />
+                <path d={sector(n, BANDS.B[0] * R, BANDS.B[1] * R)} fill={hueB} fillOpacity=".07" className="mapsector" strokeWidth="1" />
+                <path d={sector(n, BANDS.A[0] * R, BANDS.A[1] * R)} fill={hueA} fillOpacity=".07" className="mapsector" strokeWidth="1" />
                 <text x={lb[0]} y={lb[1]} className="maplab" fill={hueB}>{n}B <tspan className="mapnote">{B_NAMES[n - 1]}</tspan></text>
                 <text x={la[0]} y={la[1]} className="maplab" fill={hueA}>{n}A <tspan className="mapnote">{A_NAMES[n - 1]}</tspan></text>
               </g>
             )
           })}
-          <circle cx={C} cy={C} r={BANDS.A[0] * R - 12} fill="#0b0b10" stroke="#22222c" />
+          <circle cx={C} cy={C} r={BANDS.A[0] * R - 12} className="maphub" />
           {fd && mates.map((m) => <line key={m.b.id} x1={fd.x} y1={fd.y} x2={m.x} y2={m.y} stroke={keyColor(m.b.key)} strokeOpacity=".55" strokeWidth="1.6" />)}
           {shown.map((d) => {
             const dim = focus && d.b.id !== focus.id && !mateIds.has(d.b.id)

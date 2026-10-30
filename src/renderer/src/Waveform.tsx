@@ -25,12 +25,13 @@ export function Waveform({ peaks, progress, onSeek, height = 56, region, markers
         g.fillStyle = region ? (f >= region.from && f <= region.to ? played : base) : f <= progress ? played : base
         g.fillRect(i * (bar + gap), (h - bh) / 2, bar, bh)
       }
-      for (const m of markers ?? []) { g.fillStyle = '#ffffff'; g.fillRect(Math.round(m * w) - 1, 0, 2, h); g.beginPath(); g.arc(m * w, 5, 5, 0, Math.PI * 2); g.fill() }
+      for (const m of markers ?? []) { g.fillStyle = css.getPropertyValue('--text').trim() || '#ffffff'; g.fillRect(Math.round(m * w) - 1, 0, 2, h); g.beginPath(); g.arc(m * w, 5, 5, 0, Math.PI * 2); g.fill() }
     }
     draw()
     const ro = new ResizeObserver(draw)
     ro.observe(c)
-    return () => ro.disconnect()
+    window.addEventListener('shq-theme', draw)
+    return () => { ro.disconnect(); window.removeEventListener('shq-theme', draw) }
   }, [peaks, progress, height, region?.from, region?.to, markers?.join(',')])
 
   return (

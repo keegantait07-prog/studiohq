@@ -1,3 +1,5 @@
+import type { VizFeatures } from './vizFeatures'
+import type { SceneLayout } from './vizScene'
 export const STATUSES = ['idea', 'wip', 'finished', 'sent', 'sold'] as const
 export type Status = (typeof STATUSES)[number]
 export type TagKind = 'vibe' | 'genre' | 'artist'
@@ -142,24 +144,29 @@ export const PLATFORMS: { id: Platform; label: string; color: string }[] = [
 ]
 export interface Post { id: number; beatId: number; platform: Platform; status: 'planned' | 'posted'; date: number; url: string; caption: string }
 export type VideoFormat = 'vertical' | 'horizontal'
-export type VideoLook = 'classic' | 'minimal' | 'poster'
-export type VizStyle = 'mirror' | 'bars' | 'line' | 'ribbon' | 'led' | 'dots' | 'sonar' | 'aurora' | 'pulse' | 'sparks'
+export type VizStyle = 'lab' | 'tape' | 'riso' | 'cover' | 'vinyl' | 'ridge' | 'phosphor' | 'score' | 'led'
 /** How the whole frame moves behind the visualizer. */
 export type VideoMotion = 'still' | 'drift' | 'breathe' | 'beat'
+/** Title layers drawn over the preset: none, an intro slate, or the slate plus an end card. */
+export type VideoTitles = 'none' | 'intro' | 'both'
 export interface VideoOptions {
   beatId: number
   formats: VideoFormat[]
-  look: VideoLook
   viz: VizStyle
   motion?: VideoMotion
   accent: string
   title: string
   tagline: string
   footer: string
+  titles?: VideoTitles
+  /** the end card's call to action */
+  cta?: string
   start: number
   /** seconds, 0 = the whole beat from `start` */
   length: number
 }
+/** One export's drawing job, handed to the hidden window that renders the frames. */
+export interface VizJob { id: number; style: VizStyle; accent: string; motion: VideoMotion; titles: VideoTitles; layout: SceneLayout; features: VizFeatures; meta: { title: string; tagline: string; footer: string; cta: string; bpm: number | null; key: string | null; cover: string | null } }
 export interface VideoExport { id: number; beatId: number; format: VideoFormat; path: string; createdAt: number }
 export interface ContentData { posts: Post[]; videos: VideoExport[] }
 export interface VideoProgress { label: string; pct: number }
@@ -303,7 +310,6 @@ export interface Api {
   deletePost(id: number): Promise<void>
   exportVideo(o: VideoOptions): Promise<string[]>
   cancelVideo(): Promise<void>
-  previewVideo(o: Omit<VideoOptions, 'formats'> & { format: VideoFormat }): Promise<string>
   coverData(beatId: number): Promise<string | null>
   saveCover(beatId: number, pngDataUrl: string): Promise<boolean>
   chooseCover(beatId: number): Promise<boolean>
@@ -311,6 +317,21 @@ export interface Api {
   revealPath(path: string): Promise<void>
   chooseExportDir(): Promise<void>
   onVideoProgress(cb: (p: VideoProgress) => void): () => void
+  /** The analysed timeline the visualizer scenes draw from, for a clip of a beat. */
+  vizFeatures(beatId: number, start: number, length: number): Promise<VizFeatures>
+  /** Only used by the hidden export window that draws the frames. */
+  vizWorker: {
+    onJob(cb: (j: VizJob) => void): () => void
+    onRender(cb: (r: { id: number; from: number; to: number }) => void): () => void
+    /** `encoder` is true when this window can encode H.264 itself (WebCodecs, via Mediabunny). */
+    ready(id: number, error?: string, encoder?: boolean): void
+    frame(id: number, i: number, rgba: Uint8Array): void
+    /** Encode every frame of the job to MP4 here, streaming the file to main. */
+    onEncode(cb: (r: { id: number; frames: number }) => void): () => void
+    chunk(id: number, position: number, data: Uint8Array): void
+    progress(id: number, done: number): void
+    done(id: number, error?: string): void
+  }
   salesAll(): Promise<SalesData>
   logSale(input: LogSaleInput): Promise<number>
   updateSale(id: number, patch: Partial<Pick<Sale, 'buyer' | 'buyerEmail' | 'price' | 'fee' | 'source' | 'soldAt' | 'notes'>>): Promise<void>

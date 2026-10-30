@@ -19,7 +19,7 @@ import { wavToMp3, loopToMp3 } from './bounce'
 import { startInbox } from './inbox'
 import { writeExports } from './exporter'
 import { cleanupList, trashProjects } from './cleanup'
-import { VideoExporter, coverData, pickCover, previewStill } from './video'
+import { VideoExporter, coverData, pickCover, vizFeatures } from './video'
 import type { Post, VideoOptions } from '../shared/types'
 import { splitSheetHtml, writePdf } from './splitsheet'
 import type { LogSaleInput, License, Sale, SplitRow } from '../shared/types'
@@ -242,7 +242,6 @@ function registerIpc(): void {
   h('content:deletePost', (_, id: number) => content.deletePost(id))
   h('content:export', (_, o: VideoOptions) => videos.run(o, (p) => win?.webContents.send('video:progress', p)))
   h('content:cancel', () => videos.cancel())
-  h('content:preview', (_, o: Parameters<typeof previewStill>[1]) => previewStill(store.db, o))
   h('content:saveCover', (_, id: number, png: string) => {
     const m = /^data:image\/png;base64,(.+)$/.exec(png)
     if (!m) return false
@@ -255,6 +254,7 @@ function registerIpc(): void {
     return true
   })
   h('content:coverData', (_, id: number) => coverData(store.db, id))
+  h('content:vizFeatures', (_, id: number, start: number, length: number) => vizFeatures(store.db, id, start, length))
   h('content:chooseCover', async (_, id: number) => { const ok = await pickCover(store.db, win!, id); if (ok) store.bumpAll(); return ok })
   h('content:clearCover', (_, id: number) => { store.db.prepare('UPDATE beats SET cover_path=NULL WHERE id=?').run(id); store.bumpAll() })
   h('app:revealPath', (_, p: string) => shell.showItemInFolder(p))

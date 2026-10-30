@@ -1,15 +1,14 @@
 import type Database from 'better-sqlite3'
-import { app, BrowserWindow, dialog, nativeImage } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, nativeImage } from 'electron'
 import { spawn, type ChildProcess } from 'child_process'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync, existsSync, unlinkSync } from 'fs'
-import { tmpdir } from 'os'
+import { mkdirSync, existsSync, unlinkSync, openSync, writeSync, closeSync } from 'fs'
 import { join } from 'path'
 import { once } from 'events'
 import { parseFile } from 'music-metadata'
 import ffmpegStatic from 'ffmpeg-static'
-import { LAYOUT, videoHtml } from '../shared/videoTemplate'
-import { Visualizer } from './visualizer'
-import type { VideoFormat, VideoOptions, VideoProgress } from '../shared/types'
+import { sceneLayout } from '../shared/videoTemplate'
+import { analyse, type VizFeatures } from '../shared/vizFeatures'
+import type { VideoFormat, VideoOptions, VideoProgress, VizJob } from '../shared/types'
 
 type Row = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 const ffmpeg = (ffmpegStatic as unknown as string).replace('app.asar', 'app.asar.unpacked')
@@ -39,27 +38,10 @@ export async function pickCover(db: Database.Database, win: BrowserWindow, beatI
   return true
 }
 
-async function renderStill(html: string, W: number, H: number, dir: string): Promise<Buffer> {
-  const file = join(dir, `frame-${W}x${H}.html`)
-  writeFileSync(file, html)
-  const win = new BrowserWindow({ show: false, width: W, height: H, useContentSize: true, enableLargerThanScreen: true, frame: false, webPreferences: { sandbox: true, backgroundThrottling: false } })
-  try {
-    win.setContentSize(W, H)
-    await win.loadFile(file)
-    await win.webContents.executeJavaScript('document.fonts.ready.then(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))))')
-    await new Promise((r) => setTimeout(r, 250))
-    let img = await win.webContents.capturePage()
-    const s = img.getSize()
-    if (s.width !== W || s.height !== H) img = img.resize({ width: W, height: H, quality: 'best' })
-    return img.toPNG()
-  } finally {
-    win.destroy()
-  }
-}
-
-function decodeMono(path: string, start: number, dur: number): Promise<Float32Array> {
+/** Interleaved stereo float samples at 44.1 kHz. */
+function decodeStereo(path: string, start: number, dur: number): Promise<Float32Array> {
   return new Promise((resolve, reject) => {
-    const p = spawn(ffmpeg, ['-v', 'error', '-ss', String(start), '-t', String(dur), '-i', path, '-vn', '-ac', '1', '-ar', '44100', '-f', 'f32le', '-'])
+    const p = spawn(ffmpeg, ['-v', 'error', '-ss', String(start), '-t', String(dur), '-i', path, '-vn', '-ac', '2', '-ar', '44100', '-f', 'f32le', '-'])
     const chunks: Buffer[] = []
     let err = ''
     p.stdout.on('data', (c: Buffer) => chunks.push(c))
@@ -73,20 +55,55 @@ function decodeMono(path: string, start: number, dur: number): Promise<Float32Ar
   })
 }
 
-let previewDir: string | null = null
-export async function previewStill(db: Database.Database, o: Omit<VideoOptions, 'formats'> & { format: VideoFormat }): Promise<string> {
-  const beat = db.prepare('SELECT peaks FROM beats WHERE id=?').get(o.beatId) as Row | undefined
+// ---- the analysed timeline, shared by the live preview and the export
+const featureCache = new Map<string, VizFeatures>()
+export async function vizFeatures(db: Database.Database, beatId: number, start: number, length: number): Promise<VizFeatures> {
+  const beat = db.prepare('SELECT path, duration, bpm FROM beats WHERE id=?').get(beatId) as Row | undefined
   if (!beat) throw new Error('Beat not found.')
-  previewDir ??= mkdtempSync(join(tmpdir(), 'studio-hq-preview-'))
-  const L = LAYOUT[o.format]
-  const html = videoHtml({ format: o.format, look: o.look, viz: o.viz, accent: o.accent, title: o.title, tagline: o.tagline, footer: o.footer, cover: await coverData(db, o.beatId, 900), peaks: [], preview: false })
-  const png = await renderStill(html, L.W, L.H, previewDir)
-  const img = nativeImage.createFromBuffer(png).resize({ width: o.format === 'vertical' ? 540 : 960, quality: 'good' })
-  return 'data:image/jpeg;base64,' + img.toJPEG(82).toString('base64')
+  const total = beat.duration ?? 0
+  const s = Math.min(Math.max(0, start), Math.max(0, total - 3))
+  const dur = length > 0 ? Math.min(length, total - s) : total - s
+  const key = `${beat.path}|${s.toFixed(2)}|${dur.toFixed(2)}|${beat.bpm}`
+  const hit = featureCache.get(key)
+  if (hit) return hit
+  const f = analyse(await decodeStereo(beat.path, s, Math.max(1, dur)), 44100, FPS, beat.bpm as number | null)
+  featureCache.set(key, f)
+  if (featureCache.size > 6) featureCache.delete(featureCache.keys().next().value!)
+  return f
+}
+
+// ---- the hidden window that draws export frames with the same scene code as the preview
+type JobHooks = {
+  ready: (err?: string, encoder?: boolean) => void
+  frame: (i: number, d: Uint8Array) => void
+  chunk?: (pos: number, d: Uint8Array) => void
+  progress?: (done: number) => void
+  done?: (err?: string) => void
+}
+const jobs = new Map<number, JobHooks>()
+let jobSeq = 0, wired = false
+function wireWorker(): void {
+  if (wired) return
+  wired = true
+  ipcMain.on('viz:ready', (_, id: number, err?: string, encoder?: boolean) => jobs.get(id)?.ready(err, encoder))
+  ipcMain.on('viz:frame', (_, id: number, i: number, d: Uint8Array) => jobs.get(id)?.frame(i, d))
+  ipcMain.on('viz:chunk', (_, id: number, pos: number, d: Uint8Array) => jobs.get(id)?.chunk?.(pos, d))
+  ipcMain.on('viz:progress', (_, id: number, done: number) => jobs.get(id)?.progress?.(done))
+  ipcMain.on('viz:done', (_, id: number, err?: string) => jobs.get(id)?.done?.(err))
+}
+
+async function openWorker(): Promise<BrowserWindow> {
+  wireWorker()
+  const w = new BrowserWindow({ show: false, width: 320, height: 240, webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false, contextIsolation: true, backgroundThrottling: false } })
+  if (process.env['ELECTRON_RENDERER_URL']) await w.loadURL(process.env['ELECTRON_RENDERER_URL'] + '#viz-worker')
+  else await w.loadFile(join(__dirname, '../renderer/index.html'), { hash: 'viz-worker' })
+  return w
 }
 
 export class VideoExporter {
   private proc: ChildProcess | null = null
+  private worker: BrowserWindow | null = null
+  private wake: (() => void) | null = null
   private cancelled = false
   busy = false
 
@@ -95,7 +112,10 @@ export class VideoExporter {
   cancel(): void {
     this.cancelled = true
     this.proc?.kill('SIGKILL')
+    this.wake?.()
+    this.abortEncode?.()
   }
+  private abortEncode: (() => void) | null = null
 
   async run(o: VideoOptions, onProgress: (p: VideoProgress) => void): Promise<string[]> {
     if (this.busy) throw new Error('An export is already running.')
@@ -103,47 +123,95 @@ export class VideoExporter {
     if (!beat) throw new Error('Beat not found.')
     this.busy = true
     this.cancelled = false
-    const tmp = mkdtempSync(join(tmpdir(), 'studio-hq-video-'))
     const outDir = process.env.SHQ_TEST_EXPORT_DIR ?? this.exportDir()
     mkdirSync(outDir, { recursive: true })
     const out: string[] = []
     try {
       const cover = await coverData(this.db, o.beatId)
-      const peaks: number[] = beat.peaks ? JSON.parse(beat.peaks) : []
       for (let fi = 0; fi < o.formats.length; fi++) {
         const format = o.formats[fi]
         const label = `${format === 'vertical' ? 'Vertical' : 'Horizontal'}${o.formats.length > 1 ? ` (${fi + 1}/${o.formats.length})` : ''}`
-        onProgress({ label: `${label}: designing frame`, pct: 0 })
-        const L = LAYOUT[format]
-        const html = videoHtml({ format, look: o.look, viz: o.viz, accent: o.accent, title: o.title, tagline: o.tagline, footer: o.footer, cover, peaks, preview: false })
-        const png = await renderStill(html, L.W, L.H, tmp)
-        const bgPath = join(tmp, `bg-${format}.png`)
-        writeFileSync(bgPath, png)
-        if (this.cancelled) throw new Error('Export cancelled.')
-
+        const L = sceneLayout(format)
         const total = beat.duration ?? 0
         const start = Math.min(Math.max(0, o.start), Math.max(0, total - 3))
         const dur = o.length > 0 ? Math.min(o.length, total - start) : total - start
         if (!(dur > 1)) throw new Error('The clip is too short.')
-        onProgress({ label: `${label}: reading audio`, pct: 0 })
-        const samples = await decodeMono(beat.path, start, dur)
-        const frames = Math.round(dur * FPS)
-        const wv = L.wave
-        const viz = new Visualizer(samples, wv.w, wv.h, format === 'vertical' ? 48 : 80, o.viz, o.accent, FPS)
+        onProgress({ label: `${label}: listening to the beat`, pct: 0 })
+        const features = await vizFeatures(this.db, o.beatId, start, dur)
+        const frames = Math.min(features.frames, Math.round(dur * FPS))
+        if (this.cancelled) throw new Error('Export cancelled.')
+
+        this.worker ??= await openWorker()
+        const worker = this.worker
+        const id = ++jobSeq
+        const got = new Map<number, Uint8Array>()
+        let gone: string | null = null
+        const hooks: JobHooks = { ready: () => {}, frame: (i, d) => { got.set(i, d); this.wake?.() } }
+        jobs.set(id, hooks)
+        const ready = new Promise<boolean>((res, rej) => {
+          const t = setTimeout(() => rej(new Error('The frame renderer did not start.')), 20000)
+          hooks.ready = (err, encoder) => { clearTimeout(t); if (err) rej(new Error(err)); else res(!!encoder && !process.env.SHQ_NO_WEBCODECS) }
+        })
+        const onGone = () => { gone = 'The frame renderer stopped unexpectedly.'; this.worker = null; this.wake?.(); this.abortEncode?.() }
+        worker.webContents.once('render-process-gone', onGone)
+        const job: VizJob = { id, style: o.viz, accent: o.accent, motion: o.motion ?? 'still', titles: o.titles ?? 'intro', layout: L, features, meta: { title: o.title, tagline: o.tagline, footer: o.footer, cta: o.cta ?? '', bpm: beat.bpm ?? null, key: beat.key ?? null, cover } }
+        worker.webContents.send('viz:job', job)
 
         const path = uniquePath(outDir, `${beat.title.replace(/[\\/:*?"<>|]/g, '').trim() || 'Beat'} - ${format}.mp4`)
         const fade = Math.min(0.6, dur / 4)
-        const graph =
-          `[1:v]format=rgb24,split[wa][wb];[wb]gblur=sigma=16[wg];[wa][wg]blend=all_mode=screen,pad=${L.W}:${L.H}:${wv.x}:${wv.y}:black,format=gbrp[w];` +
-          `[0:v]${motionFilter(o.motion ?? 'still', L.W, L.H, dur, beat.bpm as number | null)}format=gbrp[b];[b][w]blend=all_mode=screen:shortest=1,format=yuv420p[v];` +
-          `[2:a]afade=t=in:d=0.03,afade=t=out:st=${(dur - fade).toFixed(2)}:d=${fade.toFixed(2)}[a]`
+        let encoder: boolean
+        try { encoder = await ready } catch (e) { jobs.delete(id); worker.webContents.removeListener('render-process-gone', onGone); throw e }
+
+        if (encoder) {
+          // the window encodes H.264 itself; ffmpeg only adds the audio, copying the video stream
+          const tmp = join(app.getPath('temp'), `shq-video-${process.pid}-${id}.mp4`)
+          const fd = openSync(tmp, 'w')
+          try {
+            await new Promise<void>((res, rej) => {
+              this.abortEncode = () => rej(new Error(gone ?? 'Export cancelled.'))
+              hooks.chunk = (pos, d) => { writeSync(fd, d, 0, d.byteLength, pos) }
+              hooks.progress = (n) => onProgress({ label: `${label}: rendering`, pct: Math.min(0.97, (n / frames) * 0.97) })
+              hooks.done = (err) => (err ? rej(new Error(err)) : res())
+              worker.webContents.send('viz:encode', { id, frames })
+            })
+          } catch (e) {
+            // a cancelled encode is still running in the window; drop it so the next job starts clean
+            this.worker?.destroy(); this.worker = null
+            throw e
+          } finally {
+            closeSync(fd)
+            this.abortEncode = null
+            jobs.delete(id)
+            worker.webContents.removeListener('render-process-gone', onGone)
+            if (this.cancelled || gone) try { unlinkSync(tmp) } catch { /* may not exist */ }
+          }
+          onProgress({ label: `${label}: adding the audio`, pct: 0.98 })
+          const mux = spawn(ffmpeg, [
+            '-y', '-hide_banner', '-v', 'error', '-i', tmp, '-ss', start.toFixed(3), '-t', dur.toFixed(3), '-i', beat.path,
+            '-filter_complex', `[1:a]afade=t=in:d=0.03,afade=t=out:st=${(dur - fade).toFixed(2)}:d=${fade.toFixed(2)}[a]`,
+            '-map', '0:v', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-shortest', '-movflags', '+faststart', path
+          ])
+          this.proc = mux
+          let merr = ''
+          mux.stderr.on('data', (c) => (merr += c))
+          const code = await new Promise<number>((res) => { mux.on('error', () => res(1)); mux.on('close', (c) => res(c ?? 1)) })
+          this.proc = null
+          try { unlinkSync(tmp) } catch { /* already gone */ }
+          if (this.cancelled) { try { unlinkSync(path) } catch { /* partial file may not exist */ } throw new Error('Export cancelled.') }
+          if (code !== 0) throw new Error(`ffmpeg failed: ${merr.trim().slice(-300) || 'exit ' + code}`)
+          this.db.prepare('INSERT INTO videos(beat_id,format,path,created_at) VALUES(?,?,?,?)').run(o.beatId, format as VideoFormat, path, Date.now())
+          out.push(path)
+          onProgress({ label: `${label}: done`, pct: 1 })
+          continue
+        }
+
         const args = [
           '-y', '-hide_banner', '-v', 'error', '-progress', 'pipe:1', '-nostats',
-          '-loop', '1', '-framerate', String(FPS), '-t', dur.toFixed(3), '-i', bgPath,
-          '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', `${wv.w}x${wv.h}`, '-framerate', String(FPS), '-i', 'pipe:0',
+          '-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', `${L.W}x${L.H}`, '-framerate', String(FPS), '-i', 'pipe:0',
           '-ss', start.toFixed(3), '-t', dur.toFixed(3), '-i', beat.path,
-          '-filter_complex', graph, '-map', '[v]', '-map', '[a]',
-          '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '19', '-pix_fmt', 'yuv420p', '-r', String(FPS),
+          '-filter_complex', `[0:v]format=yuv420p[v];[1:a]afade=t=in:d=0.03,afade=t=out:st=${(dur - fade).toFixed(2)}:d=${fade.toFixed(2)}[a]`,
+          '-map', '[v]', '-map', '[a]',
+          '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18', '-tune', 'animation', '-pix_fmt', 'yuv420p', '-r', String(FPS),
           '-c:a', 'aac', '-b:a', '192k', '-shortest', '-movflags', '+faststart', path
         ]
         const p = spawn(ffmpeg, args)
@@ -152,14 +220,26 @@ export class VideoExporter {
         p.stderr.on('data', (c) => (err += c))
         p.stdout.on('data', (c: Buffer) => {
           const m = /out_time_us=(\d+)/.exec(c.toString())
-          if (m) onProgress({ label: `${label}: encoding`, pct: Math.min(0.99, +m[1] / 1e6 / dur) })
+          if (m) onProgress({ label: `${label}: rendering`, pct: Math.min(0.99, +m[1] / 1e6 / dur) })
         })
         const done = new Promise<number>((res) => p.on('close', (code) => res(code ?? 1)))
         p.stdin.on('error', () => { /* ffmpeg exited early; the exit code explains why */ })
-        for (let i = 0; i < frames && !this.cancelled; i++) {
-          if (!p.stdin.write(viz.frame(i))) await once(p.stdin, 'drain')
+        try {
+          let asked = 0
+          for (let i = 0; i < frames && !this.cancelled; i++) {
+            while (asked < frames && asked < i + 16) { const to = Math.min(frames, asked + 8); worker.webContents.send('viz:render', { id, from: asked, to }); asked = to }
+            while (!got.has(i) && !this.cancelled && !gone) await new Promise<void>((r) => (this.wake = r))
+            if (gone) throw new Error(gone)
+            const d = got.get(i)
+            got.delete(i)
+            if (d && !p.stdin.write(Buffer.from(d.buffer, d.byteOffset, d.byteLength))) await once(p.stdin, 'drain')
+          }
+        } finally {
+          jobs.delete(id)
+          this.wake = null
+          worker.webContents.removeListener('render-process-gone', onGone)
+          p.stdin.end()
         }
-        p.stdin.end()
         const code = await done
         this.proc = null
         if (this.cancelled) { try { unlinkSync(path) } catch { /* partial file may not exist */ } throw new Error('Export cancelled.') }
@@ -172,21 +252,10 @@ export class VideoExporter {
     } finally {
       this.busy = false
       this.proc = null
-      rmSync(tmp, { recursive: true, force: true })
+      this.worker?.destroy()
+      this.worker = null
     }
   }
-}
-
-/** The frame itself can move: a slow push-in, a steady breath, or a bounce locked to the beat's tempo. */
-function motionFilter(motion: string, W: number, H: number, dur: number, bpm: number | null): string {
-  if (motion === 'still') return ''
-  const frames = Math.max(1, Math.round(dur * FPS))
-  let z: string
-  if (motion === 'drift') z = `1+0.07*on/${frames}`
-  else if (motion === 'beat' && bpm && bpm > 40 && bpm < 240) z = `1.015+0.04*pow(1-mod(on*${bpm}/${60 * FPS},1),3)`
-  else z = `1.04+0.03*sin(2*PI*on/${FPS * 4})`
-  // work from a 2x copy so the slow zoom doesn't shimmer
-  return `scale=${W * 2}:${H * 2}:flags=bicubic,zoompan=z='${z}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=${W}x${H}:fps=${FPS},`
 }
 
 function uniquePath(dir: string, name: string): string {

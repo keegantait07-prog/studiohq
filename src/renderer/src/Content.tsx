@@ -19,6 +19,9 @@ interface Props {
   reload: () => void
   reloadBeats: () => void
   toast: (m: string) => void
+  playId: number | null
+  playing: boolean
+  playTime: number
 }
 
 export function ContentView(p: Props) {
@@ -76,7 +79,7 @@ export function ContentView(p: Props) {
                 <div className="cv-beat"><h3>{beat.title}</h3>
                   <div className="seg" style={{ width: 'auto' }}>{([['video', 'Video'], ['copy', 'Titles & tags'], ['posts', `Posts (${postsOf(beat.id).length})`]] as const).map(([k, l]) => <button key={k} className={sub === k ? 'on' : ''} onClick={() => setSub(k)}>{l}</button>)}</div>
                 </div>
-                {sub === 'video' && <VideoBuilder key={beat.id} beat={beat} settings={p.settings} videos={p.content.videos} onPlayAt={p.onPlayAt} onExported={() => { p.reload(); p.reloadBeats() }} toast={p.toast} />}
+                {sub === 'video' && <VideoBuilder key={beat.id} beat={beat} settings={p.settings} videos={p.content.videos} onPlayAt={p.onPlayAt} onExported={() => { p.reload(); p.reloadBeats() }} toast={p.toast} playId={p.playId} playing={p.playing} playTime={p.playTime} />}
                 {sub === 'copy' && <CopyPanel beat={beat} settings={p.settings} onTags={async (artists) => { await window.api.setTags(beat.id, { ...beat.tags, artist: artists }); p.reloadBeats() }} />}
                 {sub === 'posts' && (
                   <div>

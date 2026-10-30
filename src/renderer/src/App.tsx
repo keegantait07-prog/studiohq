@@ -353,7 +353,7 @@ export function App() {
       ) : view === 'content' ? (
         <ContentView
           beats={audioBeats} sales={salesData.sales} content={content} settings={appSettings} beatId={contentBeat} onSelectBeat={setContentBeat}
-          onPlayAt={(id, at) => safePlay(id, at)} reload={reloadContent} reloadBeats={reload} toast={toast}
+          onPlayAt={(id, at) => safePlay(id, at)} reload={reloadContent} reloadBeats={reload} toast={toast} playId={player.id} playing={player.playing} playTime={player.time}
         />
       ) : view === 'sales' ? (
         <SalesView

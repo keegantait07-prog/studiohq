@@ -20,6 +20,10 @@ import '@fontsource/barlow-condensed/latin-600.css'
 import '@fontsource/barlow-condensed/latin-700.css'
 import './styles.css'
 import { applyTheme, getTheme } from './themes'
+import { startVizWorker } from './vizWorker'
 
-applyTheme(getTheme())
-createRoot(document.getElementById('root')!).render(<App />)
+if (location.hash === '#viz-worker') startVizWorker() // the hidden export window draws frames, no UI
+else {
+  applyTheme(getTheme())
+  createRoot(document.getElementById('root')!).render(<App />)
+}

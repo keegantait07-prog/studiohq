@@ -182,14 +182,14 @@ export class VideoExporter {
             closeSync(fd)
             this.abortEncode = null
             jobs.delete(id)
-            worker.webContents.removeListener('render-process-gone', onGone)
             if (this.cancelled || gone) try { unlinkSync(tmp) } catch { /* may not exist */ }
+            if (!worker.isDestroyed()) worker.webContents.removeListener('render-process-gone', onGone)
           }
           onProgress({ label: `${label}: adding the audio`, pct: 0.98 })
           const mux = spawn(ffmpeg, [
             '-y', '-hide_banner', '-v', 'error', '-i', tmp, '-ss', start.toFixed(3), '-t', dur.toFixed(3), '-i', beat.path,
             '-filter_complex', `[1:a]afade=t=in:d=0.03,afade=t=out:st=${(dur - fade).toFixed(2)}:d=${fade.toFixed(2)}[a]`,
-            '-map', '0:v', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-shortest', '-movflags', '+faststart', path
+            '-map', '0:v', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', path
           ])
           this.proc = mux
           let merr = ''

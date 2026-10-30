@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Beats by SMALLS. Preview any beat and lease it for $15 on BeatStars.">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>SMALLS Beat Catalogue</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Stencil+Display:wght@700;900&family=Instrument+Sans:wght@400;500;600;700&family=Chivo+Mono:wght@400;500;700&display=swap">
+<style>
+/* Layout: a chart recorder. Every beat is drawn as a pen trace from its own audio peaks on graph paper.
+   Instrument panel up top (the main player), channel switches as genre filters, one trace strip per beat,
+   operating notes for buying, a slim recorder bar that appears once the panel scrolls away. No photos. */
+:root{
+  --paper:#e8eee7;     /* chart paper */
+  --grid:#c3d4cb;      /* minor grid */
+  --grid-2:#97b4a7;    /* major grid */
+  --ink:#141d19;       /* type, unplayed trace */
+  --muted:#46564f;     /* secondary text (6:1 on paper) */
+  --pen:#c3232b;       /* recording pen, played trace */
+  --housing:#18211d;   /* instrument housing */
+  --housing-ink:#e3ebe4;
+  --lamp:#f2ad2f;      /* indicator lamp */
+  --display:"Big Shoulders Stencil Display","Impact","Arial Narrow",sans-serif;
+  --body:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"Chivo Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html{background:var(--paper)}
+body{background-color:var(--paper);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;padding-bottom:calc(76px + env(safe-area-inset-bottom,0px));
+  background-image:
+    linear-gradient(var(--grid-2) 1px,transparent 1px),linear-gradient(90deg,var(--grid-2) 1px,transparent 1px),
+    linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:80px 80px,80px 80px,16px 16px,16px 16px;background-position:-1px -1px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--housing);z-index:50}
+a{color:inherit}
+button{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--pen);outline-offset:2px}
+.wrap{max-width:1240px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.mono{font-family:var(--mono)}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:2px;font-family:var(--mono);font-weight:700;font-size:13px;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;cursor:pointer;border:1.5px solid var(--ink);background:var(--paper);white-space:nowrap}
+.btn:hover{background:var(--ink);color:var(--paper)}
+.btn.pen{background:var(--pen);border-color:var(--pen);color:#fff}
+.btn.pen:hover{background:var(--ink);border-color:var(--ink)}
+
+/* top strip */
+.top{background:var(--housing);color:var(--housing-ink)}
+.top .wrap{display:flex;align-items:center;gap:18px;flex-wrap:wrap;min-height:56px;padding-block:8px;font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+.brand{font-family:var(--display);font-weight:900;font-size:28px;letter-spacing:.04em;text-transform:none;text-decoration:none;line-height:1}
+.top .spacer{flex:1}
+.top a.link{text-decoration:none;opacity:.85}
+.top a.link:hover{opacity:1;text-decoration:underline}
+.lamp{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--lamp);box-shadow:0 0 8px var(--lamp);vertical-align:1px;margin-right:6px}
+
+/* hero / main recorder */
+.hero .wrap{padding-block:44px 30px}
+.hero h1{font-family:var(--display);font-weight:900;font-size:clamp(84px,17vw,232px);line-height:.8;letter-spacing:.01em;margin:0}
+.hero .lede{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px 40px;align-items:end;margin-top:18px}
+.hero .lede p{margin:0;font-size:19px;max-width:52ch}
+.spec{font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums;line-height:1.8}
+.spec b{color:var(--ink);font-weight:700}
+
+.panel{margin-top:32px;background:var(--housing);color:var(--housing-ink);border-radius:6px;padding:16px;box-shadow:0 18px 40px rgba(20,29,25,.25)}
+.panel-head{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;opacity:.8;padding:2px 4px 12px}
+.drum{position:relative;background-color:var(--paper);border-radius:3px;overflow:hidden;
+  background-image:linear-gradient(var(--grid-2) 1px,transparent 1px),linear-gradient(90deg,var(--grid-2) 1px,transparent 1px),linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:60px 60px,60px 60px,12px 12px,12px 12px}
+#bigTrace{display:block;width:100%;height:220px;cursor:pointer}
+.readouts{display:grid;grid-template-columns:minmax(0,2.2fr) repeat(3,minmax(0,1fr)) auto;gap:1px;background:#2c3832;margin-top:14px;border-radius:3px;overflow:hidden}
+.ro{background:var(--housing);padding:10px 14px;min-width:0}
+.ro small{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;opacity:.65}
+.ro b{display:block;font-family:var(--mono);font-weight:500;font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.ro.title b{font-family:var(--display);font-weight:700;font-size:30px;line-height:1.05;letter-spacing:.02em}
+.ro.ctrl{display:flex;align-items:center;gap:8px}
+.knob{width:46px;height:46px;border-radius:50%;border:0;display:grid;place-items:center;cursor:pointer;background:#2c3832;color:var(--housing-ink)}
+.knob.main{background:var(--pen);color:#fff;width:54px;height:54px}
+.knob svg{width:18px;height:18px}
+.ro.ctrl .btn{background:var(--housing-ink);border-color:var(--housing-ink);color:var(--housing)}
+.ro.ctrl .btn:hover{background:var(--lamp);border-color:var(--lamp)}
+
+/* log */
+section{padding-block:48px}
+.head{display:flex;justify-content:space-between;align-items:end;gap:18px;flex-wrap:wrap;margin-bottom:18px}
+h2{font-family:var(--display);font-weight:900;font-size:clamp(48px,7vw,88px);line-height:.85;margin:0;letter-spacing:.01em}
+.tools{display:flex;gap:8px;flex-wrap:wrap}
+.field{min-height:44px;border:1.5px solid var(--ink);border-radius:2px;background:var(--paper);color:var(--ink);font-family:var(--mono);font-size:13px;padding:0 12px}
+#q{width:250px}
+.channels{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:22px}
+.ch{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 12px;border:1.5px solid var(--ink);border-radius:2px;background:var(--paper);cursor:pointer;font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+.ch i{width:8px;height:8px;border-radius:50%;background:transparent;border:1.5px solid var(--ink);flex:none}
+.ch em{font-style:normal;opacity:.6;font-variant-numeric:tabular-nums}
+.ch:hover{background:#dbe4dc}
+.ch[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.ch[aria-pressed="true"] i{background:var(--lamp);border-color:var(--lamp);box-shadow:0 0 6px var(--lamp)}
+
+.log{border-top:2px solid var(--ink)}
+.row{display:grid;grid-template-columns:52px minmax(0,230px) minmax(0,1fr) 128px 190px;gap:18px;align-items:center;padding:14px 0;border-bottom:1px solid var(--grid-2);background:rgba(232,238,231,.82)}
+.row.on{background:rgba(255,255,255,.7)}
+.no{font-family:var(--mono);font-size:13px;color:var(--muted);text-align:center;font-variant-numeric:tabular-nums}
+.play{width:40px;height:40px;border-radius:50%;border:1.5px solid var(--ink);background:transparent;display:grid;place-items:center;cursor:pointer;margin:0 auto}
+.play svg{width:14px;height:14px}
+.row.on .play{background:var(--pen);border-color:var(--pen);color:#fff}
+.name{min-width:0}
+.name h3{margin:0;font-size:19px;font-weight:700;line-height:1.15;overflow-wrap:anywhere}
+.name .co{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.tag{display:inline-flex;align-items:center;gap:5px;margin-top:4px;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase}
+.tag::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--lamp);box-shadow:0 0 5px var(--lamp)}
+.trace{display:block;width:100%;height:64px;cursor:pointer;min-width:0}
+.read{font-family:var(--mono);font-size:13px;line-height:1.5;font-variant-numeric:tabular-nums}
+.read b{display:block;font-weight:400;white-space:nowrap}
+.read span{display:block;color:var(--muted);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.buy{display:flex;align-items:center;justify-content:flex-end;gap:12px}
+.buy .price{font-family:var(--display);font-weight:700;font-size:30px;line-height:1}
+.buy .btn{min-height:40px;padding:0 12px;font-size:12px}
+.empty{font-family:var(--mono);padding:24px 0;margin:0}
+
+/* notes */
+.notes ol{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--ink);border:1.5px solid var(--ink)}
+.notes li{background:var(--paper);padding:20px 18px 22px;min-width:0}
+.notes .n{font-family:var(--mono);font-size:12px;color:var(--pen);letter-spacing:.08em}
+.notes h3{margin:6px 0 6px;font-size:19px;line-height:1.2}
+.notes p{margin:0;color:var(--muted);font-size:15px}
+
+footer{background:var(--housing);color:var(--housing-ink);margin-top:24px}
+footer .wrap{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;padding-block:28px 34px;font-family:var(--mono);font-size:12px}
+
+/* recorder bar */
+.bar{position:fixed;left:0;right:0;bottom:0;z-index:40;background:var(--housing);color:var(--housing-ink);padding-bottom:env(safe-area-inset-bottom,0px);transform:translateY(110%);transition:transform .25s ease}
+.bar.show{transform:none}
+.bar .wrap{display:flex;align-items:center;gap:14px;min-height:68px}
+.bar .knob{width:42px;height:42px}
+.bar .t{min-width:0;flex:1}
+.bar .t b{display:block;font-family:var(--display);font-weight:700;font-size:22px;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar .t span{font-family:var(--mono);font-size:11px;opacity:.7}
+#miniTrace{flex:1.4;height:36px;min-width:0;cursor:pointer}
+.bar .btn{background:var(--housing-ink);border-color:var(--housing-ink);color:var(--housing);min-height:40px}
+
+@media (max-width:1000px){
+  .row{grid-template-columns:52px minmax(0,1fr) 120px 170px;grid-template-areas:"p n r b" ". t t t"}
+  .row>.no{grid-area:p}.row>.name{grid-area:n}.row>.trace{grid-area:t}.row>.read{grid-area:r}.row>.buy{grid-area:b}
+  .notes ol{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .readouts{grid-template-columns:minmax(0,1fr) repeat(3,minmax(0,1fr))}
+  .ro.title{grid-column:1/-1}.ro.ctrl{grid-column:1/-1;justify-content:flex-start}
+}
+@media (max-width:640px){
+  .hero .lede{grid-template-columns:1fr}.spec{text-align:left}
+  .top .hide-s{display:none}
+  #bigTrace{height:150px}
+  .readouts{grid-template-columns:minmax(0,.9fr) minmax(0,.9fr) minmax(0,1.3fr)}
+  .row{grid-template-columns:44px minmax(0,1fr);grid-template-areas:"p n" "t t" "r r" "b b";gap:10px 12px}
+  .read{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:baseline}.read span{display:inline}
+  .buy{justify-content:space-between}
+  .ro{padding:8px 10px}.ro b{font-size:15px}.ro.title b{font-size:26px}
+  .buy .btn{padding:0 10px}
+  .tools,#q{width:100%}#q{flex:1 1 160px}
+  .notes ol{grid-template-columns:1fr}
+  #miniTrace,.bar .btn{display:none}
+}
+@media (prefers-reduced-motion:reduce){.bar{transition:none}}
+</style>
+
+</head>
+<body>
+<div class="top">
+  <div class="wrap">
+    <a class="brand" href="#top">SMALLS</a>
+    <span class="hide-s"><span class="lamp"></span>Recorder on</span>
+    <span class="spacer"></span>
+    <a class="link" href="#log">Beat log</a>
+    <a class="link" href="#notes">How to buy</a>
+    <a class="link" id="storeTop" href="#" target="_blank" rel="noopener">BeatStars store ↗</a>
+  </div>
+</div>
+
+<header class="hero" id="top">
+  <div class="wrap">
+    <h1>SMALLS</h1>
+    <div class="lede">
+      <p>Every beat here is drawn from its own sound. Press play on any trace to hear a 45-second preview, then lease it for $15 on BeatStars.</p>
+      <div class="spec"><b id="sCount">42</b> beats logged<br>Range <b id="sBpm">87–193</b> BPM<br>Lease <b>$15</b> each</div>
+    </div>
+
+    <div class="panel" id="panel">
+      <div class="panel-head"><span>Chart recorder · channel <span id="pCh">ALL</span></span><span id="pNo">Log 001</span></div>
+      <div class="drum"><canvas id="bigTrace" aria-label="Preview trace. Click to jump to that point."></canvas></div>
+      <div class="readouts">
+        <div class="ro title"><small>Now on the drum</small><b id="rTitle">–</b></div>
+        <div class="ro"><small>Tempo</small><b id="rBpm">–</b></div>
+        <div class="ro"><small>Key</small><b id="rKey">–</b></div>
+        <div class="ro"><small>Time</small><b id="rTime">0:00 / 0:45</b></div>
+        <div class="ro ctrl">
+          <button class="knob" id="prev" type="button" aria-label="Previous beat"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
+          <button class="knob main" id="pp" type="button" aria-label="Play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4v16l13-8z"/></svg></button>
+          <button class="knob" id="next" type="button" aria-label="Next beat"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+          <a class="btn" id="pBuy" href="#" target="_blank" rel="noopener">Lease $15</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+<section id="log">
+  <div class="wrap">
+    <div class="head">
+      <h2>Beat log</h2>
+      <div class="tools">
+        <label class="sr" for="q">Search beats</label>
+        <input id="q" class="field" type="search" placeholder="Search title or co-producer" autocomplete="off">
+        <label class="sr" for="sort">Sort beats</label>
+        <select id="sort" class="field">
+          <option value="new">Newest first</option>
+          <option value="slow">BPM: slow to fast</option>
+          <option value="fast">BPM: fast to slow</option>
+          <option value="az">A to Z</option>
+        </select>
+      </div>
+    </div>
+    <div class="channels" id="channels" role="group" aria-label="Filter by genre"></div>
+    <div class="log" id="list"></div>
+    <p class="empty" id="empty" hidden>No beats on this channel match that search. Clear the search or switch channel.</p>
+  </div>
+</section>
+
+<section class="notes" id="notes">
+  <div class="wrap">
+    <div class="head"><h2>How to buy</h2></div>
+    <ol>
+      <li><div class="n">STEP 1</div><h3>Play the trace</h3><p>Each preview is a 45-second cut. Click anywhere on a trace to jump to that part.</p></li>
+      <li><div class="n">STEP 2</div><h3>Lease it for $15</h3><p>The Lease button opens the SMALLS store on BeatStars, where checkout happens.</p></li>
+      <li><div class="n">STEP 3</div><h3>Get your files</h3><p>BeatStars sends the files and your licence after checkout. Terms are on each beat's page there.</p></li>
+      <li><div class="n">STEP 4</div><h3>Want it exclusive?</h3><p>For exclusives or a custom beat, message SMALLS through BeatStars and name the beat.</p></li>
+    </ol>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 SMALLS. Beats produced by SMALLS and the co-producers credited on each line.</span>
+    <span>Traces drawn from each preview's audio.</span>
+  </div>
+</footer>
+
+<div class="bar" id="bar" aria-label="Recorder">
+  <div class="wrap">
+    <button class="knob main" id="bpp" type="button" aria-label="Play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4v16l13-8z"/></svg></button>
+    <div class="t"><b id="bTitle"></b><span id="bMeta"></span></div>
+    <canvas id="miniTrace" aria-label="Seek"></canvas>
+    <a class="btn" id="bBuy" href="#" target="_blank" rel="noopener">Lease $15</a>
+  </div>
+</div>
+
+<script type="application/json" id="beats-data">__DATA__</script>
+
+<audio id="au" preload="none"></audio>
+
+<script>
+// Built by Studio HQ. Beat data is in the #beats-data block above.
+const PRICE = 15;
+const DATA = JSON.parse(document.getElementById("beats-data").textContent);
+let STORE = DATA.store;
+let BEATS = DATA.beats;
+const live = () => BEATS.filter(b => !b.hidden);
+const linkOf = b => (b && b.link) || STORE;
+const audioOf = b => b.src || ("audio/" + b.id + ".mp3");
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const keyName = k => /m$/.test(k) ? k.slice(0,-1) + " min" : k + " maj";
+const credit = b => "prod. SMALLS" + (b.co.length ? " × " + b.co.join(" × ") : "");
+const pad = n => String(n).padStart(3, "0");
+const fmt = t => Math.floor(t/60) + ":" + String(Math.floor(t%60)).padStart(2,"0");
+const ICON_PLAY = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4v16l13-8z"/></svg>';
+const ICON_PAUSE = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>';
+const PEN = getComputedStyle(document.documentElement).getPropertyValue("--pen").trim() || "#c3232b";
+const INK = getComputedStyle(document.documentElement).getPropertyValue("--ink").trim() || "#141d19";
+
+function refreshStats(){
+  $("#storeTop").href = STORE;
+  const L = live(), bpms = L.map(b => b.bpm);
+  $("#sCount").textContent = L.length;
+  $("#sBpm").textContent = bpms.length ? Math.min(...bpms) + "–" + Math.max(...bpms) : "–";
+}
+refreshStats();
+
+// Turn a beat's 80 loudness peaks into a seismograph-style pen trace (same beat, same trace, every time).
+const traceCache = new Map();
+function tracePoints(b){
+  if (traceCache.has(b.id)) return traceCache.get(b.id);
+  let seed = b.id * 9301 + b.bpm * 49297;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const pts = [], per = 4;
+  b.peaks.forEach((p, i) => {
+    const next = b.peaks[i + 1] ?? p;
+    for (let k = 0; k < per; k++) {
+      const amp = p + (next - p) * (k / per);
+      const sign = (k % 2 ? 1 : -1);
+      pts.push(sign * amp * (0.45 + rnd() * 0.55));
+    }
+  });
+  traceCache.set(b.id, pts);
+  return pts;
+}
+function drawTrace(cv, b, prog, opts = {}){
+  const r = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+  if (!w || !h) return;
+  if (cv.width !== Math.round(w * r) || cv.height !== Math.round(h * r)) { cv.width = Math.round(w * r); cv.height = Math.round(h * r); }
+  const x = cv.getContext("2d");
+  x.setTransform(r, 0, 0, r, 0, 0);
+  x.clearRect(0, 0, w, h);
+  const pts = tracePoints(b), n = pts.length, mid = h / 2, amp = h * 0.44, cut = prog * w;
+  x.lineJoin = "round"; x.lineWidth = opts.lw || 1;
+  // baseline
+  x.strokeStyle = opts.base || "rgba(20,29,25,.25)"; x.setLineDash([3, 4]);
+  x.beginPath(); x.moveTo(0, mid); x.lineTo(w, mid); x.stroke(); x.setLineDash([]);
+  const path = (from, to, color) => {
+    x.strokeStyle = color; x.beginPath();
+    for (let i = from; i <= to && i < n; i++) {
+      const px = (i / (n - 1)) * w, py = mid + pts[i] * amp;
+      i === from ? x.moveTo(px, py) : x.lineTo(px, py);
+    }
+    x.stroke();
+  };
+  const split = Math.floor(prog * (n - 1));
+  if (prog > 0) path(0, split + 1, PEN);
+  path(Math.max(0, split), n - 1, opts.ink || "rgba(20,29,25,.72)");
+  if (opts.stylus && prog > 0) {
+    x.strokeStyle = PEN; x.lineWidth = 2;
+    x.beginPath(); x.moveTo(cut, 4); x.lineTo(cut, h - 4); x.stroke();
+    x.fillStyle = PEN; x.beginPath(); x.arc(cut, mid + pts[Math.min(n - 1, split)] * amp, 4, 0, Math.PI * 2); x.fill();
+  }
+  if (opts.ticks) {
+    x.fillStyle = "rgba(20,29,25,.6)"; x.font = "11px " + getComputedStyle(document.body).getPropertyValue("--mono");
+    for (let s = 0; s <= 45; s += 5) {
+      const tx = (s / 45) * w;
+      x.fillRect(tx, h - 10, 1, 10);
+      if (s < 45) x.fillText("0:" + String(s).padStart(2, "0"), tx + 4, h - 3);
+    }
+  }
+}
+
+// channels
+const order = ["Trap","Jersey Club","Afro","Ambient","Experimental","Latin","Drum & Bass","Opium","Hyperpop","2000s"];
+const match = (b, g) => g === "All" ? true : g === "New" ? !!b.drop : b.genre === g;
+let filter = "All", sortBy = "new", query = "";
+const channels = $("#channels");
+const genresOf = list => { const extra = [...new Set(list.map(b => b.genre).filter(g => g && !order.includes(g)))].sort(); return [...order, ...extra]; };
+function buildChannels(){
+  channels.innerHTML = "";
+  ["All","New",...genresOf(live())].forEach(g => {
+    const n = live().filter(b => match(b, g)).length;
+    if (!n) return;
+    const c = document.createElement("button");
+    c.type = "button"; c.className = "ch"; c.dataset.g = g;
+    c.innerHTML = "<i></i>" + esc(g === "All" ? "All beats" : g === "New" ? "New arrivals" : g) + " <em>" + n + "</em>";
+    c.setAttribute("aria-pressed", String(g === filter));
+    c.onclick = () => setFilter(g);
+    channels.appendChild(c);
+  });
+}
+buildChannels();
+function setFilter(g){
+  if (!channels.querySelector(`[data-g="${CSS.escape(g)}"]`)) g = "All";
+  filter = g;
+  channels.querySelectorAll(".ch").forEach(c => c.setAttribute("aria-pressed", String(c.dataset.g === g)));
+  $("#pCh").textContent = g === "All" ? "ALL" : g === "New" ? "NEW ARRIVALS" : g.toUpperCase();
+  try { localStorage.setItem("smalls-channel", g); } catch(e) {}
+  render();
+}
+
+function visible(){
+  let list = live().filter(b => match(b, filter));
+  if (query) {
+    const q = query.toLowerCase();
+    list = list.filter(b => (b.title + " " + b.co.join(" ") + " " + b.genre).toLowerCase().includes(q));
+  }
+  const s = {new:(a,b)=>a.no-b.no, slow:(a,b)=>a.bpm-b.bpm, fast:(a,b)=>b.bpm-a.bpm, az:(a,b)=>a.title.localeCompare(b.title)}[sortBy];
+  return list.slice().sort(s);
+}
+
+const listEl = $("#list");
+function render(){
+  const list = visible();
+  listEl.innerHTML = "";
+  $("#empty").hidden = list.length > 0;
+  list.forEach(b => {
+    const row = document.createElement("article");
+    row.className = "row"; row.dataset.id = b.id;
+    row.innerHTML = `
+      <div class="no"><button class="play" type="button" aria-label="Play ${esc(b.title)}">${ICON_PLAY}</button><div style="margin-top:4px">${pad(b.no)}</div></div>
+      <div class="name"><h3>${esc(b.title)}</h3><div class="co">${esc(credit(b))}</div>${b.drop ? `<div class="tag">New · ${esc(b.drop)}</div>` : ""}</div>
+      <canvas class="trace" aria-label="Trace of ${esc(b.title)}. Click to play from that point."></canvas>
+      <div class="read"><b>${b.bpm} BPM</b> <b>${keyName(b.key)}</b>${b.genre ? `<span>${esc(b.genre)}</span>` : ""}</div>
+      <div class="buy"><span class="price">$${PRICE}</span><a class="btn pen" href="${esc(linkOf(b))}" target="_blank" rel="noopener">Lease on BeatStars</a></div>`;
+    row.querySelector(".play").onclick = () => toggle(b);
+    const cv = row.querySelector(".trace");
+    cv.onclick = e => seekTo(b, (e.clientX - cv.getBoundingClientRect().left) / cv.clientWidth);
+    listEl.appendChild(row);
+  });
+  requestAnimationFrame(drawAll);
+}
+function drawAll(){
+  listEl.querySelectorAll(".row").forEach(row => {
+    const b = BEATS.find(x => x.id === +row.dataset.id);
+    const on = b === cur;
+    row.classList.toggle("on", on);
+    row.querySelector(".play").innerHTML = on && !au.paused ? ICON_PAUSE : ICON_PLAY;
+    drawTrace(row.querySelector(".trace"), b, on ? progress() : 0, {stylus: on});
+  });
+}
+$("#q").addEventListener("input", e => { query = e.target.value.trim(); render(); });
+$("#sort").addEventListener("change", e => { sortBy = e.target.value; render(); });
+
+// playback
+const au = $("#au");
+let cur = BEATS[0];
+const progress = () => au.duration ? au.currentTime / au.duration : 0;
+function load(b){
+  cur = b;
+  au.src = audioOf(b);
+  $("#pBuy").href = linkOf(b); $("#bBuy").href = linkOf(b);
+  $("#rTitle").textContent = b.title;
+  $("#rBpm").textContent = b.bpm + " BPM";
+  $("#rKey").textContent = keyName(b.key);
+  $("#pNo").textContent = "Log " + pad(b.no) + " · " + credit(b);
+  $("#bTitle").textContent = b.title;
+  $("#bMeta").textContent = b.bpm + " BPM · " + keyName(b.key);
+  redraw();
+}
+function toggle(b){
+  if (b && b !== cur) { load(b); au.play().catch(()=>{}); }
+  else if (au.paused) au.play().catch(()=>{});
+  else au.pause();
+}
+function seekTo(b, f){
+  f = Math.min(Math.max(f, 0), 1);
+  if (b !== cur) load(b);
+  const go = () => { au.currentTime = f * (au.duration || 45); };
+  if (au.duration) { go(); au.play().catch(()=>{}); }
+  else au.play().then(go).catch(()=>{});
+}
+function step(d){
+  const list = visible(); if (!list.length) return;
+  let i = list.indexOf(cur); i = (i + d + list.length) % list.length;
+  load(list[i]); au.play().catch(()=>{});
+}
+function redraw(){
+  const p = progress();
+  drawTrace($("#bigTrace"), cur, p, {stylus: true, ticks: true, lw: 1.5});
+  drawTrace($("#miniTrace"), cur, p, {ink: "rgba(227,235,228,.55)", base: "rgba(227,235,228,.2)"});
+  $("#rTime").textContent = fmt(au.currentTime || 0) + " / " + fmt(au.duration || 45);
+  const playing = !au.paused;
+  ["#pp","#bpp"].forEach(s => { $(s).innerHTML = playing ? ICON_PAUSE : ICON_PLAY; $(s).setAttribute("aria-label", playing ? "Pause" : "Play"); });
+  drawAll();
+}
+$("#pp").onclick = () => toggle();
+$("#bpp").onclick = () => toggle();
+$("#prev").onclick = () => step(-1);
+$("#next").onclick = () => step(1);
+["#bigTrace","#miniTrace"].forEach(s => $(s).addEventListener("click", e => {
+  const cv = $(s); seekTo(cur, (e.clientX - cv.getBoundingClientRect().left) / cv.clientWidth);
+}));
+au.addEventListener("play", redraw);
+au.addEventListener("pause", redraw);
+au.addEventListener("ended", () => step(1));
+let raf = 0;
+au.addEventListener("timeupdate", () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(redraw); });
+window.addEventListener("resize", () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(redraw); });
+
+// recorder bar shows once the main panel scrolls away
+const bar = $("#bar");
+if ("IntersectionObserver" in window) {
+  new IntersectionObserver(([e]) => bar.classList.toggle("show", !e.isIntersecting && e.boundingClientRect.top < 0)).observe($("#panel"));
+}
+
+try { const g = localStorage.getItem("smalls-channel"); if (g && channels.querySelector(`[data-g="${CSS.escape(g)}"]`)) filter = g; } catch(e) {}
+setFilter(filter);
+load(BEATS[0]);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(redraw);
+</script>
+
+</body>
+</html>

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SMALLS — Beats</title>
+<meta name="description" content="Buy beats by SMALLS. Preview, pick a license, check out.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23a33cff'/%3E%3Cstop offset='1' stop-color='%23f6e45a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='16' cy='16' r='14' fill='url(%23g)'/%3E%3Ccircle cx='32' cy='16' r='14' fill='%23f6e45a' fill-opacity='.9'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="mesh" aria-hidden="true"></canvas>
+
+<header class="nav">
+  <a class="logo" href="#top" aria-label="SMALLS home"><span class="dots"><i></i><i></i><i></i></span><b>smalls</b></a>
+  <nav>
+    <a href="#beats">Beats</a>
+    <a href="#licenses">Licensing</a>
+    <a href="#contact">Contact</a>
+  </nav>
+</header>
+
+<main id="top">
+  <section class="hero">
+    <div class="wordmark" aria-hidden="true"><span class="dots big"><i></i><i></i><i></i></span><b>smalls</b></div>
+    <h1 class="plate"><span>SMALLS</span></h1>
+    <p class="tag" id="tagline"></p>
+    <div class="cta">
+      <a class="btn" href="#beats">Browse beats</a>
+      <a class="btn ghost" href="#licenses">Licensing</a>
+    </div>
+  </section>
+
+  <section id="beats" class="beats">
+    <div class="head">
+      <h2>Beats</h2>
+      <div class="filters" id="filters" role="group" aria-label="Filter beats"></div>
+    </div>
+    <ul id="list" class="list"></ul>
+  </section>
+
+  <section id="licenses" class="licenses">
+    <div class="head"><h2>Licensing</h2></div>
+    <div id="tiers" class="tiers"></div>
+    <p class="fine">Every license is delivered instantly after checkout. Exclusive purchases take the beat off the store.</p>
+  </section>
+
+  <footer id="contact" class="foot">
+    <a class="logo" href="#top"><span class="dots"><i></i><i></i><i></i></span><b>smalls</b></a>
+    <div class="links" id="links"></div>
+    <small>© <span id="yr"></span> SMALLS. All rights reserved.</small>
+  </footer>
+</main>
+
+<div class="player" id="player" hidden>
+  <div class="pcover" id="pcover"></div>
+  <div class="pinfo"><b id="ptitle"></b><span id="pmeta"></span></div>
+  <div class="pctrl">
+    <button id="prev" aria-label="Previous">&#9198;</button>
+    <button id="pp" class="pp" aria-label="Play">&#9654;</button>
+    <button id="next" aria-label="Next">&#9197;</button>
+  </div>
+  <div class="pbar"><span id="pcur">0:00</span><input id="seek" type="range" min="0" max="1000" value="0" aria-label="Seek"><span id="pdur">0:00</span></div>
+  <button class="pbuy" id="pbuy">Buy</button>
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="mtitle">
+    <button class="x" id="mclose" aria-label="Close">&times;</button>
+    <div class="mhead"><div class="mcover" id="mcover"></div><div><small>Choose a license</small><h3 id="mtitle"></h3><span id="mmeta"></span></div></div>
+    <div id="mtiers" class="mtiers"></div>
+    <p class="note" id="mnote" hidden></p>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

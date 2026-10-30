@@ -8,6 +8,7 @@ import { Store } from './store'
 import { Watcher } from './watcher'
 import { Crm } from './crm'
 import { Packs } from './packs'
+import { Catalog } from './catalog'
 import { Sales } from './sales'
 import { Content } from './content'
 import { Sounds } from './sounds'
@@ -22,6 +23,7 @@ import { VideoExporter, coverData, pickCover, previewStill } from './video'
 import type { Post, VideoOptions } from '../shared/types'
 import { splitSheetHtml, writePdf } from './splitsheet'
 import type { LogSaleInput, License, Sale, SplitRow } from '../shared/types'
+import type { SitePatch } from '../shared/types'
 import type { BeatPatch, Settings, TagKind, LogPitchInput, PackRequest, Template, Contact, PitchStatus } from '../shared/types'
 
 app.setName('Studio HQ')
@@ -36,6 +38,7 @@ let store: Store
 let watcher: Watcher
 let crm: Crm
 let packs: Packs
+let catalog: Catalog
 let sales: Sales
 let content: Content
 let sounds: Sounds
@@ -318,6 +321,13 @@ function registerIpc(): void {
   h('packs:build', async (_, req: PackRequest) => packs.build(req))
   h('packs:openLocal', (_, id: number) => { const p = packs.localIndex(id); if (p) return shell.openPath(p) })
   h('netlify:status', () => packs.status())
+  // ---- public beat site ----
+  const step = (s: string) => win?.webContents.send('site:progress', s)
+  h('site:status', () => catalog.status())
+  h('site:add', (_, id: number) => catalog.add(id, step))
+  h('site:update', (_, id: number, p: SitePatch) => catalog.update(id, p))
+  h('site:remove', (_, id: number) => catalog.remove(id, step))
+  h('site:publish', () => catalog.publish(step))
   h('netlify:setToken', (_, t: string | null) => packs.setToken(t))
   h('app:openExternal', (_, url: string) => { if (/^(https?|mailto):/i.test(url)) return shell.openExternal(url) })
   h('app:backup', backupNow)
@@ -352,6 +362,7 @@ app.whenReady().then(async () => {
   sessions = new Sessions(db)
   videos = new VideoExporter(db, () => store.getSettings().exportDir)
   packs = new Packs(db, () => store.getSettings().producerName)
+  catalog = new Catalog(db, () => packs.token_(), () => store.getSettings().storeUrl, () => store.getSettings().ownHandles)
   registerIpc()
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     { role: 'appMenu' },

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { NetlifyStatus, Settings as S } from '@shared/types'
+import type { NetlifyStatus, Settings as S, SiteStatus } from '@shared/types'
 
 export function Settings({ onClose }: { onClose: () => void }) {
   const [s, setS] = useState<S | null>(null)
@@ -8,6 +8,10 @@ export function Settings({ onClose }: { onClose: () => void }) {
   const [nl, setNl] = useState<NetlifyStatus | null>(null)
   const [token, setToken] = useState('')
   const [name, setName] = useState('')
+  const [site, setSite] = useState<SiteStatus | null>(null)
+  const [siteBusy, setSiteBusy] = useState('')
+  const [siteMsg, setSiteMsg] = useState('')
+  useEffect(() => { window.api.siteStatus().then(setSite); return window.api.onSiteProgress(setSiteBusy) }, [])
   const load = () => window.api.getSettings().then(setS)
   useEffect(() => { load().then(); window.api.getSettings().then((x) => setName(x.producerName)); window.api.dataPath().then(setDataPath); window.api.netlifyStatus().then(setNl) }, [])
   if (!s) return null
@@ -76,6 +80,16 @@ export function Settings({ onClose }: { onClose: () => void }) {
             <div className="folder"><input type="password" value={token} placeholder="Netlify personal access token" onChange={(e) => setToken(e.target.value)} />
               <button disabled={!token.trim()} onClick={async () => { try { await window.api.setNetlifyToken(token); setToken(''); setNl(await window.api.netlifyStatus()) } catch (e) { setMsg(String((e as Error).message)) } }}>Save</button></div>
           )}
+        </section>
+        <section>
+          <h3>Beat site</h3>
+          <p className="help">Your public beat catalogue. Send beats to it with <i>Send to site</i> in any beat's panel. Every Lease button opens the store link above unless a beat has its own link. It's published to its own Netlify site, separate from your private pitch pages.</p>
+          <div className="folder">
+            <span>{site?.url ? site.url : 'Not published yet'} · {site?.entries.length ?? 0} beats{site?.pending ? ' · unpublished changes' : ''}</span>
+            {site?.url && <button onClick={() => window.api.openExternal(site.url!)}>Open</button>}
+            <button disabled={!!siteBusy || !nl?.hasToken} onClick={async () => { setSiteMsg(''); setSiteBusy('Publishing…'); try { const u = await window.api.sitePublish(); setSiteMsg('Published to ' + u) } catch (e) { setSiteMsg(String((e as Error).message)) } setSiteBusy(''); setSite(await window.api.siteStatus()) }}>{siteBusy || 'Publish site now'}</button>
+          </div>
+          {siteMsg && <p className="help">{siteMsg}</p>}
         </section>
         <section>
           <h3>Your data</h3>

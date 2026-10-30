@@ -5,6 +5,7 @@ import { artUrl, artPng } from './genart'
 import { keyColor } from './keyColor'
 import { fmtBpm, fmtDur } from './format'
 import { errMsg, fmtDay, money } from './salesUtils'
+import { SiteCard } from './SiteCard'
 
 const KIND_LABEL: Record<TagKind, string> = { vibe: 'Vibe', genre: 'Genre', artist: 'Type beat artist' }
 
@@ -178,6 +179,8 @@ export function Detail({ beat, allTags, onSelect, onPlay, refresh, pitchedTo, on
           <input value={label} placeholder="v1, final, stems…" onChange={(e) => setLabel(e.target.value)} onBlur={() => label !== beat.versionLabel && save({ versionLabel: label })} />
         </div>
       </div>
+
+      <SiteCard beat={beat} />
 
       {beat.ext !== 'flp' && (<>
       <div className="field">

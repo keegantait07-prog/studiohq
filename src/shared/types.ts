@@ -245,6 +245,10 @@ export interface CrmData { contacts: Contact[]; pitches: Pitch[]; templates: Tem
 export interface LogPitchInput { contactId: number; beatIds: number[]; channel: Pitch['channel']; subject: string; link: string; packId: number | null }
 export interface PackRequest { contactId: number | null; title: string; intro: string; beatIds: number[]; deploy: boolean }
 export interface PackResult { packId: number; slug: string; url: string | null; deployError: string | null }
+export interface SiteEntry { beatId: number; title: string; genre: string; co: string[]; link: string; addedAt: number }
+export interface SitePatch { title?: string; genre?: string; link?: string; co?: string[] }
+export interface SiteStatus { url: string | null; hasToken: boolean; entries: SiteEntry[]; pending: boolean }
+
 export interface NetlifyStatus { hasToken: boolean; siteUrl: string | null; encryptionOk: boolean }
 
 export interface ScanStatus {
@@ -332,6 +336,12 @@ export interface Api {
   netlifyStatus(): Promise<NetlifyStatus>
   setNetlifyToken(token: string | null): Promise<void>
   openExternal(url: string): Promise<void>
+  siteStatus(): Promise<SiteStatus>
+  siteAdd(beatId: number): Promise<string>
+  siteUpdate(beatId: number, patch: SitePatch): Promise<void>
+  siteRemove(beatId: number): Promise<string>
+  sitePublish(): Promise<string>
+  onSiteProgress(cb: (step: string) => void): () => void
   onCrmChanged(cb: () => void): () => void
   onNavigate(cb: (view: 'dashboard' | 'vault' | 'crm' | 'sales' | 'content' | 'sounds' | 'feedback') => void): () => void
   onBeatsChanged(cb: (ids: number[]) => void): () => void

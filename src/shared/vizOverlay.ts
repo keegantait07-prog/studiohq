@@ -27,7 +27,10 @@ const STOCK: Partial<Record<VizStyle, Stock>> = {
   vinyl: { paper: '#efe7d6', ink: '#1c1815', veil: '#120f0d' },
   ridge: { paper: '#ecebe6', ink: '#0b0b0c', veil: '#000000' },
   phosphor: { paper: '#6effaa', ink: '#020905', veil: '#020905' },
-  led: { paper: '#fff8ec', ink: '#050507', veil: '#000000' }
+  led: { paper: '#fff8ec', ink: '#050507', veil: '#000000' },
+  ink: { paper: '#f5f1e7', ink: '#1d2333', veil: '#1d2333' },
+  typewriter: { paper: '#f4efe2', ink: '#24221f', veil: '#1c1410' },
+  bauhaus: { paper: '#efe8da', ink: '#1b1a19', veil: '#1b1a19' }
 }
 const stockOf = (s: VizStyle): Stock => STOCK[s] ?? { paper: '#f3f1ec', ink: '#16171a', veil: '#16171a' }
 
@@ -110,7 +113,7 @@ function outro(ctx: Ctx, L: SceneLayout, stock: Stock, accent: string, t: Overla
   if (j < 0) return
   ctx.save()
   // the frame dims to ink, then the card rises on springs
-  ctx.globalAlpha = interpolate(j, [0, 0.5 * fps], [0, 0.88], clampOpt)
+  ctx.globalAlpha = interpolate(j, [0, 0.5 * fps], [0, 0.95], clampOpt) // dark enough that the preset's own title cannot ghost through
   ctx.fillStyle = stock.veil
   ctx.fillRect(0, 0, W, H)
   ctx.globalAlpha = 1

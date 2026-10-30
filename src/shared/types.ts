@@ -144,7 +144,7 @@ export const PLATFORMS: { id: Platform; label: string; color: string }[] = [
 ]
 export interface Post { id: number; beatId: number; platform: Platform; status: 'planned' | 'posted'; date: number; url: string; caption: string }
 export type VideoFormat = 'vertical' | 'horizontal'
-export type VizStyle = 'lab' | 'tape' | 'riso' | 'cover' | 'vinyl' | 'ridge' | 'phosphor' | 'score' | 'led'
+export type VizStyle = 'lab' | 'tape' | 'riso' | 'cover' | 'vinyl' | 'ridge' | 'phosphor' | 'score' | 'led' | 'ink' | 'typewriter' | 'bauhaus'
 /** How the whole frame moves behind the visualizer. */
 export type VideoMotion = 'still' | 'drift' | 'breathe' | 'beat'
 /** Title layers drawn over the preset: none, an intro slate, or the slate plus an end card. */

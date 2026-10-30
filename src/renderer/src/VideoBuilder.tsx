@@ -20,7 +20,10 @@ const VIZ: { id: VizStyle; label: string; hint: string }[] = [
   { id: 'ridge', label: 'Ridge', hint: 'The last few seconds of the spectrum stacked as ridgelines on black, the newest line in your accent' },
   { id: 'phosphor', label: 'Phosphor', hint: 'A green-screen oscilloscope: a stereo XY trace with afterglow, a triggered waveform and a live log of every kick and snare by bar' },
   { id: 'score', label: 'Score', hint: 'Engraved sheet music: the transcribed notes scroll across a grand staff, with dynamics from the loudness and a keyboard of what sounds' },
-  { id: 'led', label: 'LED', hint: 'A dot-matrix LED wall: your title as a scrolling marquee, a ring that pulses on every kick and spectrum columns with peak caps' }
+  { id: 'led', label: 'LED', hint: 'A dot-matrix LED wall: your title as a scrolling marquee, a ring that pulses on every kick and spectrum columns with peak caps' },
+  { id: 'ink', label: 'Ink', hint: 'Suminagashi: every kick floats a drop of ink on water and pushes the older rings aside, downbeats in your accent, the title on a hanging paper strip' },
+  { id: 'typewriter', label: 'Typewriter', hint: 'The beat typed out live, one 16th at a time: x for kicks in red ribbon, o for snares, a carriage return every bar, and each bar\u2019s root note highlighted in its colour' },
+  { id: 'bauhaus', label: 'Bauhaus', hint: 'A cut-paper screenprint that recomposes itself every phrase: shapes slide to new places a beat apart and land on springs, each one breathing with its own band, overprinting in your accent and its triad' }
 ]
 const MOTIONS: { id: VideoMotion; label: string; hint: string }[] = [
   { id: 'still', label: 'Still', hint: 'The frame stays put' },

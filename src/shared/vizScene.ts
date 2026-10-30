@@ -7,6 +7,12 @@
 //   lab   an engineer's instrument panel on paper
 //   tape  a worn cassette deck on cardboard, with VU needles and a pen-plotter printout
 //   riso  a two-ink risograph poster that mis-registers on the kicks
+//   and cover, vinyl, ridge, phosphor, score and led, described at each preset.
+//
+// A camera directs every preset: it holds a framing for a 4-bar phrase, moves to the next one on the
+// downbeat, pushes in slowly while it holds, and leans in when the track lifts. Backgrounds sit
+// behind the content at a shallower depth, so they drift less than the content does.
+import { Easing, interpolate, spring } from 'remotion'
 import type { VideoMotion, VizStyle } from './types'
 import { NB, VEC, WAVE, type VizFeatures } from './vizFeatures'
 
@@ -40,6 +46,57 @@ function hexRgb(hex: string): [number, number, number] {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
 }
 const rgba = (c: [number, number, number], a: number) => `rgba(${c[0]},${c[1]},${c[2]},${clamp(a)})`
+
+// ---- colour: hues come from the music, tuned around the accent so they stay in one family
+function hueOf([r, g, b]: [number, number, number]): number {
+  const R = r / 255, G = g / 255, B = b / 255, mx = Math.max(R, G, B), mn = Math.min(R, G, B), d = mx - mn
+  if (d < 1e-6) return 0
+  const h = mx === R ? ((G - B) / d) % 6 : mx === G ? (B - R) / d + 2 : (R - G) / d + 4
+  return (h * 60 + 360) % 360
+}
+const hsl = (h: number, s: number, l: number, a = 1) => `hsla(${((h % 360) + 360) % 360},${s}%,${l}%,${clamp(a)})`
+const FIFTHS = [0, 7, 2, 9, 4, 11, 6, 1, 8, 3, 10, 5]
+/** A pitch class's hue: its place on the circle of fifths, spread around the accent, so related notes sit near each other. */
+const pitchHue = (pc: number, A: [number, number, number]) => hueOf(A) + (FIFTHS.indexOf(((pc % 12) + 12) % 12) - 6) * 19
+/** The strongest pitch class on a frame. */
+function domPc(f: VizFeatures, fr: number): number {
+  const b = clamp(Math.floor(fr), 0, f.frames - 1) * 12
+  let best = 0
+  for (let p = 1; p < 12; p++) if (f.chroma[b + p] > f.chroma[b + best]) best = p
+  return best
+}
+
+/** Up to four vivid colours from the cover art, filled out with the accent's neighbours when the art is muted. Built once. */
+function artPalette(cover: CanvasImageSource | null, A: [number, number, number]): [number, number, number][] {
+  const out: [number, number, number][] = []
+  if (cover) {
+    try {
+      const c = document.createElement('canvas'); c.width = c.height = 32
+      const g = c.getContext('2d', { willReadFrequently: true })!
+      g.drawImage(cover, 0, 0, 32, 32)
+      const d = g.getImageData(0, 0, 32, 32).data
+      const bins = Array.from({ length: 12 }, () => ({ w: 0, r: 0, g: 0, b: 0 }))
+      for (let i = 0; i < 32 * 32; i++) {
+        const r = d[i * 4], gg = d[i * 4 + 1], b = d[i * 4 + 2], mx = Math.max(r, gg, b), mn = Math.min(r, gg, b)
+        const sat = mx ? (mx - mn) / mx : 0, lum = (mx + mn) / 510
+        if (sat < 0.28 || lum < 0.12 || lum > 0.92) continue
+        const bin = bins[Math.floor(hueOf([r, gg, b]) / 30) % 12], w = sat * sat
+        bin.w += w; bin.r += r * w; bin.g += gg * w; bin.b += b * w
+      }
+      bins.map((b, i) => ({ ...b, i })).filter((b) => b.w > 0.6).sort((a, b) => b.w - a.w).forEach((b) => {
+        if (out.length < 4 && out.every((o) => Math.abs(((hueOf(o) - b.i * 30 + 540) % 360) - 180) > 40)) out.push([Math.round(b.r / b.w), Math.round(b.g / b.w), Math.round(b.b / b.w)])
+      })
+    } catch { /* fall back to the accent's neighbours */ }
+  }
+  const h = hueOf(A)
+  for (const dh of [0, 38, -42, 180]) {
+    if (out.length >= 4) break
+    const c = document.createElement('canvas').getContext('2d')!
+    c.fillStyle = hsl(h + dh, 70, 58); const m = /^#?([0-9a-f]{6})$/i.exec(c.fillStyle)
+    if (m) { const n = parseInt(m[1], 16); out.push([(n >> 16) & 255, (n >> 8) & 255, n & 255]) }
+  }
+  return out
+}
 
 /** The pitch classes of a key like "A minor", for marking the scale on the key pads. */
 function scaleOf(key: string | null): Set<number> {
@@ -158,7 +215,99 @@ function texture(ctx: Ctx, tile: HTMLCanvasElement, W: number, H: number, a: num
   ctx.save(); ctx.globalAlpha = a; ctx.globalCompositeOperation = op; ctx.fillStyle = p; ctx.fillRect(0, 0, W, H); ctx.restore()
 }
 
-interface Kit { ctx: Ctx; W: number; H: number; tall: boolean; u: number; F: Frame; meta: SceneMeta; A: [number, number, number] }
+interface Kit {
+  ctx: Ctx; W: number; H: number; tall: boolean; u: number; F: Frame; meta: SceneMeta; A: [number, number, number]
+  /** how much the track is lifting right now, 0..1 */
+  swell: number
+  /** put the camera at this depth: 1 is the content, below 1 sits behind it, above 1 floats in front */
+  at: (depth: number) => void
+}
+
+// ================================================================ direction: a camera that frames the music
+
+/** A framing: the point it centres on (0..1 of the frame), how close it is, and a slight roll in degrees. */
+interface Shot { x: number; y: number; z: number; r?: number }
+interface Cam { cx: number; cy: number; z: number; r: number }
+
+const swells = new WeakMap<VizFeatures, Float32Array>()
+/** How much the music is lifting, 0..1: loudness smoothed over a few seconds both ways, ranked against the clip. */
+function swellOf(f: VizFeatures): Float32Array {
+  let out = swells.get(f)
+  if (out) return out
+  const n = f.frames, a = 1 / (f.fps * 2.5)
+  out = new Float32Array(n)
+  let v = f.rms[0] ?? 0
+  for (let i = 0; i < n; i++) { v += (f.rms[i] - v) * a; out[i] = v }
+  for (let i = n - 1, w = out[n - 1] ?? 0; i >= 0; i--) { w += (out[i] - w) * a; out[i] = w }
+  const sorted = Array.from(out).sort((x, y) => x - y)
+  const lo = sorted[Math.floor(n * 0.15)] ?? 0, hi = sorted[Math.floor(n * 0.92)] ?? 1
+  for (let i = 0; i < n; i++) out[i] = clamp((out[i] - lo) / Math.max(1e-4, hi - lo))
+  swells.set(f, out)
+  return out
+}
+
+const PHRASE_BARS = 4
+const GLIDE = Easing.bezier(0.65, 0, 0.35, 1)
+
+/** Where the camera is on this frame: one shot per phrase, a 1.4 s glide between them on the downbeat. */
+function direct(F: Frame, shots: Shot[], W: number, H: number, swell: number, seed: number): Cam {
+  const len = PHRASE_BARS * 4 * F.P, fps = F.f.fps
+  const p = Math.floor((F.i - F.origin) / len), start = F.origin + p * len, p0 = Math.floor(-F.origin / len)
+  const pick = (q: number) => shots[(((q - p0) % shots.length) + shots.length) % shots.length] // the clip opens on the wide shot
+  const cur = pick(p), prev = pick(p - 1)
+  const e = start <= 0 ? 1 : interpolate(F.i - start, [0, 1.4 * fps], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: GLIDE })
+  const hold = clamp((F.i - start) / len)
+  let x = lerp(prev.x, cur.x, e), y = lerp(prev.y, cur.y, e), z = lerp(prev.z, cur.z, e), r = lerp(prev.r ?? 0, cur.r ?? 0, e)
+  // while a shot holds: a slow push-in, a little handheld drift, and a lean-in when the track lifts
+  z *= 1 + 0.035 * hold + 0.03 * swell + 0.006 * F.kick
+  x += 0.007 * Math.sin(F.t * 0.21 + seed)
+  y += 0.006 * Math.sin(F.t * 0.17 + seed * 2)
+  r += 0.3 * Math.sin(F.t * 0.11 + seed)
+  z = Math.max(1.035, z)
+  const hw = 0.5 / z + 0.006, hh = 0.5 / z + 0.006
+  return { cx: clamp(x, hw, 1 - hw) * W, cy: clamp(y, hh, 1 - hh) * H, z, r }
+}
+
+/** Specks drifting through the air in front of the scene, catching the light. */
+function motes(k: Kit, n: number, col: (a: number) => string, size: number, seed: number): void {
+  const { ctx, W, H, F, u } = k
+  for (let j = 0; j < n; j++) {
+    const vx = (0.004 + 0.01 * hash(j, seed)) * (hash(j, seed + 5) > 0.5 ? 1 : -1), vy = 0.004 + 0.008 * hash(j, seed + 3)
+    const x = ((((hash(j, seed + 1) + F.t * vx) % 1) + 1) % 1) * W * 1.2 - W * 0.1 + Math.sin(F.t * 0.6 + j) * 10 * u
+    const y = ((((hash(j, seed + 2) - F.t * vy) % 1) + 1) % 1) * H * 1.2 - H * 0.1
+    const r = (0.6 + 1.8 * hash(j, seed + 4)) * size * u
+    const a = (0.2 + 0.5 * hash(j, seed + 6)) * (0.55 + 0.45 * Math.sin(F.t * 1.3 + j * 2.1))
+    ctx.fillStyle = col(a); ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill()
+  }
+}
+
+/** A soft pool of light that wanders slowly across the scene, and the shade it leaves at the far side. */
+function daylight(k: Kit, light: string, shade: string, strength: number): void {
+  const { ctx, W, H, F } = k
+  const lx = W * (0.5 + 0.42 * Math.sin(F.t * 0.12 + 1)), ly = H * (0.32 + 0.26 * Math.sin(F.t * 0.083))
+  const R = Math.max(W, H) * 0.95
+  ctx.save()
+  ctx.globalAlpha = strength * (0.8 + 0.2 * k.swell)
+  let g = ctx.createRadialGradient(lx, ly, 0, lx, ly, R * 0.7)
+  g.addColorStop(0, light); g.addColorStop(1, 'rgba(0,0,0,0)')
+  ctx.globalCompositeOperation = 'soft-light'; ctx.fillStyle = g; ctx.fillRect(0, 0, W, H)
+  g = ctx.createRadialGradient(lx, ly, R * 0.35, lx, ly, R * 1.25)
+  g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, shade)
+  ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = g; ctx.fillRect(0, 0, W, H)
+  ctx.restore()
+}
+
+/** Grain that shifts every third frame, like a print or a film stock on stop-motion: alive, not noisy. */
+function boil(k: Kit, tile: HTMLCanvasElement, a: number, op: GlobalCompositeOperation = 'source-over'): void {
+  const { ctx, W, H, F } = k
+  const s = Math.floor(F.i / 3), dx = Math.floor(hash(s, 11) * 256), dy = Math.floor(hash(s, 12) * 256)
+  const p = ctx.createPattern(tile, 'repeat')
+  if (!p) return
+  ctx.save(); ctx.globalAlpha = a; ctx.globalCompositeOperation = op; ctx.translate(-dx, -dy); ctx.fillStyle = p; ctx.fillRect(dx, dy, W, H); ctx.restore()
+}
+
+/** A rect that covers the frame however the camera sits at a shallow depth. */
+const over = (k: Kit) => ({ x: -k.W * 0.15, y: -k.H * 0.15, w: k.W * 1.3, h: k.H * 1.3 })
 
 // ================================================================ LAB: the instrument panel
 
@@ -214,7 +363,6 @@ function labPanel(k: Kit, b: Box, label?: string, label2?: string): void {
 function lab(k: Kit): void {
   const { ctx, W, H, F, u, meta, A, tall } = k
   const B = labBoxes(W, H, tall)
-  ctx.fillStyle = LAB.paper; ctx.fillRect(0, 0, W, H)
 
   // ---- header: window chrome, title, live readouts
   {
@@ -291,7 +439,8 @@ function lab(k: Kit): void {
       if (midi < lo || midi >= hi) return
       const y = y0 + h - (midi - lo + 1) * rowH, x = x0 + (s - left) * ppf, nw = Math.max(4 * u, (e - s) * ppf - 2 * u)
       const on = s <= F.i && F.i < e
-      ctx.fillStyle = on ? rgba(A, 1) : s > F.i ? `rgba(38,40,44,${0.45 + 0.4 * vel})` : `rgba(38,40,44,${0.18 + 0.22 * vel})`
+      const nh = pitchHue(midi % 12, A)
+      ctx.fillStyle = on ? rgba(A, 1) : s > F.i ? hsl(nh, 45, 34, 0.5 + 0.4 * vel) : hsl(nh, 30, 55, 0.25 + 0.25 * vel)
       ctx.fillRect(x, y + rowH * 0.12, nw, Math.max(2 * u, rowH * 0.76))
       if (on) activeRow = y
     })
@@ -455,7 +604,7 @@ function lab(k: Kit): void {
     for (let p = 0; p < 12; p++) {
       const x = b.x + (p % cols) * (pw + gap), y = b.y + Math.floor(p / cols) * (ph + gap)
       const v = F.f.chroma[ch + p] / 255, on = v > 0.82 && F.rms > 0.12
-      ctx.fillStyle = on ? rgba(A, 0.25 + 0.75 * v) : LAB.panel
+      ctx.fillStyle = on ? hsl(pitchHue(p, A), 70, 52, 0.3 + 0.7 * v) : LAB.panel
       ctx.fillRect(x, y, pw, ph)
       ctx.strokeStyle = on ? rgba(A, 1) : LAB.rule; ctx.lineWidth = 1.5 * u; ctx.strokeRect(x, y, pw, ph)
       ctx.font = `500 ${17 * u}px ${MONO}`; ctx.fillStyle = on ? '#fff' : LAB.ink; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
@@ -527,8 +676,7 @@ function vuMeter(k: Kit, b: Box, needle: number, label: string): void {
 function tape(k: Kit, stains: HTMLCanvasElement): void {
   const { ctx, W, H, F, u, meta, A, tall } = k
   const B = tapeBoxes(W, H, tall)
-  ctx.fillStyle = TAPE.board; ctx.fillRect(0, 0, W, H)
-  ctx.drawImage(stains, 0, 0, W, H)
+  void stains
 
   // stamped header
   {
@@ -559,7 +707,8 @@ function tape(k: Kit, stains: HTMLCanvasElement): void {
     // label
     const l = { x: b.x + b.w * 0.07, y: b.y + b.h * 0.08, w: b.w * 0.86, h: b.h * 0.6 }
     ctx.fillStyle = TAPE.cream; rr(ctx, l.x, l.y, l.w, l.h, 10 * u); ctx.fill()
-    ctx.fillStyle = rgba(A, 0.92); ctx.fillRect(l.x, l.y + l.h * 0.62, l.w, l.h * 0.09)
+    const ah = hueOf(A)
+    ;[[rgba(A, 0.92), 0], [hsl(ah + 34, 72, 56, 0.92), 1], [hsl(ah - 150, 45, 40, 0.92), 2]].forEach(([c, n]) => { ctx.fillStyle = c as string; ctx.fillRect(l.x, l.y + l.h * (0.6 + (n as number) * 0.042), l.w, l.h * 0.034) })
     ctx.fillStyle = 'rgba(42,35,27,0.18)'
     for (let i = 1; i <= 3; i++) ctx.fillRect(l.x + 24 * u, l.y + l.h * (0.12 + i * 0.13), l.w - 48 * u, 1.5 * u)
     ctx.font = `600 ${20 * u}px ${COND}`; ctx.fillStyle = TAPE.ink; ctx.fillText('A', l.x + 22 * u, l.y + 34 * u)
@@ -723,9 +872,9 @@ function makeStains(W: number, H: number, seed: number): HTMLCanvasElement {
 
 // ================================================================ RISO: a two-ink print
 
-function risoInks(A: [number, number, number]): { one: string; two: string } {
-  const blueish = A[2] > A[0] && A[2] > A[1] * 0.9
-  return { one: rgba(A, 1), two: blueish ? '#d24a2e' : '#24409b' }
+function risoInks(A: [number, number, number]): { one: string; two: string; three: string } {
+  const blueish = A[2] > A[0] && A[2] > A[1] * 0.9, h = hueOf(A), pinkish = h > 300 || h < 20
+  return { one: rgba(A, 1), two: blueish ? '#d24a2e' : '#24409b', three: pinkish ? '#f2d61b' : '#ff4fa3' }
 }
 
 function risoBoxes(W: number, H: number, tall: boolean) {
@@ -769,8 +918,6 @@ function riso(k: Kit, ht: Halftone, grain: HTMLCanvasElement, speck: HTMLCanvasE
   const { ctx, W, H, F, u, meta, A, tall } = k
   const B = risoBoxes(W, H, tall)
   const ink = risoInks(A)
-  const paper = '#f1ebdd'
-  ctx.fillStyle = paper; ctx.fillRect(0, 0, W, H)
   // the second drum drifts out of register a little, and jumps on each kick
   let kid = 0
   for (let j = 0; j < F.f.kicks.length && F.f.kicks[j] <= F.i; j++) kid = F.f.kicks[j]
@@ -784,11 +931,16 @@ function riso(k: Kit, ht: Halftone, grain: HTMLCanvasElement, speck: HTMLCanvasE
     const b = B.img, n = ht.n, cell = b.w / n
     ctx.fillStyle = ink.two
     const swell = 0.9 + 0.18 * F.bass
+    // the plate drifts and slowly pushes in under its frame, so the picture is never still
+    ctx.save(); ctx.beginPath(); ctx.rect(b.x, b.y, b.w, b.h); ctx.clip()
+    const kb = 1.08 + 0.06 * Math.sin(F.t * 0.06) + 0.04 * k.swell
+    ctx.translate(b.x + b.w / 2 + b.w * 0.035 * Math.sin(F.t * 0.05), b.y + b.h / 2 + b.h * 0.03 * Math.cos(F.t * 0.043)); ctx.scale(kb, kb); ctx.translate(-(b.x + b.w / 2), -(b.y + b.h / 2))
     for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
       const r = (1 - ht.lum[y * n + x]) * cell * 0.62 * swell
       if (r < cell * 0.06) continue
       ctx.beginPath(); ctx.arc(b.x + (x + 0.5 + (y % 2) * 0.5) * cell, b.y + (y + 0.5) * cell, r, 0, Math.PI * 2); ctx.fill()
     }
+    ctx.restore()
   }
   // plate 1: a flat sun that swells on the kick, plus a halftone gradient band
   {
@@ -797,6 +949,7 @@ function riso(k: Kit, ht: Halftone, grain: HTMLCanvasElement, speck: HTMLCanvasE
     const r = b.w * (0.22 + 0.05 * F.kick + 0.03 * F.bass)
     const cx = b.x + b.w * (0.68 + 0.04 * Math.sin(F.t * 0.21)) + off.x, cy = b.y + b.h * (0.32 + 0.03 * Math.cos(F.t * 0.17)) + off.y
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill()
+    ctx.fillStyle = ink.three // the third drum prints the gradient band, overprinting the cover
     const cell = 18 * u, rows = Math.floor((b.h * 0.34) / cell)
     for (let y = 0; y < rows; y++) {
       const t = y / rows
@@ -832,7 +985,7 @@ function riso(k: Kit, ht: Halftone, grain: HTMLCanvasElement, speck: HTMLCanvasE
       ctx.strokeStyle = ink.two; ctx.lineWidth = (i === cur ? 5 : i % 4 === 0 ? 2.5 : 1.5) * u
       ctx.strokeRect(x, y, s, s)
       if (hitK[i]) { ctx.fillStyle = ink.one; ctx.fillRect(x + off.x * 0.5 + 4 * u, y + off.y * 0.5 + 4 * u, s - 8 * u, s - 8 * u) }
-      if (hitS[i]) { ctx.fillStyle = ink.two; ctx.beginPath(); ctx.arc(x + s / 2, y + s / 2, s * 0.16, 0, Math.PI * 2); ctx.fill() }
+      if (hitS[i]) { ctx.fillStyle = ink.three; ctx.beginPath(); ctx.arc(x + s / 2, y + s / 2, s * 0.16, 0, Math.PI * 2); ctx.fill() }
     }
   }
   // spectrum as stacked halftone columns, with plate 1 caps
@@ -847,7 +1000,7 @@ function riso(k: Kit, ht: Halftone, grain: HTMLCanvasElement, speck: HTMLCanvasE
         ctx.beginPath(); ctx.arc(b.x + (c + 0.5) * cw, b.y + b.h - (r + 0.5) * cw, cw * 0.42 * (0.4 + 0.6 * f), 0, Math.PI * 2); ctx.fill()
       }
       const hv = F.hold(x, 22) * rows
-      ctx.fillStyle = ink.one; ctx.fillRect(b.x + c * cw + cw * 0.12 + off.x, b.y + b.h - hv * cw - 6 * u + off.y, cw * 0.76, 7 * u)
+      ctx.fillStyle = ink.three; ctx.fillRect(b.x + c * cw + cw * 0.12 + off.x, b.y + b.h - hv * cw - 6 * u + off.y, cw * 0.76, 7 * u)
     }
   }
   // footer and registration marks
@@ -865,9 +1018,7 @@ function riso(k: Kit, ht: Halftone, grain: HTMLCanvasElement, speck: HTMLCanvasE
     for (const [x, y] of [[34 * u, 34 * u], [W - 34 * u, 34 * u], [34 * u, H - 34 * u], [W - 34 * u, H - 34 * u]]) { reg(x, y, ink.two, { x: 0, y: 0 }); reg(x, y, ink.one, off) }
   }
   ctx.globalCompositeOperation = 'source-over'
-  // paper showing through the ink, and the paper's own grain
-  texture(ctx, speck, W, H, 0.55)
-  texture(ctx, grain, W, H, 0.5, 'multiply')
+  void grain; void speck
 }
 
 // ================================================================ COVER: the artwork, front and centre
@@ -912,52 +1063,98 @@ function coverArt(ctx: Ctx, cover: CanvasImageSource | null, A: [number, number,
   ctx.restore()
 }
 
-function coverScene(k: Kit, bg: HTMLCanvasElement): void {
+/** The art flipped and fading out, for the reflection on the glossy floor under it. Built once. */
+function coverReflection(cover: CanvasImageSource | null, A: [number, number, number], title: string, size: number): HTMLCanvasElement {
+  const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(size)); c.height = Math.max(1, Math.round(size * 0.38))
+  const g = c.getContext('2d')!
+  g.save(); g.translate(0, size); g.scale(1, -1); coverArt(g, cover, A, title, 0, 0, size, 0); g.restore()
+  const fade = g.createLinearGradient(0, 0, 0, c.height)
+  fade.addColorStop(0, 'rgba(0,0,0,0.34)'); fade.addColorStop(1, 'rgba(0,0,0,0)')
+  g.globalCompositeOperation = 'destination-in'; g.fillStyle = fade; g.fillRect(0, 0, c.width, c.height)
+  return c
+}
+
+function coverLayout(W: number, H: number, tall: boolean) {
+  const art = tall ? { x: 170, y: 230, s: 740 } : { x: Math.round(H * 0.13), y: Math.round(H * 0.13), s: Math.round(H * 0.66) }
+  const col = tall ? { x: 110, w: W - 220, y: 1270 } : { x: art.x + art.s + 100, w: W - (art.x + art.s + 100) - Math.round(H * 0.11), y: art.y + 120 }
+  return { art, col }
+}
+
+/** The blurred backdrop on a slow pan and push, brightening as the track lifts. */
+function coverBg(k: Kit, bg: HTMLCanvasElement): void {
+  const { ctx, W, H, F } = k
+  const s = 1.16 + 0.05 * Math.sin(F.t * 0.05) + 0.04 * k.swell
+  ctx.save()
+  ctx.translate(W / 2 + W * 0.05 * Math.sin(F.t * 0.07), H / 2 + H * 0.035 * Math.cos(F.t * 0.055))
+  ctx.rotate(0.035 * Math.sin(F.t * 0.04)); ctx.scale(s, s)
+  ctx.drawImage(bg, -W / 2, -H / 2)
+  ctx.restore()
+  // a wide soft beam crossing the backdrop
+  const bx = W * (((F.t * 0.035) % 1.6) - 0.3)
+  const g = ctx.createLinearGradient(bx - W * 0.4, 0, bx + W * 0.4, H * 0.3)
+  g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.5, `rgba(255,240,225,${0.05 + 0.06 * k.swell})`); g.addColorStop(1, 'rgba(255,255,255,0)')
+  ctx.fillStyle = g; const o = over(k); ctx.fillRect(o.x, o.y, o.w, o.h)
+}
+
+function coverScene(k: Kit, refl: HTMLCanvasElement, pal: [number, number, number][]): void {
   const { ctx, W, H, F, u, meta, A, tall } = k
-  ctx.drawImage(bg, 0, 0)
-  const art = tall ? { x: 150, y: 250, s: 780 } : { x: Math.round(H * 0.13), y: Math.round(H * 0.15), s: Math.round(H * 0.7) }
-  const col = tall ? { x: 110, w: W - 220, y: 1150 } : { x: art.x + art.s + 90, w: W - (art.x + art.s + 90) - Math.round(H * 0.11), y: art.y + 70 }
-  // the art swells a touch on each kick
+  const { art, col } = coverLayout(W, H, tall)
+  // the art floats like a print held up to the light: a slow sway, a breath on each kick, a glint that slides with it
   {
-    const sc = 1 + 0.022 * F.kick + 0.008 * F.bass
-    const s = art.s * sc, x = art.x + (art.s - s) / 2, y = art.y + (art.s - s) / 2
-    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,0.55)'; ctx.shadowBlur = 60 * u; ctx.shadowOffsetY = 24 * u
-    ctx.fillStyle = '#000'; rr(ctx, x, y, s, s, 22 * u); ctx.fill(); ctx.restore()
-    coverArt(ctx, meta.cover, A, meta.title, x, y, s, 22 * u)
+    const ta = 0.035 * Math.sin(F.t * 0.37), tb = 0.026 * Math.sin(F.t * 0.29 + 1.3)
+    const sc = 1 + 0.016 * F.kick + 0.012 * k.swell, s = art.s
+    ctx.save()
+    ctx.translate(art.x + s / 2, art.y + s / 2); ctx.transform(1, tb, ta, 1, 0, 0); ctx.scale(sc, sc)
+    ctx.drawImage(refl, -s / 2, s / 2 + 14 * u)
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,0.55)'; ctx.shadowBlur = 70 * u; ctx.shadowOffsetY = 30 * u
+    ctx.fillStyle = '#000'; rr(ctx, -s / 2, -s / 2, s, s, 18 * u); ctx.fill(); ctx.restore()
+    coverArt(ctx, meta.cover, A, meta.title, -s / 2, -s / 2, s, 18 * u)
+    ctx.save(); rr(ctx, -s / 2, -s / 2, s, s, 18 * u); ctx.clip()
+    const gx = (ta / 0.035) * s * 0.7
+    const glint = ctx.createLinearGradient(gx - s * 0.5, -s / 2, gx + s * 0.2, s / 2)
+    glint.addColorStop(0, 'rgba(255,255,255,0)'); glint.addColorStop(0.5, 'rgba(255,255,255,0.13)'); glint.addColorStop(1, 'rgba(255,255,255,0)')
+    ctx.fillStyle = glint; ctx.fillRect(-s / 2, -s / 2, s, s)
+    ctx.restore()
+    ctx.restore()
   }
   ctx.textAlign = tall ? 'center' : 'left'; ctx.textBaseline = 'alphabetic'
   const tx = tall ? W / 2 : col.x
   ctx.fillStyle = '#ffffff'
-  fit(ctx, meta.title, (px) => `700 ${px}px ${COND}`, (tall ? 104 : 96) * u, col.w)
+  fit(ctx, meta.title, (px) => `700 ${px}px ${COND}`, (tall ? 112 : 104) * u, col.w)
   ctx.fillText(meta.title, tx, col.y)
   if (meta.tagline) { ctx.fillStyle = 'rgba(255,255,255,0.72)'; fit(ctx, meta.tagline, (px) => `500 ${px}px ${COND}`, 44 * u, col.w); ctx.fillText(meta.tagline, tx, col.y + 62 * u) }
-  // mirrored spectrum
+  // a seismograph of the last six seconds: loudness, low end and air as three hairlines, kicks ticked underneath
   {
-    const n = tall ? 44 : 40, top = col.y + (tall ? 120 : 120) * u, h = (tall ? 230 : 230) * u, mid = top + h * 0.62
-    const bw = col.w / n
-    for (let i = 0; i < n; i++) {
-      const x = (i + 0.5) / n, v = Math.max(0.03, F.band(x) * (0.85 + 0.25 * F.kick)), hv = F.hold(x, 18)
-      const bx = col.x + i * bw + bw * 0.2, w = bw * 0.6, up = v * h * 0.62, down = v * h * 0.3
-      ctx.fillStyle = '#ffffff'; rr(ctx, bx, mid - up, w, up, w / 2); ctx.fill()
-      ctx.fillStyle = 'rgba(255,255,255,0.22)'; rr(ctx, bx, mid + 4 * u, w, down, w / 2); ctx.fill()
-      ctx.fillStyle = rgba(A, 1); ctx.fillRect(bx, mid - hv * h * 0.62 - 9 * u, w, 3.5 * u)
+    const y0 = col.y + 110 * u, h = (tall ? 170 : 160) * u, x0 = col.x, w = col.w, back = 6 * F.f.fps
+    const strands: [Float32Array, number, number, string][] = [[F.f.high, 0.75, 0.55, rgba(pal[2] ?? pal[0], 0.75)], [F.f.bass, 0.85, 0.8, rgba(pal[1] ?? pal[0], 0.85)], [F.f.rms, 0.95, 1, 'rgba(255,255,255,0.95)']]
+    ctx.lineJoin = 'round'
+    strands.forEach(([arr, , gain, sc], si) => {
+      ctx.beginPath()
+      for (let x = 0; x <= w; x += 3 * u) {
+        const fr = Math.floor(F.i - back + (x / w) * back)
+        const v = fr < 0 ? 0 : arr[Math.min(F.f.frames - 1, fr)] * gain
+        const y = y0 + h - v * h * 0.85 - si * 2 * u
+        if (x === 0) ctx.moveTo(x0 + x, y); else ctx.lineTo(x0 + x, y)
+      }
+      ctx.strokeStyle = sc; ctx.lineWidth = (si === 2 ? 2.4 : 1.8) * u; ctx.stroke()
+    })
+    ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillRect(x0, y0 + h + 10 * u, w, 1.2 * u)
+    for (let j = 0; j < F.f.kicks.length; j++) {
+      const fr = F.f.kicks[j]
+      if (fr > F.i || fr < F.i - back) continue
+      const x = x0 + ((fr - (F.i - back)) / back) * w
+      ctx.fillStyle = rgba(A, 0.5 + 0.5 * F.f.kickAmp[j]); ctx.fillRect(x - 1.2 * u, y0 + h + 4 * u, 2.4 * u, 14 * u)
     }
-  }
-  // progress
-  {
-    const y = col.y + (tall ? 430 : 420) * u, x0 = col.x, w = col.w
-    ctx.fillStyle = 'rgba(255,255,255,0.22)'; rr(ctx, x0, y, w, 6 * u, 3 * u); ctx.fill()
-    ctx.fillStyle = '#ffffff'; rr(ctx, x0, y, w * F.progress, 6 * u, 3 * u); ctx.fill()
-    ctx.beginPath(); ctx.arc(x0 + w * F.progress, y + 3 * u, (9 + 4 * F.kick) * u, 0, Math.PI * 2); ctx.fill()
-    ctx.font = `500 ${24 * u}px ${MONO}`; ctx.fillStyle = 'rgba(255,255,255,0.7)'
-    ctx.textAlign = 'left'; ctx.fillText(clock(F.t), x0, y + 46 * u)
-    ctx.textAlign = 'right'; ctx.fillText(clock(F.dur), x0 + w, y + 46 * u)
-    const info = [meta.bpm ? `${Math.round(meta.bpm)} BPM` : '', shortKey(meta.key)].filter(Boolean).join('  ·  ')
-    ctx.textAlign = 'center'; ctx.fillText(info, x0 + w / 2, y + 46 * u)
+    const hy = y0 + h - F.rms * h * 0.85 - 4 * u
+    ctx.fillStyle = rgba(A, 1); ctx.beginPath(); ctx.arc(x0 + w, hy, (6 + 6 * F.kick) * u, 0, Math.PI * 2); ctx.fill()
+    ctx.font = `500 ${22 * u}px ${MONO}`; ctx.fillStyle = 'rgba(255,255,255,0.6)'
+    ctx.textAlign = 'left'
+    ctx.fillText([meta.bpm ? `${Math.round(meta.bpm)} BPM` : '', shortKey(meta.key)].filter(Boolean).join('  ·  '), x0, y0 + h + 52 * u)
+    ctx.textAlign = 'right'; ctx.fillText(`${clock(F.t)} / ${clock(F.dur)}`, x0 + w, y0 + h + 52 * u)
   }
   if (meta.footer) {
-    ctx.font = `500 ${26 * u}px ${MONO}`; ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.textAlign = tall ? 'center' : 'left'
-    ctx.fillText(meta.footer, tall ? W / 2 : col.x, tall ? H - 90 * u : H - Math.round(H * 0.15))
+    ctx.font = `500 ${26 * u}px ${MONO}`; ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.textAlign = tall ? 'center' : 'left'
+    ctx.fillText(meta.footer, tall ? W / 2 : col.x, tall ? H - 90 * u : H - Math.round(H * 0.12))
   }
   ctx.textAlign = 'left'
 }
@@ -968,8 +1165,7 @@ const VINYL = { plinth: '#1c1815', rim: '#3a3632', metal: '#c9c5bc', cream: '#ef
 
 function vinyl(k: Kit, wood: HTMLCanvasElement): void {
   const { ctx, W, H, F, u, meta, A, tall } = k
-  ctx.fillStyle = VINYL.plinth; ctx.fillRect(0, 0, W, H)
-  texture(ctx, wood, W, H, 0.5)
+  void wood
   const R = tall ? 440 * u : H * 0.41
   const cx = tall ? W / 2 : H * 0.55, cy = tall ? 690 * u : H / 2
   const spin = F.t * (33.333 / 60) * Math.PI * 2
@@ -1028,26 +1224,26 @@ function vinyl(k: Kit, wood: HTMLCanvasElement): void {
     ctx.restore()
     ctx.fillStyle = rgba(A, 0.35 + 0.65 * F.kick); ctx.beginPath(); ctx.arc(sx, sy, (6 + 10 * F.kick) * u, 0, Math.PI * 2); ctx.fill()
   }
-  // the side panel: title, readouts and a level ladder
+  // the sleeve, lying crooked on the plinth beside the deck, with the cover art on it
   {
-    const b = tall ? { x: 90, y: 1290, w: W - 180 } : { x: cx + R * 1.35, y: H * 0.22, w: W - (cx + R * 1.35) - H * 0.08 }
-    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'
-    ctx.fillStyle = VINYL.cream
-    fit(ctx, meta.title.toUpperCase(), (px) => `700 ${px}px ${COND}`, 110 * u, b.w)
-    ctx.fillText(meta.title.toUpperCase(), b.x, b.y + 90 * u)
-    if (meta.tagline) { ctx.fillStyle = VINYL.mute; fit(ctx, meta.tagline, (px) => `500 ${px}px ${COND}`, 44 * u, b.w); ctx.fillText(meta.tagline, b.x, b.y + 150 * u) }
-    ctx.font = `500 ${24 * u}px ${MONO}`; ctx.fillStyle = VINYL.mute
-    const facts = [meta.bpm ? `${Math.round(meta.bpm)} BPM` : '', shortKey(meta.key), `${clock(F.t)} / ${clock(F.dur)}`].filter(Boolean).join('   ')
-    ctx.fillText(facts, b.x, b.y + 210 * u)
-    const n = 24, gap = 6 * u, cw = (b.w - gap * (n - 1)) / n, top = b.y + 250 * u, h = (tall ? 190 : 200) * u
-    for (let i = 0; i < n; i++) {
-      const v = F.band((i + 0.5) / n), lit = Math.round(v * 12)
-      for (let s = 0; s < 12; s++) {
-        const y = top + h - (s + 1) * (h / 12)
-        ctx.fillStyle = s < lit ? (s >= 10 ? rgba(A, 1) : VINYL.cream) : 'rgba(239,231,214,0.08)'
-        ctx.fillRect(b.x + i * (cw + gap), y + 2 * u, cw, h / 12 - 4 * u)
-      }
-    }
+    const s0 = tall ? 500 * u : Math.min(H * 0.46, W - (cx + R * 1.3) - H * 0.07)
+    const sl = tall ? { x: 100 * u, y: 1250 * u, r: -0.07 } : { x: cx + R * 1.3, y: H * 0.1, r: 0.05 }
+    ctx.save(); ctx.translate(sl.x + s0 / 2, sl.y + s0 / 2); ctx.rotate(sl.r + 0.006 * Math.sin(F.t * 0.4))
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 40 * u; ctx.shadowOffsetX = 10 * u; ctx.shadowOffsetY = 18 * u
+    ctx.fillStyle = '#000'; ctx.fillRect(-s0 / 2, -s0 / 2, s0, s0); ctx.restore()
+    coverArt(ctx, meta.cover, A, meta.title, -s0 / 2, -s0 / 2, s0, 3 * u)
+    ctx.strokeStyle = 'rgba(255,255,255,0.09)'; ctx.lineWidth = 7 * u // ring wear from the record inside
+    ctx.beginPath(); ctx.arc(0, 0, s0 * 0.43, 0, Math.PI * 2); ctx.stroke()
+    ctx.restore()
+    const t = tall ? { x: 670 * u, y: 1300 * u, w: W - 760 * u } : { x: sl.x, y: sl.y + s0 + 90 * u, w: s0 }
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = VINYL.cream
+    fit(ctx, meta.title.toUpperCase(), (px) => `700 ${px}px ${COND}`, (tall ? 92 : 84) * u, t.w)
+    ctx.fillText(meta.title.toUpperCase(), t.x, t.y + (tall ? 70 : 0) * u)
+    const ty = t.y + (tall ? 70 : 0) * u
+    if (meta.tagline) { ctx.fillStyle = VINYL.mute; fit(ctx, meta.tagline, (px) => `500 ${px}px ${COND}`, 38 * u, t.w); ctx.fillText(meta.tagline, t.x, ty + 52 * u) }
+    ctx.font = `500 ${21 * u}px ${MONO}`; ctx.fillStyle = VINYL.mute
+    ctx.fillText(`A1  ·  ${clock(F.t)}`, t.x, ty + 100 * u)
+    if (meta.footer) { ctx.font = `600 ${40 * u}px ${HAND}`; ctx.fillStyle = 'rgba(239,231,214,0.75)'; ctx.fillText(meta.footer, t.x, ty + (tall ? 190 : 160) * u) }
   }
 }
 
@@ -1056,25 +1252,27 @@ function vinyl(k: Kit, wood: HTMLCanvasElement): void {
 function ridge(k: Kit): void {
   const { ctx, W, H, F, u, meta, A, tall } = k
   const bg = '#0b0b0c'
-  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H)
   const b = tall ? { x: 150, y: 330, w: W - 300, h: 1180 } : { x: W * 0.27, y: 120, w: W * 0.46, h: H - 330 }
   const rows = tall ? 46 : 34, n = 110, step = b.h / rows, lagStep = 3
   ctx.lineJoin = 'round'
   for (let r = 0; r < rows; r++) {
-    const lag = (rows - 1 - r) * lagStep, base = b.y + (r + 1) * step
-    const amp = step * (tall ? 5.2 : 4.6)
-    ctx.beginPath(); ctx.moveTo(b.x, base)
+    // a landscape seen from above: far lines bunch toward the horizon, near ones open out and stand taller
+    const near = (r + 1) / rows, lag = (rows - 1 - r) * lagStep, base = b.y + b.h * Math.pow(near, 1.45)
+    const amp = step * (tall ? 5.2 : 4.6) * (0.3 + 0.9 * near)
+    const xw = b.w * (0.58 + 0.42 * near), xl = b.x + (b.w - xw) / 2
+    ctx.beginPath(); ctx.moveTo(xl, base)
     for (let i = 0; i <= n; i++) {
       const x = i / n, env = Math.exp(-(((x - 0.5) / 0.17) ** 2)), e2 = Math.exp(-(((x - 0.5) / 0.32) ** 2)) * 0.25
       const v = F.band(Math.abs(x - 0.5) * 1.8, lag)
       const jit = (hash(r * 131 + i, Math.floor((F.i - lag) / 2)) - 0.5) * 0.08
       const y = base - (env * (v + jit) + e2 * v * 0.6) * amp
-      ctx.lineTo(b.x + x * b.w, y)
+      ctx.lineTo(xl + x * xw, y)
     }
-    ctx.lineTo(b.x + b.w, base)
+    ctx.lineTo(xl + xw, base)
     ctx.fillStyle = bg; ctx.fill()
-    ctx.strokeStyle = r === rows - 1 ? rgba(A, 1) : `rgba(236,234,228,${0.55 + 0.45 * (r / rows)})`
-    ctx.lineWidth = (r === rows - 1 ? 3.2 : 2) * u
+    const lh = pitchHue(domPc(F.f, F.i - lag), A)
+    ctx.strokeStyle = r === rows - 1 ? rgba(A, 1) : hsl(lh, 25 + 45 * near, 50 + 30 * near, 0.25 + 0.75 * near)
+    ctx.lineWidth = (r === rows - 1 ? 3.2 : 1 + 1.2 * near) * u
     ctx.stroke()
   }
   ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = '#ecebe6'
@@ -1108,15 +1306,18 @@ function phosphorFx(W: number, H: number): HTMLCanvasElement {
 
 function phosphor(k: Kit, fx: HTMLCanvasElement): void {
   const { ctx, W, H, F, u, meta, tall } = k
-  ctx.fillStyle = '#020905'; ctx.fillRect(0, 0, W, H)
   const B = tall
     ? { head: { x: 80, y: 80, w: W - 160, h: 60 }, xy: { x: 90, y: 200, w: 900, h: 900 }, tr: { x: 90, y: 1150, w: 900, h: 250 }, log: { x: 90, y: 1450, w: 900, h: 400 } }
     : { head: { x: 70, y: 50, w: W - 140, h: 50 }, xy: { x: 80, y: 140, w: H - 220, h: H - 220 }, tr: { x: H - 80, y: 140, w: W - H + 10, h: 300 }, log: { x: H - 80, y: 490, w: W - H + 10, h: H - 570 } }
-  const line = (pts: (i: number) => [number, number], count: number, a: number, w: number) => {
+  const AMB = (a: number) => `rgba(255,176,70,${clamp(a)})`
+  const line = (pts: (i: number) => [number, number], count: number, a: number, w: number, col = PH) => {
     ctx.beginPath()
-    for (let i = 0; i < count; i++) { const [x, y] = pts(i); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y) }
-    ctx.strokeStyle = PH(a * 0.18); ctx.lineWidth = w * 4; ctx.stroke()
-    ctx.strokeStyle = PH(a); ctx.lineWidth = w; ctx.stroke()
+    let [px, py] = pts(0)
+    ctx.moveTo(px, py)
+    for (let i = 1; i < count; i++) { const [x, y] = pts(i); ctx.quadraticCurveTo(px, py, (px + x) / 2, (py + y) / 2); px = x; py = y }
+    ctx.lineTo(px, py)
+    ctx.strokeStyle = col(a * 0.18); ctx.lineWidth = w * 4; ctx.stroke()
+    ctx.strokeStyle = col(a); ctx.lineWidth = w; ctx.stroke()
   }
   const grat = (b: Box, nx: number, ny: number) => {
     ctx.strokeStyle = PH(0.12); ctx.lineWidth = 1 * u
@@ -1144,7 +1345,7 @@ function phosphor(k: Kit, fx: HTMLCanvasElement): void {
     for (let l = trail.length - 1; l >= 0; l--) {
       const fr = clamp(F.i - l, 0, F.f.frames - 1), base = fr * VEC * 2
       const mid = (j: number) => (F.f.vec[base + 2 * j] + F.f.vec[base + 2 * j + 1]) / 254
-      line((j) => [cx + mid(j) * r * 0.95, cy - mid(j + lagS) * r * 0.95], VEC - lagS, trail[l] * (0.7 + 0.3 * F.rms), 2.2 * u)
+      line((j) => [cx + mid(j) * r * 0.95, cy - mid(j + lagS) * r * 0.95], VEC - lagS, trail[l] * (0.7 + 0.3 * F.rms) * (l >= 2 ? 1.6 : 1), 2.2 * u, l >= 2 ? AMB : PH)
     }
     ctx.font = `500 ${18 * u}px ${MONO}`; ctx.fillStyle = PH(0.45)
     ctx.fillText('X: MID(t)  ·  Y: MID(t+5)  ·  PHASE', b.x + 12 * u, b.y + b.h - 14 * u)
@@ -1169,14 +1370,14 @@ function phosphor(k: Kit, fx: HTMLCanvasElement): void {
       const bt = f.beat[clamp(fr, 0, f.frames - 1)], bar = Math.max(1, Math.floor((bt - 1) / 4) + 1), beat = Math.floor((((bt - 1) % 4) + 4) % 4) + 1
       const bars = '█'.repeat(Math.round(amp * 8)).padEnd(8, '░')
       const newest = i === show.length - 1
-      ctx.fillStyle = PH(newest ? 1 : 0.35 + 0.5 * (i / show.length))
+      ctx.fillStyle = (kind === 'KICK' ? AMB : PH)(newest ? 1 : 0.35 + 0.5 * (i / show.length))
       ctx.fillText(`[${clock(fr / f.fps)}.${pad(((fr / f.fps) % 1) * 100, 2)}]  ${kind.padEnd(5)} BAR ${pad(bar, 3)}.${beat}  ${bars}`, b.x, b.y + i * rowH)
     })
     if (F.inBar % 1 < 0.5) { ctx.fillStyle = PH(0.9); ctx.fillRect(b.x, b.y + show.length * rowH + 2 * u, 14 * u, 24 * u) }
     ctx.textBaseline = 'alphabetic'
     if (meta.footer) { ctx.fillStyle = PH(0.4); ctx.textAlign = 'right'; ctx.fillText(meta.footer.toUpperCase(), b.x + b.w, b.y + b.h); ctx.textAlign = 'left' }
   }
-  ctx.drawImage(fx, 0, 0)
+  void fx
 }
 
 // ================================================================ SCORE: the transcribed notes engraved on a grand staff
@@ -1187,8 +1388,7 @@ const SHARP = new Set([1, 3, 6, 8, 10])
 
 function score(k: Kit, grain: HTMLCanvasElement): void {
   const { ctx, W, H, F, u, meta, A, tall } = k
-  ctx.fillStyle = SCORE.paper; ctx.fillRect(0, 0, W, H)
-  texture(ctx, grain, W, H, 0.4, 'multiply')
+  void grain
   // title block, engraved
   ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = SCORE.ink
   const top = tall ? 210 * u : 130 * u
@@ -1233,7 +1433,7 @@ function score(k: Kit, grain: HTMLCanvasElement): void {
     const y = treble ? trebBot - (step - 37) * (s / 2) : bassBot - (step - 25) * (s / 2)
     const x = xOf(st)
     const sounding = st <= F.i && en > F.i
-    const col = sounding ? rgba(A, 1) : st > F.i ? 'rgba(29,26,22,0.72)' : SCORE.ink
+    const col = sounding ? hsl(pitchHue(pc, A), 75, 48) : st > F.i ? 'rgba(29,26,22,0.72)' : SCORE.ink
     ctx.strokeStyle = SCORE.staff; ctx.lineWidth = 1.6 * u
     const t0 = treble ? trebTop : bassTop, b0 = treble ? trebBot : bassBot
     for (let ly = b0 + s; ly <= y + 0.1; ly += s) { ctx.beginPath(); ctx.moveTo(x - s * 0.9, ly); ctx.lineTo(x + s * 0.9, ly); ctx.stroke() }
@@ -1277,14 +1477,14 @@ function score(k: Kit, grain: HTMLCanvasElement): void {
     for (let m = lo; m <= hi; m++) if (!SHARP.has(m % 12)) whites.push(m)
     const ww = kb.w / whites.length
     whites.forEach((m, i) => {
-      ctx.fillStyle = on.has(m) ? rgba(A, 1) : '#fbf8f1'; ctx.fillRect(kb.x + i * ww, kb.y, ww - 2 * u, kb.h)
+      ctx.fillStyle = on.has(m) ? hsl(pitchHue(m % 12, A), 70, 58) : '#fbf8f1'; ctx.fillRect(kb.x + i * ww, kb.y, ww - 2 * u, kb.h)
       ctx.strokeStyle = SCORE.staff; ctx.lineWidth = 1.2 * u; ctx.strokeRect(kb.x + i * ww, kb.y, ww - 2 * u, kb.h)
       if (m % 12 === 0) { ctx.fillStyle = SCORE.mute; ctx.font = `400 ${14 * u}px ${MONO}`; ctx.fillText(`C${Math.floor(m / 12) - 1}`, kb.x + i * ww + 4 * u, kb.y + kb.h - 8 * u) }
     })
     whites.forEach((m, i) => {
       const b = m + 1
       if (b > hi || !SHARP.has(b % 12)) return
-      ctx.fillStyle = on.has(b) ? rgba(A, 1) : SCORE.ink
+      ctx.fillStyle = on.has(b) ? hsl(pitchHue(b % 12, A), 70, 50) : SCORE.ink
       ctx.fillRect(kb.x + (i + 1) * ww - ww * 0.32, kb.y, ww * 0.62, kb.h * 0.6)
     })
   }
@@ -1316,9 +1516,8 @@ function marquee(text: string, rowsTall: number, mono = false): Marquee {
 
 function led(k: Kit, mq: Marquee, sub: Marquee): void {
   const { ctx, W, H, F, u, A, tall } = k
-  ctx.fillStyle = '#050507'; ctx.fillRect(0, 0, W, H)
   const p = 20 * u, cols = Math.floor(W / p), rows = Math.floor(H / p), ox = (W - cols * p) / 2 + p / 2, oy = (H - rows * p) / 2 + p / 2
-  const lv = new Float32Array(cols * rows), hue = new Uint8Array(cols * rows) // 0 white, 1 accent, 2 dim accent
+  const lv = new Float32Array(cols * rows), hue = new Uint8Array(cols * rows) // 0 white, 1 accent, 2 the sounding note, 3-8 a band of hues
   const set = (c: number, r: number, v: number, h: number) => { if (c < 0 || r < 0 || c >= cols || r >= rows) return; const i = r * cols + c; if (v > lv[i]) { lv[i] = v; hue[i] = h } }
   // marquee: the title scrolls left, the second line scrolls right underneath
   const mr0 = tall ? 6 : 4
@@ -1337,7 +1536,7 @@ function led(k: Kit, mq: Marquee, sub: Marquee): void {
     for (let r = cr - 20; r <= cr + 20; r++) for (let c = 0; c < cols; c++) {
       const d = Math.hypot(c - cc, r - cr)
       if (Math.abs(d - R) < 0.9) set(c, r, 1, 1)
-      else if (d < R * 0.75 * F.bass) set(c, r, 0.55, 2)
+      else if (d < R * 0.75 * F.bass) set(c, r, 0.7, 2)
       else if (Math.abs(d - (R + 4 + 3 * F.snap)) < 0.6) set(c, r, 0.35 + 0.5 * F.snap, 0)
     }
   }
@@ -1346,10 +1545,11 @@ function led(k: Kit, mq: Marquee, sub: Marquee): void {
     const r1 = rows - 3, r0 = tall ? below + 42 : below + 3, h = r1 - r0
     for (let c = 1; c < cols - 1; c++) {
       const x = (c - 1) / (cols - 2), v = F.band(x), top = Math.round(v * h), cap = Math.round(F.hold(x, 22) * h)
-      for (let r = 0; r < top; r++) set(c, r1 - r, 0.55 + 0.45 * (r / h), r > h * 0.7 ? 1 : 0)
-      set(c, r1 - cap - 1, 0.9, 1)
+      for (let r = 0; r < top; r++) set(c, r1 - r, 0.55 + 0.45 * (r / h), 3 + Math.min(5, Math.floor(x * 6)))
+      set(c, r1 - cap - 1, 0.95, 0)
     }
   }
+  const noteHue = pitchHue(domPc(F.f, F.i), A), baseHue = hueOf(A)
   const unlit = new Path2D(), buckets = new Map<string, Path2D>()
   const glow = rgba(A, 0.16)
   const glowPath = new Path2D()
@@ -1358,7 +1558,7 @@ function led(k: Kit, mq: Marquee, sub: Marquee): void {
     const i = r * cols + c, x = ox + c * p, y = oy + r * p
     if (lv[i] <= 0.01) { unlit.moveTo(x + rad * 0.8, y); unlit.arc(x, y, rad * 0.8, 0, Math.PI * 2); continue }
     const q = Math.round(lv[i] * 4) / 4
-    const col = hue[i] === 0 ? `rgba(255,248,236,${q})` : hue[i] === 1 ? rgba(A, q) : rgba(A, q * 0.45)
+    const col = hue[i] === 0 ? `rgba(255,248,236,${q})` : hue[i] === 1 ? rgba(A, q) : hue[i] === 2 ? hsl(noteHue, 80, 60, q) : hsl(baseHue + (hue[i] - 5.5) * 26, 85, 60, q)
     let path = buckets.get(col)
     if (!path) { path = new Path2D(); buckets.set(col, path) }
     path.moveTo(x + rad, y); path.arc(x, y, rad, 0, Math.PI * 2)
@@ -1371,56 +1571,525 @@ function led(k: Kit, mq: Marquee, sub: Marquee): void {
 
 // ================================================================ registry
 
-export const SCENE_STYLES: VizStyle[] = ['lab', 'tape', 'riso', 'cover', 'vinyl', 'ridge', 'phosphor', 'score', 'led']
+export const SCENE_STYLES: VizStyle[] = ['lab', 'tape', 'riso', 'cover', 'vinyl', 'ridge', 'phosphor', 'score', 'led', 'ink', 'typewriter', 'bauhaus']
 
 export type SceneDraw = (ctx: Ctx, f: VizFeatures, frame: number, scale?: number) => void
+
+/** Build a drawer for one preset. Call it with a canvas context and a frame index; it paints the whole frame. */
+// ================================================================ INK: suminagashi, ink floated on water and pushed by every new drop
+
+const INK = { water: '#e6eae7', ink: '#1d2333', grey: '#7d8590', paper: '#f5f1e7', seal: '#c0392b', mute: '#6b7078' }
+
+interface Drop { at: number; x: number; y: number; r: number; tone: 0 | 1 | 2; pc: number }
+
+const dropCache = new WeakMap<VizFeatures, Map<string, Drop[]>>()
+/** Every kick drops ink (downbeats in the accent), every firm snare a smaller grey drop. Placed once per clip. */
+function dropsOf(f: VizFeatures, W: number, H: number, tall: boolean, u: number): Drop[] {
+  let m = dropCache.get(f)
+  if (!m) { m = new Map(); dropCache.set(f, m) }
+  const key = `${W}x${H}`
+  let out = m.get(key)
+  if (out) return out
+  out = []
+  const pond = tall ? { x: 70, y: 90, w: W - 330, h: H * 0.7 } : { x: 80, y: 70, w: W - 420, h: H - 220 }
+  for (let j = 0; j < f.kicks.length; j++) {
+    const fr = f.kicks[j], b = f.beat[Math.min(f.frames - 1, fr)], down = ((((b - 1) % 4) + 4) % 4) < 0.2
+    // downbeats gather near the middle of the pond, the rest wander
+    const spread = down ? 0.28 : 1
+    const x = pond.x + pond.w * (0.5 + (hash(j, 41) - 0.5) * spread), y = pond.y + pond.h * (0.5 + (hash(j, 43) - 0.5) * spread)
+    out.push({ at: fr, x, y, r: (down ? 1.45 : 1) * (60 + 100 * f.kickAmp[j]) * u, tone: down ? 1 : 0, pc: domPc(f, fr) })
+  }
+  for (let j = 0; j < f.snaps.length; j++) {
+    if (f.snapAmp[j] < 0.62) continue
+    out.push({ at: f.snaps[j], x: pond.x + pond.w * hash(j, 47), y: pond.y + pond.h * hash(j, 49), r: (26 + 44 * f.snapAmp[j]) * u, tone: 2, pc: domPc(f, f.snaps[j]) })
+  }
+  out.sort((a, b) => a.at - b.at)
+  m.set(key, out)
+  return out
+}
+
+function inkScene(k: Kit, drops: Drop[]): void {
+  const { ctx, W, H, F, u, meta, A, tall } = k
+  const fps = F.f.fps, life = 13 * fps
+  const live = drops.filter((d) => d.at <= F.i && F.i - d.at < life)
+  const spreadOf = (d: Drop) => d.r * Math.sqrt(1 - Math.exp(-((F.i - d.at) / fps) * 1.6))
+  const radii = live.map(spreadOf)
+  const cx0 = W * 0.45, cy0 = H * 0.42, N = 64
+    for (let m = 0; m < live.length; m++) {
+    const d = live[m], age = (F.i - d.at) / fps
+    const fade = clamp((13 - age) / 4) * (d.tone === 2 ? 0.55 : 1)
+    if (fade <= 0.01) continue
+    const rings = d.tone === 2 ? 1 : 3, R = radii[m]
+    // the slow current: older ink has been carried further round
+    const swirl = 0.16 * (1 - Math.exp(-age / 7))
+    // where a ring lands after every later drop has pushed it aside and the current has turned it
+    const warp = (rad: number, a: number): [number, number] => {
+      let px = d.x + Math.cos(a) * rad, py = d.y + Math.sin(a) * rad
+      for (let n = m + 1; n < live.length; n++) {
+        const c = live[n], r2 = radii[n] * radii[n]
+        if (r2 < 1) continue
+        const dx = px - c.x, dy = py - c.y, d2 = dx * dx + dy * dy + 1e-3
+        const g = Math.sqrt(1 + r2 / d2) // conserves area: the old ink makes room for the new drop
+        px = c.x + dx * g; py = c.y + dy * g
+      }
+      const dx = px - cx0, dy = py - cy0, th = swirl * Math.exp(-Math.hypot(dx, dy) / (W * 0.9))
+      return [cx0 + dx * Math.cos(th) - dy * Math.sin(th), cy0 + dx * Math.sin(th) + dy * Math.cos(th)]
+    }
+    // sample the ring more finely wherever it has been stretched, so it stays a smooth curve
+    const path = (rad: number) => {
+      const gap = 14 * u
+      let a0 = 0, p0 = warp(rad, 0)
+      ctx.moveTo(p0[0], p0[1])
+      for (let s = 1; s <= N; s++) {
+        const a1 = (s / N) * Math.PI * 2, p1 = warp(rad, a1)
+        const split = Math.min(64, Math.ceil(Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) / gap))
+        for (let t = 1; t < split; t++) { const q = warp(rad, a0 + ((a1 - a0) * t) / split); ctx.lineTo(q[0], q[1]) }
+        ctx.lineTo(p1[0], p1[1]); a0 = a1; p0 = p1
+      }
+      ctx.closePath()
+    }
+    const ph = pitchHue(d.pc, A), dark = (m % 3) === 0
+    const col = d.tone === 1 ? rgba(A, 0.9 * fade) : d.tone === 2 ? hsl(ph, 55, 62, 0.6 * fade) : dark ? `rgba(29,35,51,${(0.85 - 0.3 * clamp(age / 10)) * fade})` : hsl(ph, 48, 38, (0.85 - 0.3 * clamp(age / 10)) * fade)
+    // sumi ink for the body of the print, the accent on downbeats, and the note that sounded in every other drop
+    ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineJoin = 'round'
+    for (let q = 0; q < rings; q++) {
+      const rad = R * (1 - q / (rings + 0.6))
+      if (rad < 2) break
+      ctx.lineWidth = Math.max(2 * u, R * (q === 0 ? 0.09 : 0.065))
+      ctx.beginPath(); path(rad - ctx.lineWidth / 2); ctx.stroke()
+    }
+    if (d.tone !== 2 && age < 1.2) { ctx.beginPath(); path(R * 0.12); ctx.fill() } // the fresh drop's dark heart
+  }
+  // the paper strip (tanzaku) hung at the side: the title in a vertical stack, the seal, the credits
+  {
+    const s = tall ? { x: W - 230 * u, y: 110 * u, w: 160 * u, h: 1180 * u } : { x: W - 300 * u, y: 70 * u, w: 200 * u, h: H - 160 * u }
+    const sway = 0.006 * Math.sin(F.t * 0.5)
+    ctx.save(); ctx.translate(s.x + s.w / 2, s.y); ctx.rotate(sway); ctx.translate(-(s.x + s.w / 2), -s.y)
+    ctx.save(); ctx.shadowColor = 'rgba(30,35,45,0.22)'; ctx.shadowBlur = 26 * u; ctx.shadowOffsetX = 8 * u; ctx.shadowOffsetY = 12 * u
+    ctx.fillStyle = INK.paper; ctx.fillRect(s.x, s.y, s.w, s.h); ctx.restore()
+    const chars = [...meta.title.toUpperCase().replace(/\s+/g, ' ')].slice(0, 14)
+    const step = Math.min((s.h * 0.62) / Math.max(1, chars.length), s.w * 0.62)
+    ctx.font = `600 ${step * 0.92}px ${SERIF}`; ctx.fillStyle = INK.ink; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+    chars.forEach((ch, i) => ctx.fillText(ch, s.x + s.w / 2, s.y + 60 * u + (i + 0.5) * step))
+    const sealY = s.y + 60 * u + chars.length * step + 40 * u, ss = s.w * 0.5
+    ctx.fillStyle = INK.seal; ctx.fillRect(s.x + (s.w - ss) / 2, sealY, ss, ss)
+    ctx.strokeStyle = INK.paper; ctx.lineWidth = 3 * u; ctx.strokeRect(s.x + (s.w - ss) / 2 + 6 * u, sealY + 6 * u, ss - 12 * u, ss - 12 * u)
+    ctx.fillStyle = INK.paper; ctx.font = `600 ${ss * 0.55}px ${SERIF}`; ctx.fillText(chars.find((c) => c.trim()) ?? '·', s.x + s.w / 2, sealY + ss / 2 + 2 * u)
+    ctx.save(); ctx.translate(s.x + s.w - 22 * u, sealY + ss + 30 * u); ctx.rotate(Math.PI / 2)
+    ctx.font = `italic 400 ${22 * u}px ${SERIF}`; ctx.fillStyle = INK.mute; ctx.textAlign = 'left'
+    ctx.fillText([meta.tagline, meta.bpm ? `${Math.round(meta.bpm)} bpm` : '', meta.key ?? ''].filter(Boolean).join('  ·  '), 0, 0)
+    ctx.restore()
+    ctx.restore()
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'
+  }
+  // the drop count and time, set small like a print's edition note
+  {
+    const n = live.filter((d) => d.tone !== 2).length
+    ctx.font = `italic 400 ${26 * u}px ${SERIF}`; ctx.fillStyle = INK.mute
+    const y = H - (tall ? 90 : 60) * u
+    ctx.fillText(`${meta.footer ? meta.footer + '   ·   ' : ''}bar ${F.bar}   ·   ${n} drops afloat   ·   ${clock(F.t)}`, 70 * u, y)
+  }
+}
+
+/** The water: a pale surface with slow caustic light crossing it. */
+function inkWater(k: Kit): void {
+  const { ctx, W, H, F } = k, o = over(k)
+  ctx.fillStyle = INK.water; ctx.fillRect(o.x, o.y, o.w, o.h)
+  for (let i = 0; i < 3; i++) {
+    const x = W * (0.5 + 0.45 * Math.sin(F.t * (0.07 + i * 0.03) + i * 2)), y = H * (0.45 + 0.4 * Math.cos(F.t * (0.05 + i * 0.02) + i))
+    const g = ctx.createRadialGradient(x, y, 0, x, y, Math.max(W, H) * (0.35 + 0.1 * i))
+    g.addColorStop(0, i % 2 ? 'rgba(255,255,255,0.35)' : 'rgba(170,185,190,0.18)'); g.addColorStop(1, 'rgba(0,0,0,0)')
+    ctx.fillStyle = g; ctx.fillRect(o.x, o.y, o.w, o.h)
+  }
+}
+
+// ================================================================ TYPEWRITER: the beat typed out as it plays, one 16th at a time
+
+const TYPE = { paper: '#f4efe2', ink: '#24221f', faint: '#b4ad9c', platen: '#141312', chrome: '#cfccc4', key: '#efe9da', legend: '#2b2925' }
+const PREFIX = 8 // "005 D   " before the steps
+const stepCol = (k: number) => PREFIX + k * 2 + Math.floor(k / 4) * 2
+
+interface BarLine { steps: string[]; amp: number[]; pc: number }
+const barCache = new WeakMap<VizFeatures, Map<number, BarLine>>()
+/** Bar n's sixteen steps: x where a kick landed, o for a snare, · for neither. */
+function barLine(F: Frame, n: number): BarLine {
+  let m = barCache.get(F.f)
+  if (!m) { m = new Map(); barCache.set(F.f, m) }
+  let b = m.get(n)
+  if (b) return b
+  const step = F.P / 4, start = F.origin + n * 4 * F.P
+  const steps = Array<string>(16).fill('·'), amp = Array<number>(16).fill(0)
+  const mark = (list: Int32Array, amps: Float32Array, ch: string) => {
+    for (let j = 0; j < list.length; j++) {
+      const k = Math.round((list[j] - start) / step)
+      if (k < 0 || k > 15) continue
+      if (steps[k] !== 'x') { steps[k] = ch; amp[k] = amps[j] }
+    }
+  }
+  mark(F.f.snaps, F.f.snapAmp, 'o'); mark(F.f.kicks, F.f.kickAmp, 'x')
+  b = { steps, amp, pc: domPc(F.f, start + 2 * F.P) }
+  m.set(n, b)
+  return b
+}
+
+const KEYROWS = ['1234567890', 'QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM.']
+
+function typewriter(k: Kit): void {
+  const { ctx, W, H, F, u, meta, A, tall } = k
+  const fps = F.f.fps, step = F.P / 4, barLen = 4 * F.P
+  const n = Math.floor((F.i - F.origin) / barLen), into = F.i - (F.origin + n * barLen)
+  const kNow = clamp(Math.floor(into / step), 0, 15), since = into - kNow * step
+  const n0 = Math.floor(-F.origin / barLen) // the bar the clip opened in
+  // the carriage: after each strike it glides across the gap to the next column; each new bar it zips back
+  const colAt = (kk: number, s: number) => stepCol(kk) + 1 + (kk < 15 ? GLIDE(clamp(s / step)) * (stepCol(kk + 1) - stepCol(kk) - 1) : 0)
+  const ret = clamp(into / (0.4 * F.P))
+  const e = n > n0 ? GLIDE(ret) : 1
+  const col = lerp(stepCol(15) + 1, colAt(kNow, since), e)
+  const lineF = n - 1 + e // the line feed rides with the return
+
+  const fs = (tall ? 34 : 32) * u
+  ctx.font = `500 ${fs}px ${MONO}`
+  const cw = ctx.measureText('M').width, lh = fs * 1.62
+  const typeX = W / 2, typeY = H * (tall ? 0.57 : 0.6), margin = 3 * cw
+  const paperL = typeX - margin - col * cw, paperW = (stepCol(15) + 1 + 6) * cw, paperTop = typeY - (lineF - (n0 - 5)) * lh - lh * 1.4
+
+  // ---- the sheet
+  ctx.save()
+  ctx.shadowColor = 'rgba(30,20,10,0.35)'; ctx.shadowBlur = 30 * u; ctx.shadowOffsetY = 10 * u
+  const rollTop = Math.min(paperTop, -H * 0.3) // a roll, not a single sheet: it always reaches past the top of the frame
+  ctx.fillStyle = TYPE.paper; ctx.fillRect(paperL, rollTop, paperW, typeY + 60 * u - rollTop)
+  ctx.restore()
+  const yOf = (L: number) => typeY - (lineF - L) * lh
+  const glyph = (ch: string, c: number, L: number, col: string, a = 1) => {
+    const j = L * 131 + c
+    ctx.globalAlpha = a * (0.74 + 0.26 * hash(j, 3))
+    ctx.fillStyle = col
+    ctx.fillText(ch, paperL + margin + c * cw + (hash(j, 1) - 0.5) * 1.6 * u, yOf(L) + (hash(j, 2) - 0.5) * 1.6 * u)
+    if (hash(j, 4) > 0.93) ctx.fillText(ch, paperL + margin + c * cw + 0.8 * u, yOf(L) + 0.4 * u) // a double strike now and then
+    ctx.globalAlpha = 1
+  }
+  ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left'
+  // header, typed before the first bar
+  const head = [meta.title.toUpperCase().split('').join(' '), meta.tagline, [meta.bpm ? `${Math.round(meta.bpm)} BPM` : '', meta.key ?? '', meta.footer].filter(Boolean).join('   ')]
+  head.forEach((t, i) => { if (t) [...t].forEach((ch, c) => glyph(ch, c, n0 - 5 + i, i === 0 ? TYPE.ink : '#4a463f')) })
+  ;[...'_'.repeat(Math.min(40, head[0].length + 2))].forEach((ch, c) => glyph(ch, c, n0 - 2, rgba(A, 1)))
+  const first = Math.max(n0, Math.floor(lineF - typeY / lh) - 1)
+  for (let L = first; L <= n; L++) {
+    const b = barLine(F, L), typed = L < n ? 16 : (n > n0 || into >= 0 ? kNow + 1 : 0)
+    // the bar number, and the bar's root note under a highlighter in that note's colour
+    const y = yOf(L)
+    ctx.save(); ctx.globalCompositeOperation = 'multiply'
+    ctx.fillStyle = hsl(pitchHue(b.pc, A), 85, 72, 0.75)
+    const hx = paperL + margin + 3.6 * cw, hw = 3 * cw * (L < n ? 1 : clamp(into / F.P))
+    ctx.beginPath(); ctx.roundRect(hx, y - fs * 0.85 + (hash(L, 9) - 0.5) * 4 * u, hw, fs * 1.05, 6 * u); ctx.fill()
+    ctx.restore()
+    ;[...pad(L - n0 + 1, 3)].forEach((ch, c) => glyph(ch, c, L, TYPE.ink))
+    glyph(NAMES[b.pc], 4, L, TYPE.ink)
+    for (let s = 0; s < typed; s++) {
+      const ch = b.steps[s]
+      glyph(ch, stepCol(s), L, ch === 'x' ? rgba(A, 0.6 + 0.4 * b.amp[s]) : ch === 'o' ? TYPE.ink : TYPE.faint)
+    }
+    // every fourth bar gets a pencil tick in the margin, like a typist counting phrases
+    if ((L - n0 + 1) % 4 === 0 && L < n) { ctx.strokeStyle = 'rgba(70,70,75,0.55)'; ctx.lineWidth = 2 * u; ctx.beginPath(); ctx.moveTo(paperL + margin * 0.35, y - fs * 0.7); ctx.lineTo(paperL + margin * 0.55, y + 4 * u); ctx.stroke() }
+  }
+
+  // ---- paper bail with its rollers, the platen, the ribbon and the typebar
+  const bailY = typeY + 26 * u // the bail sits on the platen, below the line being typed, so it never cuts through text
+  ctx.fillStyle = TYPE.chrome; ctx.fillRect(paperL - 40 * u, bailY, paperW + 80 * u, 5 * u)
+  for (const rx of [0.25, 0.75]) { ctx.fillStyle = '#2a2826'; ctx.beginPath(); ctx.roundRect(paperL + paperW * rx - 18 * u, bailY - 6 * u, 36 * u, 17 * u, 8 * u); ctx.fill() }
+  const pg = ctx.createLinearGradient(0, typeY + 14 * u, 0, typeY + 90 * u)
+  pg.addColorStop(0, '#3a3836'); pg.addColorStop(0.35, TYPE.platen); pg.addColorStop(1, '#050505')
+  ctx.fillStyle = pg; ctx.fillRect(-W * 0.2, typeY + 14 * u, W * 1.4, 76 * u)
+  const bodyHue = hueOf(A) + 180
+  ctx.fillStyle = hsl(bodyHue, 18, 30); ctx.fillRect(-W * 0.2, typeY + 90 * u, W * 1.4, H)
+  ctx.fillStyle = TYPE.chrome; ctx.fillRect(-W * 0.2, typeY + 90 * u, W * 1.4, 4 * u)
+  const strike = since < 3 && into >= 0
+  const cur = barLine(F, n).steps[kNow]
+  // ribbon vibrator: the two-colour ribbon lifts to the paper on each strike
+  const lift = strike ? 1 - since / 3 : 0
+  ctx.fillStyle = TYPE.ink; ctx.fillRect(typeX - 26 * u, typeY + 6 * u - lift * 22 * u, 52 * u, 9 * u)
+  ctx.fillStyle = rgba(A, 1); ctx.fillRect(typeX - 26 * u, typeY + 15 * u - lift * 22 * u, 52 * u, 9 * u)
+  if (strike) {
+    ctx.strokeStyle = '#8f8b84'; ctx.lineWidth = 7 * u; ctx.lineCap = 'round'
+    ctx.beginPath(); ctx.moveTo(typeX + 6 * u, typeY + 4 * u); ctx.lineTo(typeX + 60 * u * lift, typeY + 240 * u); ctx.stroke(); ctx.lineCap = 'butt'
+    ctx.fillStyle = 'rgba(255,240,220,0.5)'; ctx.beginPath(); ctx.arc(typeX, typeY - fs * 0.35, (10 + 10 * lift) * u, 0, Math.PI * 2); ctx.fill()
+  }
+  // the keyboard: the key for the character being struck is down
+  const pressed = strike ? (cur === 'x' ? 'X' : cur === 'o' ? 'O' : '.') : ''
+  const kr = (tall ? 40 : 30) * u, kg = kr * 2.45, ky0 = typeY + (tall ? 210 : 150) * u
+  KEYROWS.forEach((row, ri) => {
+    const y = ky0 + ri * kg * 0.86, x0 = W / 2 - ((row.length - 1) * kg) / 2 + ri * kg * 0.22
+    ;[...row].forEach((ch, ci) => {
+      const x = x0 + ci * kg, down = ch === pressed
+      ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.arc(x + 3 * u, y + 7 * u, kr, 0, Math.PI * 2); ctx.fill()
+      ctx.fillStyle = '#6c6a66'; ctx.fillRect(x - 3 * u, y, 6 * u, 60 * u) // the key's stem
+      const yy = y + (down ? 6 * u : 0)
+      ctx.fillStyle = down ? hsl(pitchHue(barLine(F, n).pc, A), 60, 80) : TYPE.key; ctx.beginPath(); ctx.arc(x, yy, kr, 0, Math.PI * 2); ctx.fill()
+      ctx.strokeStyle = '#a9a294'; ctx.lineWidth = 3 * u; ctx.stroke()
+      ctx.fillStyle = TYPE.legend; ctx.font = `600 ${kr * 0.8}px ${MONO}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+      ctx.fillText(ch, x, yy + 1 * u)
+    })
+  })
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'
+  void fps
+}
+
+// ================================================================ BAUHAUS: a cut-paper poster that recomposes itself every phrase
+
+const BAU = { paper: '#efe8da', ink: '#1b1a19' }
+type Shape = 'disc' | 'half' | 'quarter' | 'bar' | 'square' | 'tri' | 'ring' | 'dot'
+interface Piece { shape: Shape; w: number; h: number; col: number; band: number }
+const PIECES: Piece[] = [
+  { shape: 'disc', w: 3, h: 3, col: 0, band: 0.05 }, { shape: 'half', w: 2, h: 1, col: 1, band: 0.25 }, { shape: 'bar', w: 1, h: 4, col: 3, band: 0.4 },
+  { shape: 'quarter', w: 2, h: 2, col: 2, band: 0.55 }, { shape: 'tri', w: 2, h: 2, col: 1, band: 0.7 }, { shape: 'ring', w: 2, h: 2, col: 3, band: 0.15 },
+  { shape: 'square', w: 1, h: 1, col: 0, band: 0.85 }, { shape: 'dot', w: 1, h: 1, col: 2, band: 0.95 }, { shape: 'bar', w: 3, h: 1, col: 2, band: 0.32 }
+]
+
+function bauhaus(k: Kit): void {
+  const { ctx, W, H, F, u, meta, A, tall } = k
+  const fps = F.f.fps, ah = hueOf(A)
+  // the screenprint's inks: the accent, two triadic partners pulled toward print colours, and black
+  const inks = [rgba(A, 1), hsl(ah + 125, 55, 46), hsl(ah + 235, 70, 58), BAU.ink]
+  const area = tall ? { x: 230 * u, y: 150 * u, w: W - 300 * u, h: H - 420 * u } : { x: 300 * u, y: 90 * u, w: W - 380 * u, h: H - 200 * u }
+  const cols = tall ? 6 : 10, rows = tall ? 10 : 6, c = Math.min(area.w / cols, area.h / rows)
+  const gx = area.x + (area.w - cols * c) / 2, gy = area.y + (area.h - rows * c) / 2
+  // the grid, ruled lightly like a layout sheet
+  ctx.strokeStyle = 'rgba(27,26,25,0.08)'; ctx.lineWidth = 1.2 * u
+  for (let i = 0; i <= cols; i++) { ctx.beginPath(); ctx.moveTo(gx + i * c, gy); ctx.lineTo(gx + i * c, gy + rows * c); ctx.stroke() }
+  for (let j = 0; j <= rows; j++) { ctx.beginPath(); ctx.moveTo(gx, gy + j * c); ctx.lineTo(gx + cols * c, gy + j * c); ctx.stroke() }
+
+  const len = PHRASE_BARS * 4 * F.P, p = Math.floor((F.i - F.origin) / len), start = F.origin + p * len
+  // a slot that keeps the piece on the sheet once it is turned (a quarter turn swaps its width and height)
+  const slot = (q: number, i: number, pc: Piece) => {
+    const r = Math.floor(hash(q * 17 + i, 3) * 4), w = r % 2 ? pc.h : pc.w, h = r % 2 ? pc.w : pc.h
+    return { x: Math.floor(hash(q * 17 + i, 1) * (cols - w + 1)) + (w - pc.w) / 2, y: Math.floor(hash(q * 17 + i, 2) * (rows - h + 1)) + (h - pc.h) / 2, r }
+  }
+  // light comes from where the daylight sits, so the cut paper throws its shadow away from it
+  const lx = Math.sin(F.t * 0.12 + 1), ly = Math.sin(F.t * 0.083)
+  const sh = { x: -lx * 9 * u, y: (8 - ly * 6) * u }
+  PIECES.forEach((pc, i) => {
+    const a = slot(p - 1, i, pc), b = slot(p, i, pc)
+    // each piece leaves on its own beat and lands on a spring
+    const dep = start + (i % 8) * 0.5 * F.P
+    const s = start <= 0 ? 1 : spring({ frame: F.i - dep, fps, config: { damping: 13, stiffness: 110, mass: 0.9 } })
+    const x = gx + (lerp(a.x, b.x, s) + pc.w / 2) * c, y = gy + (lerp(a.y, b.y, s) + pc.h / 2) * c
+    const rot = (lerp(a.r, b.r + (b.r < a.r ? 4 : 0), s) * Math.PI) / 2
+    const breathe = 1 + 0.07 * F.band(pc.band) + (pc.shape === 'disc' ? 0.05 * F.kick : 0) + (pc.shape === 'bar' ? 0.04 * F.snap : 0)
+    const w = pc.w * c * breathe, h = pc.h * c * breathe
+    const draw = () => {
+      ctx.beginPath()
+      if (pc.shape === 'disc' || pc.shape === 'dot') ctx.arc(0, 0, (Math.min(w, h) / 2) * (pc.shape === 'dot' ? 0.6 : 1), 0, Math.PI * 2)
+      else if (pc.shape === 'half') { ctx.arc(0, h / 2, w / 2, Math.PI, 0); ctx.closePath() }
+      else if (pc.shape === 'quarter') { ctx.moveTo(-w / 2, h / 2); ctx.arc(-w / 2, h / 2, w, -Math.PI / 2, 0); ctx.closePath() }
+      else if (pc.shape === 'tri') { ctx.moveTo(-w / 2, h / 2); ctx.lineTo(w / 2, h / 2); ctx.lineTo(-w / 2, -h / 2); ctx.closePath() }
+      else if (pc.shape === 'ring') { ctx.arc(0, 0, w / 2, 0, Math.PI * 2); ctx.arc(0, 0, w / 2 - c * 0.32, 0, Math.PI * 2, true) }
+      else ctx.rect(-w / 2, -h / 2, w, h)
+    }
+    ctx.save(); ctx.translate(x + sh.x, y + sh.y); ctx.rotate(rot); draw(); ctx.fillStyle = 'rgba(40,30,20,0.16)'; ctx.fill('evenodd'); ctx.restore()
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot); draw(); ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = inks[pc.col]; ctx.fill('evenodd'); ctx.restore()
+  })
+
+  // the title runs up the left edge, set big and tight; the bar number flips over at each bar
+  ctx.save()
+  ctx.translate(tall ? 170 * u : 220 * u, tall ? H - 270 * u : H - 110 * u); ctx.rotate(-Math.PI / 2)
+  ctx.fillStyle = BAU.ink; ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left'
+  fit(ctx, meta.title.toUpperCase(), (px) => `700 ${px}px ${COND}`, (tall ? 170 : 170) * u, tall ? H - 420 * u : H - 200 * u)
+  ctx.fillText(meta.title.toUpperCase(), 0, 0)
+  ctx.restore()
+  {
+    const bx = tall ? W - 70 * u : W - 60 * u, by = tall ? H - 120 * u : 170 * u
+    const into = (F.i - F.origin) / (4 * F.P) - Math.floor((F.i - F.origin) / (4 * F.P))
+    const flip = interpolate(into, [0, 0.12], [1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: Easing.bezier(0.16, 1, 0.3, 1) })
+    ctx.save(); ctx.beginPath(); ctx.rect(bx - 260 * u, by - 120 * u, 270 * u, 140 * u); ctx.clip()
+    ctx.font = `700 ${130 * u}px ${COND}`; ctx.textAlign = 'right'; ctx.fillStyle = rgba(A, 1)
+    ctx.fillText(pad(F.bar, 2), bx, by + flip * 130 * u)
+    ctx.fillStyle = 'rgba(27,26,25,0.25)'; ctx.fillText(pad(F.bar - 1, 2), bx, by - (1 - flip) * 130 * u)
+    ctx.restore()
+  }
+  ctx.font = `500 ${22 * u}px ${MONO}`; ctx.fillStyle = BAU.ink; ctx.textAlign = 'left'
+  const info = [meta.tagline, meta.bpm ? `${Math.round(meta.bpm)} BPM` : '', meta.key ?? '', meta.footer].filter(Boolean).map((t) => t.toUpperCase())
+  if (tall) info.forEach((t, i) => ctx.fillText(t, 230 * u, H - 210 * u + i * 32 * u))
+  else ctx.fillText(info.join('   ·   '), 300 * u, H - 40 * u)
+  ctx.textAlign = 'left'
+}
+
+interface Preset {
+  /** the colour under everything, so no camera move ever shows an edge */
+  ground: string
+  /** framings for the camera, the wide shot first */
+  shots: Shot[]
+  /** behind the content, at a shallow depth */
+  bg?: (k: Kit) => void
+  fg: (k: Kit) => void
+  /** in front of the content, deeper than it */
+  air?: (k: Kit) => void
+  /** on the lens: light, grain, scanlines */
+  post?: (k: Kit) => void
+}
 
 /** Build a drawer for one preset. Call it with a canvas context and a frame index; it paints the whole frame. */
 export function createScene(L: SceneLayout, style: VizStyle, accent: string, meta: SceneMeta): SceneDraw {
   const A = hexRgb(accent)
   const tall = L.H > L.W, u = tall ? L.W / 1080 : L.H / 1080
   const seed = [...meta.title].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 9973, 7)
+  const W = L.W, H = L.H
+  const sh = (t: Shot[], w: Shot[]) => (tall ? t : w)
+  const WIDE: Shot = { x: 0.5, y: 0.5, z: 1.04 }
   let frameObj: Frame | null = null
-  let paint: (k: Kit) => void
+  let P: Preset
   if (style === 'tape') {
-    const stains = makeStains(L.W, L.H, seed)
+    const stains = makeStains(W, H, seed)
     const grain = grainTile(seed, 'rgba(70,45,20,1)', 'rgba(255,240,210,1)', 0.05)
-    paint = (k) => { tape(k, stains); texture(k.ctx, grain, k.W, k.H, 0.35) }
+    P = {
+      ground: TAPE.board,
+      shots: sh([WIDE, { x: 0.5, y: 0.3, z: 1.28, r: -0.6 }, { x: 0.5, y: 0.55, z: 1.32 }, { x: 0.55, y: 0.8, z: 1.28, r: 0.5 }], [WIDE, { x: 0.32, y: 0.42, z: 1.28, r: -0.5 }, { x: 0.74, y: 0.36, z: 1.32 }, { x: 0.6, y: 0.76, z: 1.28, r: 0.4 }]),
+      bg: (k) => { const o = over(k); k.ctx.drawImage(stains, o.x, o.y, o.w, o.h) },
+      fg: (k) => tape(k, stains),
+      air: (k) => motes(k, 26, (a) => `rgba(255,236,200,${a * 0.6})`, 2.2, seed),
+      post: (k) => { daylight(k, 'rgba(255,214,150,0.9)', 'rgba(60,35,10,0.55)', 0.8); boil(k, grain, 0.35) }
+    }
   } else if (style === 'riso') {
     const ht = halftoneSource(meta.cover, tall ? 64 : 58, seed)
     const grain = grainTile(seed, 'rgba(120,110,90,1)', 'rgba(255,255,255,1)', 0.035)
     const speck = grainTile(seed + 5, 'rgba(241,235,221,1)', 'rgba(241,235,221,1)', 0.02)
-    paint = (k) => riso(k, ht, grain, speck)
+    P = {
+      ground: '#f1ebdd',
+      shots: sh([WIDE, { x: 0.5, y: 0.32, z: 1.22, r: 0.8 }, { x: 0.5, y: 0.7, z: 1.25 }], [WIDE, { x: 0.32, y: 0.5, z: 1.25, r: 0.7 }, { x: 0.7, y: 0.64, z: 1.2, r: -0.5 }]),
+      fg: (k) => riso(k, ht, grain, speck),
+      post: (k) => { daylight(k, 'rgba(255,250,235,0.8)', 'rgba(80,70,50,0.35)', 0.6); boil(k, speck, 0.55); boil(k, grain, 0.5, 'multiply') }
+    }
   } else if (style === 'cover') {
-    const bg = coverBackdrop(L.W, L.H, meta.cover, A)
-    paint = (k) => coverScene(k, bg)
+    const bg = coverBackdrop(W, H, meta.cover, A)
+    const refl = coverReflection(meta.cover, A, meta.title, coverLayout(W, H, tall).art.s)
+    const pal = artPalette(meta.cover, A)
+    P = {
+      ground: '#0b0c10',
+      shots: sh([WIDE, { x: 0.5, y: 0.33, z: 1.22, r: -0.5 }, { x: 0.5, y: 0.72, z: 1.3 }], [WIDE, { x: 0.3, y: 0.48, z: 1.28, r: 0.5 }, { x: 0.68, y: 0.45, z: 1.32 }]),
+      bg: (k) => coverBg(k, bg),
+      fg: (k) => coverScene(k, refl, pal),
+      air: (k) => motes(k, 22, (a) => rgba(pal[Math.floor(a * 97) % pal.length], a * 0.5), 2, seed)
+    }
   } else if (style === 'vinyl') {
     const wood = grainTile(seed, 'rgba(0,0,0,1)', 'rgba(120,90,60,1)', 0.05)
-    paint = (k) => vinyl(k, wood)
+    const pal = artPalette(meta.cover, A), lamp = pal[1] ?? pal[0]
+    P = {
+      ground: VINYL.plinth,
+      shots: sh([WIDE, { x: 0.5, y: 0.37, z: 1.3 }, { x: 0.6, y: 0.3, z: 1.55, r: 1 }, { x: 0.5, y: 0.38, z: 1.7, r: -0.8 }, { x: 0.5, y: 0.74, z: 1.3 }], [WIDE, { x: 0.33, y: 0.5, z: 1.28 }, { x: 0.42, y: 0.34, z: 1.55, r: 1 }, { x: 0.32, y: 0.5, z: 1.7, r: -0.8 }, { x: 0.76, y: 0.5, z: 1.32 }]),
+      bg: (k) => { const o = over(k); k.ctx.save(); k.ctx.translate(o.x, o.y); texture(k.ctx, wood, o.w, o.h, 0.5); k.ctx.restore() },
+      fg: (k) => vinyl(k, wood),
+      air: (k) => motes(k, 30, (a) => rgba(lamp, a * 0.55), 2, seed),
+      post: (k) => { daylight(k, 'rgba(255,205,140,0.85)', 'rgba(0,0,0,0.7)', 0.85); daylight(k, rgba(lamp, 0.9), 'rgba(0,0,0,0)', 0.5) }
+    }
   } else if (style === 'ridge') {
-    paint = (k) => ridge(k)
+    P = {
+      ground: '#0b0b0c',
+      shots: sh([WIDE, { x: 0.5, y: 0.62, z: 1.3 }, { x: 0.5, y: 0.42, z: 1.18, r: -1.2 }], [WIDE, { x: 0.5, y: 0.62, z: 1.35 }, { x: 0.5, y: 0.42, z: 1.2, r: -1.2 }]),
+      bg: (k) => {
+        const { ctx, W: w, H: h, F } = k, o = over(k)
+        const g = ctx.createRadialGradient(w / 2, h * 0.62, 0, w / 2, h * 0.62, h * 0.7)
+        g.addColorStop(0, rgba(k.A, 0.05 + 0.1 * F.bass + 0.06 * k.swell)); g.addColorStop(1, 'rgba(0,0,0,0)')
+        ctx.fillStyle = g; ctx.fillRect(o.x, o.y, o.w, o.h)
+      },
+      fg: (k) => ridge(k),
+      air: (k) => motes(k, 40, (a) => `rgba(236,234,228,${a * 0.35})`, 1.2, seed)
+    }
   } else if (style === 'phosphor') {
-    const fx = phosphorFx(L.W, L.H)
-    paint = (k) => phosphor(k, fx)
+    const fx = phosphorFx(W, H)
+    P = {
+      ground: '#020905',
+      shots: sh([WIDE, { x: 0.5, y: 0.34, z: 1.3, r: 0.6 }, { x: 0.5, y: 0.7, z: 1.32 }], [WIDE, { x: 0.3, y: 0.5, z: 1.25, r: 0.6 }, { x: 0.7, y: 0.45, z: 1.3, r: -0.5 }]),
+      fg: (k) => phosphor(k, fx),
+      post: (k) => {
+        const { ctx, W: w, H: h, F } = k
+        // the hum bar rolling down the tube, and the tube's flicker
+        const hy = (((F.t * 0.09) % 1.4) - 0.2) * h, g = ctx.createLinearGradient(0, hy - h * 0.1, 0, hy + h * 0.1)
+        g.addColorStop(0, 'rgba(110,255,170,0)'); g.addColorStop(0.5, 'rgba(110,255,170,0.045)'); g.addColorStop(1, 'rgba(110,255,170,0)')
+        ctx.fillStyle = g; ctx.fillRect(0, hy - h * 0.1, w, h * 0.2)
+        ctx.drawImage(fx, 0, 0)
+        ctx.fillStyle = `rgba(0,0,0,${0.05 * hash(F.i, 77)})`; ctx.fillRect(0, 0, w, h)
+      }
+    }
   } else if (style === 'score') {
     const grain = grainTile(seed, 'rgba(110,95,70,1)', 'rgba(255,255,255,1)', 0.025)
-    paint = (k) => score(k, grain)
+    P = {
+      ground: SCORE.paper,
+      shots: sh([WIDE, { x: 0.5, y: 0.44, z: 1.28, r: -0.4 }, { x: 0.5, y: 0.7, z: 1.3 }, { x: 0.5, y: 0.3, z: 1.25, r: 0.5 }], [WIDE, { x: 0.45, y: 0.45, z: 1.28, r: -0.4 }, { x: 0.5, y: 0.72, z: 1.3 }]),
+      fg: (k) => score(k, grain),
+      post: (k) => { daylight(k, 'rgba(255,236,200,0.9)', 'rgba(90,70,40,0.4)', 0.75); boil(k, grain, 0.4, 'multiply') }
+    }
   } else if (style === 'led') {
     const mq = marquee(meta.title.toUpperCase() || 'UNTITLED', 16)
     const sub = marquee([meta.tagline, meta.bpm ? `${Math.round(meta.bpm)} BPM` : '', shortKey(meta.key), meta.footer].filter(Boolean).join('  ·  ').toUpperCase() || ' ', 11, true)
-    paint = (k) => led(k, mq, sub)
+    P = {
+      ground: '#050507',
+      shots: sh([WIDE, { x: 0.5, y: 0.3, z: 1.18, r: -1.2 }, { x: 0.5, y: 0.7, z: 1.18, r: 1 }], [WIDE, { x: 0.5, y: 0.35, z: 1.18, r: -1.2 }, { x: 0.5, y: 0.65, z: 1.18, r: 1 }]),
+      bg: (k) => {
+        const { ctx, W: w, H: h, F } = k, o = over(k)
+        const g = ctx.createRadialGradient(w / 2, h * 0.55, 0, w / 2, h * 0.55, Math.max(w, h) * 0.7)
+        g.addColorStop(0, rgba(k.A, 0.06 + 0.12 * F.bass + 0.08 * k.swell)); g.addColorStop(1, 'rgba(0,0,0,0)')
+        ctx.fillStyle = g; ctx.fillRect(o.x, o.y, o.w, o.h)
+      },
+      fg: (k) => led(k, mq, sub)
+    }
+  } else if (style === 'typewriter') {
+    const wood = grainTile(seed, 'rgba(40,25,15,1)', 'rgba(150,110,70,1)', 0.06)
+    const grain = grainTile(seed + 3, 'rgba(90,80,60,1)', 'rgba(255,255,255,1)', 0.02)
+    P = {
+      ground: '#4a3527',
+      shots: sh([WIDE, { x: 0.5, y: 0.5, z: 1.3, r: -0.6 }, { x: 0.5, y: 0.32, z: 1.25, r: 0.5 }, { x: 0.5, y: 0.78, z: 1.25 }], [WIDE, { x: 0.5, y: 0.55, z: 1.3, r: -0.6 }, { x: 0.5, y: 0.32, z: 1.25, r: 0.5 }]),
+      bg: (k) => { const o = over(k); k.ctx.save(); k.ctx.translate(o.x, o.y); texture(k.ctx, wood, o.w, o.h, 0.55); k.ctx.restore() },
+      fg: (k) => typewriter(k),
+      air: (k) => motes(k, 24, (a) => `rgba(255,232,190,${a * 0.5})`, 2, seed),
+      post: (k) => { daylight(k, 'rgba(255,214,160,0.9)', 'rgba(40,25,10,0.6)', 0.85); boil(k, grain, 0.2, 'multiply') }
+    }
+  } else if (style === 'bauhaus') {
+    const grain = grainTile(seed, 'rgba(110,95,70,1)', 'rgba(255,255,255,1)', 0.03)
+    P = {
+      ground: BAU.paper,
+      shots: sh([WIDE, { x: 0.58, y: 0.42, z: 1.22, r: -0.8 }, { x: 0.55, y: 0.62, z: 1.2, r: 0.6 }], [WIDE, { x: 0.58, y: 0.48, z: 1.2, r: -0.8 }, { x: 0.45, y: 0.5, z: 1.15, r: 0.6 }]),
+      fg: (k) => bauhaus(k),
+      post: (k) => { daylight(k, 'rgba(255,248,230,0.85)', 'rgba(70,55,35,0.35)', 0.65); boil(k, grain, 0.3, 'multiply') }
+    }
+  } else if (style === 'ink') {
+    const grain = grainTile(seed, 'rgba(90,95,100,1)', 'rgba(255,255,255,1)', 0.02)
+    P = {
+      ground: INK.water,
+      shots: sh([WIDE, { x: 0.42, y: 0.36, z: 1.25, r: -0.6 }, { x: 0.45, y: 0.62, z: 1.22, r: 0.5 }, { x: 0.7, y: 0.4, z: 1.2 }], [WIDE, { x: 0.38, y: 0.45, z: 1.25, r: -0.6 }, { x: 0.62, y: 0.5, z: 1.2, r: 0.5 }]),
+      bg: (k) => inkWater(k),
+      fg: (k) => inkScene(k, dropsOf(k.F.f, k.W, k.H, k.tall, k.u)),
+      post: (k) => { daylight(k, 'rgba(255,255,250,0.8)', 'rgba(60,70,80,0.3)', 0.6); boil(k, grain, 0.22, 'multiply') }
+    }
   } else {
     const grain = grainTile(seed, 'rgba(90,90,85,1)', 'rgba(255,255,255,1)', 0.02)
-    paint = (k) => { lab(k); texture(k.ctx, grain, k.W, k.H, 0.18) }
+    P = {
+      ground: LAB.paper,
+      shots: sh([WIDE, { x: 0.5, y: 0.38, z: 1.28, r: -0.5 }, { x: 0.5, y: 0.7, z: 1.28 }, { x: 0.5, y: 0.26, z: 1.25, r: 0.4 }], [WIDE, { x: 0.36, y: 0.48, z: 1.25, r: -0.5 }, { x: 0.76, y: 0.45, z: 1.28 }, { x: 0.4, y: 0.78, z: 1.28, r: 0.5 }]),
+      fg: (k) => lab(k),
+      post: (k) => { daylight(k, 'rgba(255,248,230,0.9)', 'rgba(40,42,46,0.35)', 0.7); boil(k, grain, 0.18) }
+    }
   }
   return (ctx, f, frame, scale = 1) => {
     if (!frameObj || frameObj.f !== f) frameObj = new Frame(f)
     const F = frameObj.at(frame)
+    const swell = swellOf(f)[F.i] ?? 0
+    const cam = direct(F, P.shots, W, H, swell, seed % 7)
+    const at = (d: number) => {
+      ctx.setTransform(scale, 0, 0, scale, 0, 0)
+      ctx.translate(W / 2, H / 2); ctx.rotate((cam.r * d * Math.PI) / 180)
+      const z = 1 + (cam.z - 1) * d
+      ctx.scale(z, z); ctx.translate(-(W / 2 + (cam.cx - W / 2) * d), -(H / 2 + (cam.cy - H / 2) * d))
+    }
+    const k: Kit = { ctx, W, H, tall, u, F, meta, A, swell, at }
     ctx.save()
-    ctx.setTransform(scale, 0, 0, scale, 0, 0)
     ctx.globalCompositeOperation = 'source-over'
     ctx.globalAlpha = 1
-    paint({ ctx, W: L.W, H: L.H, tall, u, F, meta, A })
+    ctx.setTransform(scale, 0, 0, scale, 0, 0)
+    ctx.fillStyle = P.ground; ctx.fillRect(0, 0, W, H)
+    if (P.bg) { at(0.4); P.bg(k) }
+    at(1); P.fg(k)
+    if (P.air) { at(1.35); P.air(k) }
+    ctx.setTransform(scale, 0, 0, scale, 0, 0); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1
+    P.post?.(k)
     ctx.restore()
   }
 }

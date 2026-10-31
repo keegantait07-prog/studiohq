@@ -195,17 +195,25 @@ export function buildTools(d: ToolDeps): ToolDef[] {
         return { ok: true }
       }),
 
-    write('save_contact', 'Add a contact to the pitch CRM, or update one when id is given. Role is one of: ' + CONTACT_ROLES.join(', ') + '.',
-      { type: 'object', properties: { id: { type: 'number', description: 'Only to update an existing contact (all fields are then replaced)' }, name: { type: 'string' }, role: { type: 'string', enum: [...CONTACT_ROLES] }, email: { type: 'string' }, sound: { type: 'string' }, notes: { type: 'string' }, followupDays: { type: ['number', 'null'] } }, required: ['name'] },
+    write('save_contact', 'Add a contact to the pitch CRM, or update one when id is given (fields you leave out are kept). Role is one of: ' + CONTACT_ROLES.join(', ') + '.',
+      { type: 'object', properties: { id: { type: 'number', description: 'Only to update an existing contact; omitted fields keep their current values' }, name: { type: 'string' }, role: { type: 'string', enum: [...CONTACT_ROLES] }, email: { type: 'string' }, sound: { type: 'string' }, notes: { type: 'string' }, followupDays: { type: ['number', 'null'] }, links: { type: 'array', items: { type: 'object', properties: { label: { type: 'string' }, url: { type: 'string' } }, required: ['label', 'url'] } } }, required: ['name'] },
       (a) => `${a.id ? 'Update' : 'Add'} contact ${str(a.name).trim() || '(unnamed)'}${a.role ? ` (${a.role})` : ''}`,
       (a) => {
         if (!str(a.name).trim()) return { error: 'Name is required' }
         if (a.role !== undefined && !(CONTACT_ROLES as string[]).includes(a.role)) return { error: `Role must be one of: ${CONTACT_ROLES.join(', ')}` }
         if (a.followupDays != null && !(Number.isFinite(Number(a.followupDays)) && Number(a.followupDays) > 0)) return { error: 'followupDays must be a positive number' }
+        if (a.links !== undefined && !(Array.isArray(a.links) && a.links.every((l: any) => l && typeof l.label === 'string' && typeof l.url === 'string'))) return { error: 'links must be a list of { label, url }' } // eslint-disable-line @typescript-eslint/no-explicit-any
+        const old = a.id ? d.crm.all().contacts.find((c) => c.id === Number(a.id)) : undefined
+        if (a.id && !old) return { error: `No contact with id ${a.id}` }
         const id = d.crm.saveContact({
-          ...(a.id ? { id: Number(a.id) } : {}),
-          name: str(a.name).trim(), role: a.role, email: str(a.email), sound: str(a.sound), notes: str(a.notes),
-          followupDays: a.followupDays == null ? null : Number(a.followupDays)
+          ...(old ? { id: old.id } : {}),
+          name: str(a.name).trim(),
+          role: a.role ?? old?.role,
+          email: a.email !== undefined ? str(a.email) : old?.email,
+          sound: a.sound !== undefined ? str(a.sound) : old?.sound,
+          notes: a.notes !== undefined ? str(a.notes) : old?.notes,
+          followupDays: a.followupDays !== undefined ? (a.followupDays === null ? null : Number(a.followupDays)) : old?.followupDays ?? null,
+          links: a.links !== undefined ? a.links.map((l: { label: string; url: string }) => ({ label: l.label, url: l.url })) : old?.links
         })
         return { ok: true, id }
       }),
@@ -256,6 +264,7 @@ export function buildTools(d: ToolDeps): ToolDef[] {
         if (a.status !== 'planned' && a.status !== 'posted') return { error: 'Status must be planned or posted' }
         const beatId = Number(a.beatId)
         if (!d.store.getBeat(beatId)) return { error: `No beat with id ${a.beatId}` }
+        if (a.id && !d.content.all().posts.some((p) => p.id === Number(a.id))) return { error: `No post with id ${a.id}` }
         const id = d.content.savePost({
           ...(a.id ? { id: Number(a.id) } : {}),
           beatId, platform: a.platform, status: a.status, date: a.date == null ? Date.now() : Number(a.date), url: str(a.url), caption: str(a.caption)

@@ -123,9 +123,9 @@ describe('write tools', () => {
     afterWrite = vi.fn()
     const deps = {
       store: { listBeats: () => beats, getBeat: (id: number) => { const b = beats.find((x) => x.id === id); return b ? { ...b, peaks: [], versions: [] } : null }, ...store },
-      crm: { all: () => ({ contacts: [{ id: 2 }], pitches: [{ id: 7 }] }), due: () => [], ...crm },
+      crm: { all: () => ({ contacts: [{ id: 2 }, { id: 3, name: 'Dan', role: 'manager', email: 'd@x.com', sound: 'trap', links: [{ label: 'ig', url: 'u' }], notes: 'old', followupDays: 5 }], pitches: [{ id: 7 }] }), due: () => [], ...crm },
       sales: { all: () => ({ sales: [] }), ...sales },
-      content: { all: () => ({ posts: [], videos: [] }), ...content },
+      content: { all: () => ({ posts: [{ id: 8 }], videos: [] }), ...content },
       feedback: { all: () => ({ links: [], comments: [] }) },
       yt: { status: async () => ({}), ...yt },
       afterWrite
@@ -180,6 +180,25 @@ describe('write tools', () => {
     expect(await wt.save_contact.run({ name: 'Dan', role: 'boss' })).toHaveProperty('error')
     expect(await wt.save_contact.run({ name: '  ' })).toHaveProperty('error')
     expect(crm.saveContact).toHaveBeenCalledTimes(1)
+  })
+
+  it('save_contact partial update keeps omitted fields', async () => {
+    expect(await wt.save_contact.run({ id: 3, name: 'Dan', notes: 'x' })).toEqual({ ok: true, id: 5 })
+    expect(crm.saveContact).toHaveBeenCalledWith({ id: 3, name: 'Dan', role: 'manager', email: 'd@x.com', sound: 'trap', notes: 'x', followupDays: 5, links: [{ label: 'ig', url: 'u' }] })
+    expect(afterWrite).toHaveBeenCalledTimes(1)
+  })
+
+  it('save_contact with an unknown id errors and writes nothing', async () => {
+    expect(await wt.save_contact.run({ id: 99, name: 'Zed' })).toEqual({ error: 'No contact with id 99' })
+    expect(crm.saveContact).not.toHaveBeenCalled()
+    expect(afterWrite).not.toHaveBeenCalled()
+  })
+
+  it('save_post with an unknown id errors and writes nothing', async () => {
+    expect(await wt.save_post.run({ id: 99, beatId: 1, platform: 'tiktok', status: 'planned' })).toEqual({ error: 'No post with id 99' })
+    expect(content.savePost).not.toHaveBeenCalled()
+    expect(afterWrite).not.toHaveBeenCalled()
+    expect(await wt.save_post.run({ id: 8, beatId: 1, platform: 'tiktok', status: 'posted' })).toEqual({ ok: true, postId: 4 })
   })
 
   it('log_pitch logs a new pitch', async () => {

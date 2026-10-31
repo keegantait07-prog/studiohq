@@ -72,6 +72,11 @@ export function Settings({ onClose }: { onClose: () => void }) {
           <div className="field"><label>Default hashtags</label><input defaultValue={s.hashtags} onBlur={(e) => window.api.setSetting({ hashtags: e.target.value.trim() })} /></div>
           <div className="folder" style={{ marginTop: 8 }}><span>Videos are saved to: {s.exportDir}</span><button onClick={async () => { await window.api.chooseExportDir(); load() }}>Change…</button></div>
         </section>
+        <section>
+          <h3>Studio Assistant</h3>
+          <div className="field"><label>Claude CLI path</label><input defaultValue={s.claudePath} placeholder="/usr/local/bin/claude" onBlur={(e) => window.api.setSetting({ claudePath: e.target.value.trim() })} /></div>
+          <p className="help">Leave blank to find <code>claude</code> automatically</p>
+        </section>
         <YouTubeSettings s={s} reload={load} />
         <section>
           <h3>Netlify (private pitch pages)</h3>

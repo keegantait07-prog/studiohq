@@ -243,3 +243,11 @@ The Content view's video builder now has ten animation styles and four frame mot
 ## Cleaning up FL projects
 
 Vault, **Clean up projects…** (also in the ⌘K palette). It lists every project in your FL folders with its age, size, sample and MIDI counts, whether a bounce exists, and any autosave backups. Filter by "Never exported", "Exported" or "Older than 90 days", sort oldest, newest or largest, then mark the ones to go (**X**), listen to ones that have audio (**Space**), open one in FL (**O**), and move them to the **macOS Trash** after a confirmation. Safety: only `.flp` files inside your own project folders (never templates), always recoverable from the Trash, samples and exported audio are never touched, finished/sent/sold beats are skipped by "Mark all shown", and a bounce that was linked to a trashed project keeps working. If macOS refuses the direct move, the app asks Finder to do it.
+
+## Studio Assistant
+
+Press **⌘J** (or ⌘K, "Open Studio Assistant") for a chat panel that can look things up and make changes in your Vault, CRM, sales and content, for example "how many beats are finished?" or "set Night Drive to finished".
+
+- **No API key.** It runs through the Claude CLI you already have installed and are signed in to. If it is not found automatically, set its path in Settings, Claude CLI path.
+- **Changes need your Approve click.** Reading is automatic; anything that writes shows an Approve / Deny card with a plain description first, and nothing changes until you approve.
+- **Deliberately excluded:** deleting anything, YouTube uploads, publishing the beat catalogue, messaging third parties, and access to settings or tokens. It also cannot read files or run commands.

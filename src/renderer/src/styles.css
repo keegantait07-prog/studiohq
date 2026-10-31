@@ -744,3 +744,24 @@ button.ghost em.nl { gap: 8px; }
 .yt-img { width: 100%; max-width: 480px; border-radius: 8px; border: 1px solid var(--line); }
 .yt-bar { height: 6px; background: var(--well); border-radius: 3px; overflow: hidden; max-width: 480px; } .yt-bar i { display: block; height: 100%; background: var(--accent); transition: width .3s; }
 .yt-sticky { position: sticky; bottom: -28px; margin: 12px -28px -28px; padding: 12px 28px 16px; display: flex; flex-direction: column; gap: 8px; background: var(--panel); border-top: 1px solid var(--line); z-index: 2; }
+
+/* Studio Assistant */
+.assistant { position: fixed; top: 0; right: 0; bottom: 84px; width: 400px; max-width: 100vw; z-index: 15; display: flex; flex-direction: column; background: var(--panel); border-left: 1px solid var(--line); box-shadow: -12px 0 40px rgba(var(--shadow-rgb), .35); padding-top: 38px; }
+.assistant > header { display: flex; gap: 6px; align-items: center; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+.assistant > header select { flex: 1; min-width: 0; background: var(--well); border: 1px solid var(--line); border-radius: var(--r-field); padding: 5px 8px; }
+.as-list { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.as-msg { white-space: pre-wrap; overflow-wrap: anywhere; padding: 8px 11px; border-radius: var(--r-card); max-width: 92%; line-height: 1.45; }
+.as-msg.user { align-self: flex-end; background: var(--accent-soft); color: var(--text); }
+.as-msg.bot { align-self: flex-start; background: var(--well); border: 1px solid var(--line-soft); }
+.as-tool { font-size: 12px; color: var(--dim); }
+.as-tool summary { cursor: pointer; }
+.as-tool pre { margin: 4px 0 0; padding: 6px 8px; background: var(--well); border-radius: 6px; overflow-x: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11px; color: var(--text-2); }
+.as-tool.err, .as-tool.err summary { color: #e5484d; }
+.as-approve { border: 1px solid var(--accent); border-radius: var(--r-card); padding: 10px 12px; background: var(--well); }
+.as-sum { white-space: pre-wrap; overflow-wrap: anywhere; margin-bottom: 8px; }
+.as-btns { display: flex; gap: 6px; }
+.as-outcome { color: var(--dim); font-size: 12px; }
+.as-note { color: #e5484d; border: 1px solid currentColor; border-radius: var(--r-field); padding: 8px 10px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; }
+.as-working { color: var(--dim); font-size: 12px; }
+.as-input { display: flex; gap: 6px; padding: 10px; border-top: 1px solid var(--line); align-items: flex-end; }
+.as-input textarea { flex: 1; resize: none; background: var(--well); border: 1px solid var(--line); border-radius: var(--r-field); padding: 7px 9px; }

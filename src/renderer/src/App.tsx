@@ -12,6 +12,7 @@ import { hotspot, takesOf } from './audition'
 import { keyColor } from './keyColor'
 import { Detail } from './Detail'
 import { Palette, type Command } from './Palette'
+import { Assistant } from './Assistant'
 import { Settings } from './Settings'
 import { Crm } from './Crm'
 import { PitchDialog } from './PitchDialog'
@@ -63,6 +64,7 @@ export function App() {
   const [scan, setScan] = useState<ScanStatus>({ pending: 0, done: 0, total: 0 })
   const [palette, setPalette] = useState(false)
   const [settings, setSettings] = useState(false)
+  const [assistantOpen, setAssistantOpen] = useState(false)
   const [view, setView] = useState<'dashboard' | 'vault' | 'map' | 'crm' | 'sales' | 'content' | 'sounds' | 'feedback' | 'themes'>('dashboard')
   const [theme, setTheme] = useState(getTheme)
   const pickTheme = useCallback((id: string) => { applyTheme(id); setTheme(id) }, [])
@@ -256,11 +258,13 @@ export function App() {
       if (mod && e.key === '2') { e.preventDefault(); setView('crm'); return }
       if (mod && e.key === '3') { e.preventDefault(); setView('sales'); return }
       if (mod && e.key === '4') { e.preventDefault(); setView('content'); return }
+      if (mod && e.key.toLowerCase() === 'j') { e.preventDefault(); setAssistantOpen((o) => !o); return }
       if (mod && e.key === ',') { e.preventDefault(); setSettings(true); return }
       if (mod && e.key.toLowerCase() === 'f') { e.preventDefault(); search.current?.focus(); search.current?.select(); return }
       if (e.key === 'Escape') {
         if (palette) return setPalette(false)
         if (settings) return setSettings(false)
+        if (assistantOpen) return setAssistantOpen(false)
         if (typing) { (t as HTMLInputElement).blur(); return }
         if (query) return setQuery('')
       }
@@ -300,6 +304,7 @@ export function App() {
     { id: 'log-sale', label: 'Log a sale…', run: () => setSaleDlg({}) },
     { id: 'new-pitch', label: 'New pitch…', run: () => setPitchDlg({}) },
     { id: 'new-contact', label: 'New contact…', run: () => { setView('crm'); setNewContactSignal((n) => n + 1) } },
+    { id: 'assistant', label: 'Open Studio Assistant', hint: '⌘J', run: () => setAssistantOpen(true) },
     { id: 'settings', label: 'Open settings (folders, backup)', hint: '⌘,', run: () => setSettings(true) },
     { id: 'group', label: collapse ? 'Show every file (ungroup versions)' : 'Group versions of the same beat', hint: 'G', run: () => setCollapse((c) => !c) },
     { id: 'backup', label: 'Back up database now', run: () => { window.api.backup() } },
@@ -479,6 +484,7 @@ export function App() {
         </div>
       )}
       {cleanup && <Cleanup onClose={() => setCleanup(false)} onChanged={() => { reload(); reloadSounds() }} />}
+      {assistantOpen && <Assistant onClose={() => setAssistantOpen(false)} />}
       {settings && <Settings onClose={() => { setSettings(false); reload(); reloadCrm() }} />}
       {fbDlg && (
         <FeedbackDialog beats={audioBeats} initial={fbDlg.beatIds} hasToken={!!netlify?.hasToken} onClose={() => { setFbDlg(null); reloadFeedback() }} onBuilt={() => { reloadFeedback(); setView('feedback') }} />

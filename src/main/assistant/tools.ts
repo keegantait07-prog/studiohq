@@ -5,6 +5,7 @@ import type { Content } from '../content'
 import type { Feedback } from '../feedback'
 import type { YtPublisher } from '../ytpublisher'
 import { parseQuery } from '../../shared/query'
+import { STATUSES, PLATFORMS, SALE_SOURCES, CONTACT_ROLES, TAG_KINDS, type TagKind } from '../../shared/types'
 
 export interface ToolDef {
   name: string
@@ -33,6 +34,26 @@ const noArgs = { type: 'object' as const, properties: {} }
 export function buildTools(d: ToolDeps): ToolDef[] {
   const read = (name: string, description: string, inputSchema: ToolDef['inputSchema'], run: ToolDef['run'], describe: ToolDef['describe'] = () => description): ToolDef =>
     ({ name, description, inputSchema, kind: 'read', describe, run })
+
+  /** A write tool: bad arguments and refusals from the stores come back as { error }; afterWrite runs only after a real write. */
+  const write = (name: string, description: string, inputSchema: ToolDef['inputSchema'], describe: ToolDef['describe'], run: (a: Record<string, any>) => Promise<unknown> | unknown): ToolDef => // eslint-disable-line @typescript-eslint/no-explicit-any
+    ({
+      name, description, inputSchema, kind: 'write', describe,
+      run: async (a) => {
+        try {
+          const r = await run(a)
+          if (r && typeof r === 'object' && 'error' in r) return r
+          d.afterWrite()
+          return r
+        } catch (e) {
+          return { error: e instanceof Error ? e.message : String(e) }
+        }
+      }
+    })
+  const beatName = (id: unknown) => titleOf(Number(id)) ?? `beat ${id}`
+  const str = (v: unknown) => (typeof v === 'string' ? v : '')
+  const platformIds = PLATFORMS.map((p) => p.id) as string[]
+  const sourceList = SALE_SOURCES as string[]
 
   const titleOf = (id: number | null) => (id == null ? null : d.store.getBeat(id)?.title ?? null)
 
@@ -110,6 +131,147 @@ export function buildTools(d: ToolDeps): ToolDef[] {
       }),
 
     read('list_videos', 'Finished videos exported from Studio HQ, newest first, with the beat and format.', noArgs,
-      () => d.content.all().videos.map((v) => ({ id: v.id, beatId: v.beatId, beat: titleOf(v.beatId), format: v.format, createdAt: v.createdAt })))
+      () => d.content.all().videos.map((v) => ({ id: v.id, beatId: v.beatId, beat: titleOf(v.beatId), format: v.format, createdAt: v.createdAt }))),
+
+    write('update_beat', 'Change a beat\'s title, status, bpm, key, notes or version label. Status is one of: ' + STATUSES.join(', ') + '.',
+      { type: 'object', properties: { id: { type: 'number' }, title: { type: 'string' }, status: { type: 'string', enum: [...STATUSES] }, bpm: { type: ['number', 'null'] }, key: { type: ['string', 'null'] }, notes: { type: 'string' }, versionLabel: { type: 'string' } }, required: ['id'] },
+      (a) => {
+        const parts: string[] = []
+        if (a.status !== undefined) parts.push(`status to ${a.status}`)
+        if (a.title !== undefined) parts.push(`title to "${a.title}"`)
+        if (a.bpm !== undefined) parts.push(`bpm to ${a.bpm ?? 'none'}`)
+        if (a.key !== undefined) parts.push(`key to ${a.key ?? 'none'}`)
+        if (a.notes !== undefined) parts.push('notes')
+        if (a.versionLabel !== undefined) parts.push(`version label to "${a.versionLabel}"`)
+        return a.status !== undefined && parts.length === 1 ? `Set "${beatName(a.id)}" to ${a.status}` : `Update "${beatName(a.id)}": ${parts.join(', ') || 'no changes'}`
+      },
+      (a) => {
+        const id = Number(a.id)
+        if (!d.store.getBeat(id)) return { error: `No beat with id ${a.id}` }
+        const patch: Parameters<ToolDeps['store']['updateBeat']>[1] = {}
+        if (a.status !== undefined) {
+          if (!(STATUSES as readonly string[]).includes(a.status)) return { error: `Status must be one of: ${STATUSES.join(', ')}` }
+          patch.status = a.status
+        }
+        if (a.title !== undefined) {
+          if (!str(a.title).trim()) return { error: 'Title cannot be empty' }
+          patch.title = str(a.title).trim()
+        }
+        if (a.bpm !== undefined) {
+          if (a.bpm !== null && !(Number.isFinite(Number(a.bpm)) && Number(a.bpm) > 0)) return { error: 'bpm must be a positive number' }
+          patch.bpm = a.bpm === null ? null : Number(a.bpm)
+        }
+        if (a.key !== undefined) patch.key = a.key === null ? null : str(a.key)
+        if (a.notes !== undefined) patch.notes = str(a.notes)
+        if (a.versionLabel !== undefined) patch.versionLabel = str(a.versionLabel)
+        if (!Object.keys(patch).length) return { error: 'Nothing to change' }
+        d.store.updateBeat(id, patch)
+        return { ok: true }
+      }),
+
+    write('set_tags', 'Add tags to a beat. Tags are merged into the beat\'s existing ones; give any of vibe, genre, artist as lists of words.',
+      { type: 'object', properties: { id: { type: 'number' }, tags: { type: 'object', properties: { vibe: { type: 'array', items: { type: 'string' } }, genre: { type: 'array', items: { type: 'string' } }, artist: { type: 'array', items: { type: 'string' } } } } }, required: ['id', 'tags'] },
+      (a) => {
+        const t = (a.tags ?? {}) as Record<string, unknown>
+        const words = TAG_KINDS.flatMap((k) => (Array.isArray(t[k]) ? (t[k] as unknown[]).map(String) : []))
+        return `Tag "${beatName(a.id)}" with ${words.join(', ') || 'nothing'}`
+      },
+      (a) => {
+        const id = Number(a.id)
+        const b = d.store.getBeat(id)
+        if (!b) return { error: `No beat with id ${a.id}` }
+        const given = a.tags
+        if (!given || typeof given !== 'object' || Array.isArray(given)) return { error: 'tags must be an object like { "vibe": ["dark"] }' }
+        const bad = Object.keys(given).filter((k) => !(TAG_KINDS as string[]).includes(k))
+        if (bad.length) return { error: `Unknown tag kind: ${bad.join(', ')}. Use ${TAG_KINDS.join(', ')}` }
+        const merged = { vibe: [...b.tags.vibe], genre: [...b.tags.genre], artist: [...b.tags.artist] } as Record<TagKind, string[]>
+        for (const k of TAG_KINDS) {
+          const list = (given as Record<string, unknown>)[k]
+          if (list === undefined) continue
+          if (!Array.isArray(list)) return { error: `${k} must be a list of words` }
+          for (const w of list.map((x) => String(x).trim()).filter(Boolean)) if (!merged[k].includes(w)) merged[k].push(w)
+        }
+        d.store.setTags(id, merged)
+        return { ok: true }
+      }),
+
+    write('save_contact', 'Add a contact to the pitch CRM, or update one when id is given. Role is one of: ' + CONTACT_ROLES.join(', ') + '.',
+      { type: 'object', properties: { id: { type: 'number', description: 'Only to update an existing contact (all fields are then replaced)' }, name: { type: 'string' }, role: { type: 'string', enum: [...CONTACT_ROLES] }, email: { type: 'string' }, sound: { type: 'string' }, notes: { type: 'string' }, followupDays: { type: ['number', 'null'] } }, required: ['name'] },
+      (a) => `${a.id ? 'Update' : 'Add'} contact ${str(a.name).trim() || '(unnamed)'}${a.role ? ` (${a.role})` : ''}`,
+      (a) => {
+        if (!str(a.name).trim()) return { error: 'Name is required' }
+        if (a.role !== undefined && !(CONTACT_ROLES as string[]).includes(a.role)) return { error: `Role must be one of: ${CONTACT_ROLES.join(', ')}` }
+        if (a.followupDays != null && !(Number.isFinite(Number(a.followupDays)) && Number(a.followupDays) > 0)) return { error: 'followupDays must be a positive number' }
+        const id = d.crm.saveContact({
+          ...(a.id ? { id: Number(a.id) } : {}),
+          name: str(a.name).trim(), role: a.role, email: str(a.email), sound: str(a.sound), notes: str(a.notes),
+          followupDays: a.followupDays == null ? null : Number(a.followupDays)
+        })
+        return { ok: true, id }
+      }),
+
+    write('log_pitch', 'Record that beats were pitched to a contact, or (with followUpPitchId) that you followed up on an existing pitch. Beats still at idea, wip or finished move to sent.',
+      { type: 'object', properties: { contactId: { type: 'number' }, beatIds: { type: 'array', items: { type: 'number' } }, subject: { type: 'string' }, channel: { type: 'string', enum: ['email', 'dm', 'other'] }, link: { type: 'string' }, followUpPitchId: { type: 'number', description: 'Log a follow-up on this pitch instead of a new pitch' } } },
+      (a) => {
+        if (a.followUpPitchId != null) return `Log a follow-up on pitch ${a.followUpPitchId}`
+        const names = Array.isArray(a.beatIds) ? a.beatIds.map((id: unknown) => `"${beatName(id)}"`).join(', ') : ''
+        return `Log a pitch${names ? ` of ${names}` : ''} to contact ${a.contactId}`
+      },
+      (a) => {
+        if (a.followUpPitchId != null) {
+          const pid = Number(a.followUpPitchId)
+          if (!d.crm.all().pitches.some((p) => p.id === pid)) return { error: `No pitch with id ${a.followUpPitchId}` }
+          d.crm.logFollowup(pid)
+          return { ok: true, pitchId: pid }
+        }
+        const contactId = Number(a.contactId)
+        if (!d.crm.all().contacts.some((c) => c.id === contactId)) return { error: `No contact with id ${a.contactId}` }
+        const channel = a.channel ?? 'email'
+        if (!['email', 'dm', 'other'].includes(channel)) return { error: 'channel must be email, dm or other' }
+        const beatIds: number[] = Array.isArray(a.beatIds) ? a.beatIds.map(Number) : []
+        const missing = beatIds.find((id) => !d.store.getBeat(id))
+        if (missing !== undefined) return { error: `No beat with id ${missing}` }
+        const pitchId = d.crm.logPitch({ contactId, beatIds, channel, subject: str(a.subject), link: str(a.link), packId: null })
+        return { ok: true, pitchId }
+      }),
+
+    write('log_sale', 'Log a beat sale. Source is one of: ' + SALE_SOURCES.join(', ') + '. Fee defaults to 0, date to now, source to other.',
+      { type: 'object', properties: { beatId: { type: 'number' }, buyer: { type: 'string' }, price: { type: 'number' }, fee: { type: 'number' }, licenseName: { type: 'string' }, exclusive: { type: 'boolean' }, source: { type: 'string', enum: [...SALE_SOURCES] }, soldAt: { type: 'number', description: 'Unix milliseconds; defaults to now' }, buyerEmail: { type: 'string' }, notes: { type: 'string' } }, required: ['beatId', 'buyer', 'price'] },
+      (a) => `Log a ${a.price} sale of "${beatName(a.beatId)}" to ${str(a.buyer).trim() || '(no buyer)'}${a.exclusive ? ' (exclusive)' : ''}`,
+      (a) => {
+        const source = a.source ?? 'other'
+        if (!sourceList.includes(source)) return { error: `Source must be one of: ${SALE_SOURCES.join(', ')}` }
+        const id = d.sales.log({
+          beatId: Number(a.beatId), buyer: str(a.buyer), buyerEmail: str(a.buyerEmail), contactId: null, licenseId: null, licenseName: str(a.licenseName),
+          exclusive: a.exclusive === true, price: Number(a.price), fee: a.fee == null ? 0 : Number(a.fee), source, soldAt: a.soldAt == null ? Date.now() : Number(a.soldAt), notes: str(a.notes)
+        })
+        return { ok: true, saleId: id }
+      }),
+
+    write('save_post', 'Plan or record a content post for a beat, or update one when id is given. Platform is one of: ' + platformIds.join(', ') + '. Status is planned or posted.',
+      { type: 'object', properties: { id: { type: 'number', description: 'Only to update an existing post' }, beatId: { type: 'number' }, platform: { type: 'string', enum: platformIds }, status: { type: 'string', enum: ['planned', 'posted'] }, date: { type: 'number', description: 'Unix milliseconds; defaults to now' }, url: { type: 'string' }, caption: { type: 'string' } }, required: ['beatId', 'platform', 'status'] },
+      (a) => `${a.status === 'posted' ? 'Record a' : 'Plan a'} ${a.platform} post for "${beatName(a.beatId)}"`,
+      (a) => {
+        if (!platformIds.includes(a.platform)) return { error: `Platform must be one of: ${platformIds.join(', ')}` }
+        if (a.status !== 'planned' && a.status !== 'posted') return { error: 'Status must be planned or posted' }
+        const beatId = Number(a.beatId)
+        if (!d.store.getBeat(beatId)) return { error: `No beat with id ${a.beatId}` }
+        const id = d.content.savePost({
+          ...(a.id ? { id: Number(a.id) } : {}),
+          beatId, platform: a.platform, status: a.status, date: a.date == null ? Date.now() : Number(a.date), url: str(a.url), caption: str(a.caption)
+        })
+        return { ok: true, postId: id }
+      }),
+
+    write('prepare_youtube_draft', 'Make the YouTube video and package (title, description, tags, thumbnail) for a beat and save it as a draft to review in the YouTube tab. It never uploads or publishes anything.',
+      { type: 'object', properties: { beatId: { type: 'number' }, artists: { type: 'array', items: { type: 'string' }, description: 'Artists to tag the video against' } }, required: ['beatId'] },
+      (a) => `Prepare a YouTube draft for "${beatName(a.beatId)}"`,
+      async (a) => {
+        const beatId = Number(a.beatId)
+        if (!d.store.getBeat(beatId)) return { error: `No beat with id ${a.beatId}` }
+        const artists = Array.isArray(a.artists) ? a.artists.map(String) : []
+        const draft = await d.yt.prepare(beatId, artists, () => {})
+        return { ok: true, videoId: draft.videoId, beatId: draft.beatId, artists: draft.artists, note: 'Draft saved. Review and publish it from the YouTube tab.' }
+      })
   ]
 }

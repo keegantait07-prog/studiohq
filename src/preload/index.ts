@@ -121,6 +121,13 @@ const api: Api = {
   onCrmChanged: (cb) => sub('crm:changed', () => cb()),
   onNavigate: (cb) => sub('nav', cb),
   onBeatsChanged: (cb) => sub('beats:changed', cb),
-  onScanStatus: (cb) => sub('scan:status', cb)
+  onScanStatus: (cb) => sub('scan:status', cb),
+  assistantThreads: () => ipcRenderer.invoke('assistant:threads'),
+  assistantThread: (id) => ipcRenderer.invoke('assistant:thread', id),
+  assistantNew: () => ipcRenderer.invoke('assistant:new'),
+  assistantSend: (id, text) => ipcRenderer.invoke('assistant:send', id, text),
+  assistantStop: (id) => ipcRenderer.invoke('assistant:stop', id),
+  assistantApprove: (aid, ok) => ipcRenderer.invoke('assistant:approve', aid, ok),
+  onAssistant: (cb) => sub('assistant:push', cb)
 }
 contextBridge.exposeInMainWorld('api', api)

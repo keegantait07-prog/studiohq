@@ -31,7 +31,8 @@ const DEFAULTS: Settings = {
   projectBeatDays: 30,
   ytSeedChannels: ['BuJaa BEATS', 'Soulker', 'CashMoneyAP', 'Fat Cat Beats', 'Profetesa Beats'],
   ytImageFolder: '',
-  ytClientId: ''
+  ytClientId: '',
+  claudePath: ''
 }
 
 type Row = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any

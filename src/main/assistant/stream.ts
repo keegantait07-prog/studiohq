@@ -1,9 +1,6 @@
-export type AssistantEvent =
-  | { type: 'text'; text: string }
-  | { type: 'tool'; id: string; name: string; input: unknown }
-  | { type: 'tool-result'; id: string; isError: boolean }
-  | { type: 'done'; sessionId: string }
-  | { type: 'error'; message: string }
+import type { AssistantEvent } from '../../shared/assistantTypes'
+
+export type { AssistantEvent }
 
 type Obj = Record<string, unknown>
 const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v)

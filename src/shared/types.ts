@@ -1,6 +1,7 @@
 import type { PublishDraft, SavedDraft, YtDraftEdits, YtPublishEdits, YtPublishResult, YtStatus } from './ytTypes'
 import type { VizFeatures } from './vizFeatures'
 import type { SceneLayout } from './vizScene'
+import type { AssistantEvent, ApprovalRequest } from './assistantTypes'
 export const STATUSES = ['idea', 'wip', 'finished', 'sent', 'sold'] as const
 export type Status = (typeof STATUSES)[number]
 export type TagKind = 'vibe' | 'genre' | 'artist'
@@ -77,6 +78,7 @@ export interface Settings {
   ytSeedChannels: string[]
   ytImageFolder: string
   ytClientId: string
+  claudePath: string
 }
 
 // ---- Sound Library ----
@@ -273,6 +275,16 @@ export interface ScanStatus {
   total: number
 }
 
+export interface ThreadSummary { id: number; title: string; updatedAt: number }
+export type ThreadMessage =
+  | { role: 'user'; text: string }
+  | { role: 'assistant'; text: string }
+  | { role: 'tool'; name: string; input: unknown; isError: boolean }
+export interface ThreadDetail extends ThreadSummary { messages: ThreadMessage[] }
+export type AssistantPush =
+  | { threadId: number; event: AssistantEvent }
+  | { threadId: number; approval: ApprovalRequest }
+
 export interface Api {
   listBeats(): Promise<Beat[]>
   getBeat(id: number): Promise<BeatDetail | null>
@@ -286,7 +298,7 @@ export interface Api {
   getSettings(): Promise<Settings>
   addFolder(kind: 'watchFolders' | 'projectFolders' | 'soundFolders'): Promise<void>
   removeFolder(kind: 'watchFolders' | 'projectFolders' | 'soundFolders', path: string): Promise<void>
-  setSetting(patch: Partial<Pick<Settings, 'includeIdeas' | 'ownHandles' | 'producerName' | 'followupDays' | 'notify' | 'storeUrl' | 'contactEmail' | 'hashtags' | 'goalBeats' | 'goalPitches' | 'goalPosts' | 'autoTrackFL' | 'includeMidiPacks' | 'projectBeatDays' | 'ytSeedChannels' | 'ytImageFolder' | 'ytClientId'>>): Promise<void>
+  setSetting(patch: Partial<Pick<Settings, 'includeIdeas' | 'ownHandles' | 'producerName' | 'followupDays' | 'notify' | 'storeUrl' | 'contactEmail' | 'hashtags' | 'goalBeats' | 'goalPitches' | 'goalPosts' | 'autoTrackFL' | 'includeMidiPacks' | 'projectBeatDays' | 'ytSeedChannels' | 'ytImageFolder' | 'ytClientId' | 'claudePath'>>): Promise<void>
   backup(): Promise<string>
   exportCsv(): Promise<string | null>
   dataPath(): Promise<string>
@@ -393,4 +405,11 @@ export interface Api {
   onNavigate(cb: (view: 'dashboard' | 'vault' | 'crm' | 'sales' | 'content' | 'sounds' | 'feedback') => void): () => void
   onBeatsChanged(cb: (ids: number[]) => void): () => void
   onScanStatus(cb: (s: ScanStatus) => void): () => void
+  assistantThreads(): Promise<ThreadSummary[]>
+  assistantThread(id: number): Promise<ThreadDetail | null>
+  assistantNew(): Promise<number>
+  assistantSend(threadId: number, text: string): Promise<{ error?: string }>
+  assistantStop(threadId: number): Promise<void>
+  assistantApprove(approvalId: string, approved: boolean): Promise<void>
+  onAssistant(cb: (p: AssistantPush) => void): () => void
 }

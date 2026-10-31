@@ -25,6 +25,9 @@ import { YtResearch } from './ytresearch'
 import { ImagePool } from './imagepool'
 import { YtPublisher } from './ytpublisher'
 import { setSecret } from './ytkv'
+import { Threads } from './assistant/threads'
+import { AssistantService } from './assistant/service'
+import { buildTools } from './assistant/tools'
 import type { PublishDraft, YtDraftEdits, YtPublishEdits } from '../shared/ytTypes'
 import type { Post, VideoOptions } from '../shared/types'
 import { splitSheetHtml, writePdf } from './splitsheet'
@@ -55,6 +58,8 @@ let sessions: Sessions
 let videos: VideoExporter
 let ytAuth: YtAuth
 let yt: YtPublisher
+let threads: Threads
+let assistant: AssistantService
 
 const MIME: Record<string, string> = { mp3: 'audio/mpeg', wav: 'audio/wav', flac: 'audio/flac', m4a: 'audio/mp4', aif: 'audio/aiff', aiff: 'audio/aiff', ogg: 'audio/ogg' }
 
@@ -372,6 +377,14 @@ function registerIpc(): void {
     return r.filePaths[0]
   })
   h('app:dataPath', () => app.getPath('userData'))
+
+  // ---- Assistant ----
+  h('assistant:threads', () => threads.list())
+  h('assistant:thread', (_, id: number) => threads.get(id))
+  h('assistant:new', () => threads.create())
+  h('assistant:send', (_, id: number, text: string) => assistant.send(id, String(text)))
+  h('assistant:stop', (_, id: number) => assistant.stop(id))
+  h('assistant:approve', (_, approvalId: string, approved: boolean) => assistant.approve(String(approvalId), approved === true))
 }
 
 app.whenReady().then(async () => {
@@ -399,6 +412,19 @@ app.whenReady().then(async () => {
   yt = new YtPublisher(db, store, content, ytAuth, new YtResearch(db, ytAuth, () => store.getSettings().ytSeedChannels), new ImagePool(db, () => store.getSettings().ytImageFolder))
   catalog = new Catalog(db, () => packs.token_(), () => store.getSettings().storeUrl, () => store.getSettings().ownHandles)
   registerIpc()
+  threads = new Threads(db)
+  const tools = buildTools({
+    store, crm, sales, content, feedback, yt,
+    afterWrite: () => { send('beats:changed', [-1]); sendCrm() }
+  })
+  assistant = new AssistantService({
+    threads, tools,
+    claudePath: () => store.getSettings().claudePath,
+    producerName: () => store.getSettings().producerName,
+    userDataDir: app.getPath('userData'),
+    push: (p) => win?.webContents.send('assistant:push', p)
+  })
+  await assistant.start()
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     { role: 'appMenu' },
     { label: 'File', submenu: [{ label: 'Back Up Database Now', click: () => backupNow() }, { role: 'close' }] },
@@ -435,4 +461,12 @@ app.whenReady().then(async () => {
 })
 
 app.on('window-all-closed', () => app.quit())
-app.on('before-quit', () => { void watcher?.close() })
+let quitting = false
+app.on('before-quit', (e) => {
+  void watcher?.close()
+  if (quitting || !assistant) return
+  // Let the assistant stop its CLI run and MCP server, then quit again.
+  e.preventDefault()
+  quitting = true
+  assistant.shutdown().catch((err) => console.error('assistant shutdown failed', err)).finally(() => app.quit())
+})

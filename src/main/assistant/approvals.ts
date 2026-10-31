@@ -1,6 +1,8 @@
 import { randomUUID } from 'crypto'
 
-export interface ApprovalRequest { id: string; tool: string; summary: string }
+import type { ApprovalRequest } from '../../shared/assistantTypes'
+
+export type { ApprovalRequest }
 
 interface Pending { resolve: (ok: boolean) => void; timer: ReturnType<typeof setTimeout> }
 

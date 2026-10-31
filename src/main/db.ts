@@ -240,6 +240,14 @@ export function openDb(dir: string): Database.Database {
     CREATE TABLE IF NOT EXISTS yt_images (hash TEXT PRIMARY KEY, path TEXT NOT NULL, beat_id INTEGER, used_at INTEGER);
     CREATE TABLE IF NOT EXISTS yt_drafts (video_id INTEGER PRIMARY KEY REFERENCES videos(id) ON DELETE CASCADE, json TEXT NOT NULL, updated_at INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS yt_quota (day TEXT NOT NULL, kind TEXT NOT NULL, units INTEGER NOT NULL, PRIMARY KEY(day, kind));
+    CREATE TABLE IF NOT EXISTS assistant_threads (
+      id INTEGER PRIMARY KEY,
+      title TEXT NOT NULL DEFAULT 'New chat',
+      cli_session_id TEXT,
+      messages TEXT NOT NULL DEFAULT '[]',
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
   `)
   const bcols = db.prepare('PRAGMA table_info(beats)').all() as { name: string }[]
   if (!bcols.some((c) => c.name === 'cover_path')) db.exec('ALTER TABLE beats ADD COLUMN cover_path TEXT')

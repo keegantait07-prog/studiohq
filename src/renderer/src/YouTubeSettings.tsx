@@ -47,7 +47,7 @@ export function YouTubeSettings({ s, reload }: { s: S; reload: () => void }) {
         <div className="help">Without a key the text comes from the built-in templates. Keys and secrets are stored encrypted with the macOS Keychain.</div>
       </div>
 
-      <div className="help">YouTube API quota used today: {st ? st.quotaToday.toLocaleString() : '…'} of 10,000 units. An upload costs 1,650.</div>
+      <div className="help">YouTube API quota used today: {st ? st.quotaToday.toLocaleString() : '…'} of Studio HQ's 10,000-unit daily budget. An upload counts as 1,650.</div>
       {st && !st.encryptionOk && <div className="help warn">Secure storage is not available, so secrets cannot be saved.</div>}
       {msg && <div className="help warn">{msg}</div>}
     </section>

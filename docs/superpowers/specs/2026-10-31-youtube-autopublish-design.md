@@ -99,6 +99,10 @@ New tables, added in `src/main/db.ts`:
 - YouTube client tested against recorded API responses, with no live calls in the test suite.
 - Manual check at the end: one real private upload, verified in YouTube Studio (title, description with BeatStars link, tags, thumbnail).
 
+## Verified during implementation (2026-10-31)
+
+- Google's current pages (`docs/videos`, `docs/videos/insert`) say videos from unverified API projects are **not** restricted to private viewing, which contradicts the older policy this spec assumed. The same pages list search.list and videos.insert as 1 unit each with separate 100-calls-per-day buckets, and 10,000 units per day for everything else. Search results disagreed with the pages, so treat both as unconfirmed until a real upload is tried. The app still always uploads as private (the producer's choice), and its own meter (search 100, upload 1,600) is deliberately stricter than Google's.
+
 ## Open items to verify during implementation
 
 - Current YouTube policy on private-only uploads from unaudited API projects and the exact default quota.

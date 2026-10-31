@@ -149,6 +149,21 @@ Send an artist a private link to a beat (from the Vault, *Get timestamped feedba
 - Needs the same Netlify token as pitch pages (Settings). Without it, the page is built locally for preview, but comments only work on a published link.
 - Tested end to end against a mock of Netlify's forms API (a real page posting real comments, then syncing them into the app). It hasn't been run against a live Netlify account.
 
+## What M6 does (YouTube publisher)
+
+Open **Content**, pick a beat, then the **YouTube** tab. Studio HQ studies top type-beat channels, writes the title, description, tags and hashtags the way they do, makes a video of your beat over one still image, asks for the BeatStars link, and uploads it to YouTube as a **private** video. You open YouTube Studio and press Publish.
+
+**One-time setup (Settings → YouTube publisher)**
+
+1. **Google:** at console.cloud.google.com create a free project, turn on *YouTube Data API v3*, and under *Credentials* make an *OAuth client ID* of type *Desktop app*. Under *OAuth consent screen* add your own Google account as a test user. Paste the client ID (and the client secret, if shown) into Settings and press *Sign in…*.
+2. **Channels to study:** five are filled in (BuJaa BEATS, Soulker, CashMoneyAP, Fat Cat Beats, Profetesa Beats). Add or remove any; a name, `@handle` or channel link works. Each name is looked up once and remembered.
+3. **Image folder:** choose a folder of pictures (JPG or PNG, at least 640x360). Each upload uses a picture that has never been used. A copy of a used picture, even re-saved or resized, counts as used. Settings warns when fewer than 5 are left.
+4. **Anthropic API key (optional):** with a key, Claude writes the text from what the research found. Without one, or if Claude gives an unusable answer twice, the built-in templates are used and the review screen says so.
+
+**The flow:** choose the type-beat artists (or accept suggestions) → research, writing and the video are made → review and edit the title, description and tags → paste the BeatStars link (required; it must be a `https://` link on `beatstars.com`) → optionally schedule → upload. The link is checked before anything is sent, and the picture is marked used only after the upload succeeds. Nothing is ever uploaded as public.
+
+**Limits:** research is cached for a week. Studio HQ keeps its own daily budget under Google's API quota (about 30 searches and 6 uploads a day by its count; Google's current documentation lists higher per-endpoint limits, and the quota resets at midnight Pacific). The research reads public video data through the official YouTube API. It learns the style (title shape, tag and hashtag habits, description layout); it does not copy other channels' text or pictures. A beat that exists only as an FL project (no bounce) can't be uploaded.
+
 ## Shortcuts
 
 | Key | Action |

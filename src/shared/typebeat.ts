@@ -9,6 +9,11 @@ const keyLabel = (k: string | null) => (k ? (k.endsWith('minor') ? `${k.split(' 
 const compact = (s: string) => s.replace(/[^a-z0-9]/gi, '')
 const uniq = (a: string[]) => [...new Set(a.map((x) => x.trim()).filter(Boolean))]
 
+/** YouTube counts a tag that contains a space as quoted (2 more characters), plus a comma between tags. */
+export function youtubeTagLength(tags: string[]): number {
+  return tags.reduce((n, t) => n + t.length + (/\s/.test(t) ? 2 : 0), 0) + Math.max(0, tags.length - 1)
+}
+
 export function ytTitleLimit(t: string): { text: string; over: number } {
   return { text: t, over: Math.max(0, t.length - 100) }
 }
@@ -50,12 +55,10 @@ export function generateCopy(b: CopyBeat, p: CopyProfile, o: CopyOptions): Copy 
   tagSet.push('type beat', `type beat ${o.year}`, 'free type beat', 'instrumental', 'beats for sale', 'rap instrumental')
   if (b.bpm) tagSet.push(`${Math.round(b.bpm)} bpm`)
   if (b.key) tagSet.push(`${keyLabel(b.key)} beat`)
-  let tags: string[] = []
-  let len = 0
+  const tags: string[] = []
   for (const t of uniq(tagSet.map((x) => x.toLowerCase()))) {
-    if (len + t.length + 1 > 480) break // YouTube allows 500 characters of tags
+    if (youtubeTagLength([...tags, t]) > 480) break // YouTube allows 500 characters of tags
     tags.push(t)
-    len += t.length + 1
   }
 
   const tagWords = (x: string) => compact(x).toLowerCase()

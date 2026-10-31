@@ -3,7 +3,7 @@ import type Database from 'better-sqlite3'
 import { nativeImage } from 'electron'
 import { mkdirSync, readdirSync, statSync, writeFileSync } from 'fs'
 import { extname, join } from 'path'
-import { cropTo169, dHash, pickNext, unusedCount, type PoolFile } from '../shared/imagePool'
+import { cropTo169, dHash, isDuplicate, pickNext, unusedCount, type PoolFile } from '../shared/imagePool'
 
 const EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp'])
 const MIN_W = 640, MIN_H = 360
@@ -79,6 +79,9 @@ export class ImagePool {
     writeFileSync(thumbPath, jpeg)
     return { framePath, thumbPath }
   }
+
+  /** True when this picture, or a copy of it, has already been used for an upload. */
+  isUsed(hash: string): boolean { return isDuplicate(hash, this.used()) }
 
   markUsed(hash: string, path: string, beatId: number): void {
     this.db.prepare('INSERT INTO yt_images(hash,path,beat_id,used_at) VALUES(?,?,?,?) ON CONFLICT(hash) DO UPDATE SET path=excluded.path, beat_id=excluded.beat_id, used_at=excluded.used_at').run(hash, path, beatId, Date.now())

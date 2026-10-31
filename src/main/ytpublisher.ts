@@ -7,7 +7,7 @@ import { beatProfile, suggestArtists, type KnownArtist } from '../shared/beatPro
 import { describeProfile } from '../shared/styleProfile'
 import { buildUploadMetadata } from '../shared/ytUpload'
 import { COST, quotaAllows } from '../shared/ytQuota'
-import { fillLink, validateBeatstarsUrl } from '../shared/ytPackage'
+import { checkYouTubeMetadata, fillLink, validateBeatstarsUrl } from '../shared/ytPackage'
 import { LINK_PLACEHOLDER, type PublishDraft, type YtPublishEdits, type YtPublishResult, type YtStatus } from '../shared/ytTypes'
 import type { Content } from './content'
 import type { Store } from './store'
@@ -88,10 +88,11 @@ export class YtPublisher {
     const link = validateBeatstarsUrl(edits.link)
     if (!link.ok) throw new Error(link.reason)
     const title = edits.title.trim()
-    if (!title) throw new Error('The title is empty.')
-    if (title.length > 100) throw new Error(`The title is ${title.length} characters; YouTube allows 100.`)
-    if (edits.tags.join(',').length > 480) throw new Error('The tags are over 480 characters.')
     const description = edits.description.includes(LINK_PLACEHOLDER) ? fillLink(edits.description, link.url) : `Lease / buy this beat: ${link.url}\n\n${edits.description}`
+    const problems = checkYouTubeMetadata({ title, description, tags: edits.tags, hashtags: edits.hashtags })
+    if (problems.length) throw new Error(problems[0])
+    // another upload may have used this picture since the draft was made
+    if (this.pool.isUsed(draft.imageHash)) throw new Error('That image was used by another upload in the meantime. Prepare this beat again.')
     if (!quotaAllows(quotaUsed(this.db), COST.upload + COST.thumbnail, 'upload')) throw new Error("YouTube's daily upload quota is used up. Try again after midnight Pacific time.")
 
     const publishAt = edits.publishAt ? new Date(edits.publishAt) : undefined

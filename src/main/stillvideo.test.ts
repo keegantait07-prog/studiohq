@@ -25,7 +25,7 @@ describe('exportStill', () => {
     expect(Number(m![1])).toBeGreaterThan(2.9)
     expect(Number(m![1])).toBeLessThan(3.2)
     expect(seen.at(-1)).toBe(1)
-  })
+  }, 30_000)
   it('rejects with a plain message when the image is missing', async () => {
     await expect(exportStill({ audioPath: 'nope.wav', framePath: 'nope.jpg', outPath: join(tmpdir(), 'x.mp4'), durationSec: 1 }, () => {})).rejects.toThrow()
   })

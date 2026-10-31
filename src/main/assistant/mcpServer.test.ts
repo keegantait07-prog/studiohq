@@ -123,4 +123,55 @@ describe('startMcpServer', () => {
     const r = await client!.callTool({ name: 'nothing', arguments: {} })
     expect(r.isError).toBe(true)
   })
+
+  it('close() declines a pending approval and the write never runs', async () => {
+    const { ran, approvals, requests } = await setup()
+    const results: boolean[] = []
+    const orig = approvals.request.bind(approvals)
+    approvals.request = async (tool, summary) => { const v = await orig(tool, summary); results.push(v); return v }
+    const p = client!.callTool({ name: 'change', arguments: { note: 'x' } }).catch(() => null)
+    await vi.waitFor(() => expect(requests).toHaveLength(1))
+    await handle!.close()
+    void p
+    await vi.waitFor(() => expect(results).toEqual([false]))
+    expect(ran.write).toBe(0)
+  })
+
+  it('rejects unauthenticated GET /mcp and POST /other with 401', async () => {
+    await setup()
+    const base = handle!.url.replace('/mcp', '')
+    expect((await fetch(handle!.url, { method: 'GET', headers: { accept: 'text/event-stream' } })).status).toBe(401)
+    expect((await fetch(`${base}/other`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })).status).toBe(401)
+  })
+
+  it('authenticated request to a non-/mcp path is not served', async () => {
+    const { ran, requests } = await setup()
+    const base = handle!.url.replace('/mcp', '')
+    const body = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'peek', arguments: {} } })
+    const r = await fetch(`${base}/other`, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', Authorization: `Bearer ${handle!.token}` }, body })
+    expect(r.status).not.toBe(200)
+    expect(ran.read).toBe(0)
+    expect(requests).toHaveLength(0)
+  })
+
+  it('fails closed: a tool with an unknown kind waits for approval', async () => {
+    const odd = { name: 'odd', description: 'o', inputSchema: schema, kind: 'other' as never, describe: () => 'odd', run: () => { ran2.n++; return { ok: true } } } as ToolDef
+    const ran2 = { n: 0 }
+    const { approvals, requests } = await setup([odd])
+    const p = client!.callTool({ name: 'odd', arguments: {} })
+    await vi.waitFor(() => expect(requests).toHaveLength(1))
+    await tick()
+    expect(ran2.n).toBe(0)
+    approvals.resolve(requests[0].id, false)
+    expect((await p).isError).toBe(true)
+    expect(ran2.n).toBe(0)
+  })
+
+  it('does not run a tool once the server is closed, even if approval resolves true', async () => {
+    const { ran, approvals } = await setup()
+    approvals.request = async () => { void handle!.close(); return true }
+    const r = await client!.callTool({ name: 'change', arguments: {} }).catch(() => ({ isError: true }))
+    expect(r.isError).toBe(true)
+    expect(ran.write).toBe(0)
+  })
 })

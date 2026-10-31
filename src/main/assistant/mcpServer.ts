@@ -22,16 +22,19 @@ const fail = (text: string) => ({ isError: true, content: [{ type: 'text' as con
 
 export async function startMcpServer(tools: ToolDef[], approvals: Approvals, onToolEvent: (e: ToolEvent) => void): Promise<McpHandle> {
   const token = randomBytes(32).toString('hex')
+  let closed = false
   const byName = new Map(tools.map((t) => [t.name, t]))
 
   const emit = (e: ToolEvent) => { try { onToolEvent(e) } catch { /* listener errors must not affect the tool result */ } }
 
   async function callTool(name: string, args: Record<string, unknown>) {
     const tool = byName.get(name)
+    if (closed) return fail('server closed')
     if (!tool) return fail(`unknown tool: ${name}`)
     try {
-      if (tool.kind === 'write') {
+      if (tool.kind !== 'read') {
         const ok = await approvals.request(tool.name, tool.describe(args))
+        if (closed) return fail('server closed')
         if (!ok) { emit({ tool: name, args, ok: false }); return fail('user declined') }
       }
       const result = await tool.run(args)
@@ -95,6 +98,7 @@ export async function startMcpServer(tools: ToolDef[], approvals: Approvals, onT
     url: `http://127.0.0.1:${port}/mcp`,
     token,
     close: () => new Promise<void>((resolve) => {
+      closed = true
       approvals.rejectAll()
       http_.close(() => resolve())
       http_.closeAllConnections()

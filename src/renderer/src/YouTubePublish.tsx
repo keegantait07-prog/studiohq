@@ -4,9 +4,9 @@ import { validateBeatstarsUrl } from '@shared/ytPackage'
 import type { PublishDraft, YtPublishResult, YtStatus } from '@shared/ytTypes'
 
 type Step = 'pick' | 'preparing' | 'review' | 'done'
-interface Props { beat: Beat; settings: Settings | null; toast: (m: string) => void; reload: () => void; reloadBeats: () => void }
+interface Props { beat: Beat; settings: Settings | null; toast: (m: string) => void; reload: () => void; reloadBeats: () => void; /** reopen the saved details of this video (from the Videos tab) */ openVideoId?: number | null }
 
-export function YouTubePublish({ beat, settings, toast, reload, reloadBeats }: Props) {
+export function YouTubePublish({ beat, settings, toast, reload, reloadBeats, openVideoId }: Props) {
   const [step, setStep] = useState<Step>('pick')
   const [st, setSt] = useState<YtStatus | null>(null)
   const [artists, setArtists] = useState<string[]>(beat.tags.artist)
@@ -26,6 +26,23 @@ export function YouTubePublish({ beat, settings, toast, reload, reloadBeats }: P
 
   useEffect(() => { window.api.ytStatus().then(setSt) }, [settings?.ytImageFolder, settings?.ytClientId])
   useEffect(() => { if (!beat.tags.artist.length) window.api.ytSuggestArtists(beat.id).then(setSuggested); return window.api.onYtProgress(setProgress) }, [beat.id])
+
+  // reopen a saved video: its details come back exactly as they were left
+  useEffect(() => {
+    if (!openVideoId) return
+    window.api.ytLoadDraft(openVideoId).then(({ draft: d, edits, uploaded }) => {
+      setDraft(d); setArtists(d.artists)
+      setTitle(edits?.title ?? d.package.titles[0] ?? ''); setDescription(edits?.description ?? d.package.description)
+      setTags(edits?.tags ?? d.package.tags.join(', ')); setHashtags(edits?.hashtags ?? d.package.hashtags.join(' ')); setLink(edits?.link ?? '')
+      if (uploaded) { setResult(uploaded); setStep('done') } else setStep('review')
+    }).catch((e) => setErr(String((e as Error).message)))
+  }, [openVideoId])
+  // keep what is typed, so leaving the screen never loses it
+  useEffect(() => {
+    if (!draft || step !== 'review') return
+    const t = setTimeout(() => { window.api.ytSaveEdits(draft.videoId, { title, description, tags, hashtags, link }).catch(() => {}) }, 700)
+    return () => clearTimeout(t)
+  }, [draft, step, title, description, tags, hashtags, link])
 
   const addArtist = (v: string) => { const a = v.trim().toLowerCase(); if (a && !artists.map((x) => x.toLowerCase()).includes(a)) setArtists([...artists, a]); setArtist('') }
   const blocker = !st ? 'Loading…'

@@ -20,8 +20,12 @@ export interface PackageDraft { titles: string[]; description: string; tags: str
 
 export interface YtStatus { signedIn: boolean; hasClientId: boolean; hasAnthropicKey: boolean; encryptionOk: boolean; imagesLeft: number | null; quotaToday: number }
 
-export interface PublishDraft { previewData: string; beatId: number; imageHash: string; imagePath: string; videoPath: string; thumbPath: string; artists: string[]; package: PackageDraft; styleFindings: string[] }
+export interface PublishDraft { previewData: string; /** the row in the videos table */ videoId: number; beatId: number; imageHash: string; imagePath: string; videoPath: string; thumbPath: string; artists: string[]; package: PackageDraft; styleFindings: string[] }
 
 /** What the producer settled on in the review screen */
 export interface YtPublishEdits { title: string; description: string; tags: string[]; hashtags: string[]; link: string; publishAt?: number }
 export interface YtPublishResult { videoId: string; studioUrl: string; thumbnailError?: string }
+
+/** The form as the producer left it, kept so the review screen can be reopened later */
+export interface YtDraftEdits { title: string; description: string; tags: string; hashtags: string; link: string }
+export interface SavedDraft { draft: PublishDraft; edits: YtDraftEdits | null; uploaded: YtPublishResult | null }

@@ -9,7 +9,7 @@ import { buildUploadMetadata } from '../shared/ytUpload'
 import { COST, quotaAllows } from '../shared/ytQuota'
 import { fileSafeTitle } from '../shared/videoFiles'
 import { checkYouTubeMetadata, fillLink, validateBeatstarsUrl } from '../shared/ytPackage'
-import { LINK_PLACEHOLDER, type PublishDraft, type YtPublishEdits, type YtPublishResult, type YtStatus } from '../shared/ytTypes'
+import { LINK_PLACEHOLDER, type PublishDraft, type SavedDraft, type YtDraftEdits, type YtPublishEdits, type YtPublishResult, type YtStatus } from '../shared/ytTypes'
 import type { Content } from './content'
 import type { Store } from './store'
 import { exportStill } from './stillvideo'
@@ -30,6 +30,26 @@ export class YtPublisher {
   private work = join(app.getPath('userData'), 'yt-work')
 
   constructor(private db: Database.Database, private store: Store, private content: Content, private auth: YtAuth, private research: YtResearch, private pool: ImagePool) {}
+
+  // ---- saved drafts: the review screen can be reopened from the Videos tab ----
+  private writeDraft(videoId: number, s: SavedDraft): void {
+    this.db.prepare('INSERT INTO yt_drafts(video_id,json,updated_at) VALUES(?,?,?) ON CONFLICT(video_id) DO UPDATE SET json=excluded.json, updated_at=excluded.updated_at')
+      .run(videoId, JSON.stringify({ ...s, draft: { ...s.draft, previewData: '' } }), Date.now())
+  }
+  private readDraft(videoId: number): SavedDraft | null {
+    const r = this.db.prepare('SELECT json FROM yt_drafts WHERE video_id=?').get(videoId) as { json: string } | undefined
+    return r ? (JSON.parse(r.json) as SavedDraft) : null
+  }
+  loadDraft(videoId: number): SavedDraft {
+    const s = this.readDraft(videoId)
+    if (!s) throw new Error('This video has no saved details. Make it again from the YouTube tab.')
+    if (!existsSync(s.draft.thumbPath) || !existsSync(s.draft.videoPath)) throw new Error('The saved files for this video are missing. Make it again from the YouTube tab.')
+    return { ...s, draft: { ...s.draft, previewData: nativeImage.createFromPath(s.draft.thumbPath).resize({ width: 640 }).toDataURL() } }
+  }
+  saveEdits(videoId: number, edits: YtDraftEdits): void {
+    const s = this.readDraft(videoId)
+    if (s) this.writeDraft(videoId, { ...s, edits })
+  }
 
   async status(): Promise<YtStatus> {
     const s = this.auth.status()
@@ -81,9 +101,11 @@ export class YtPublisher {
     mkdirSync(settings.exportDir, { recursive: true })
     const videoPath = uniquePath(settings.exportDir, `${fileSafeTitle(beat.title)} - YouTube.mp4`)
     await exportStill({ audioPath: beat.path, framePath, outPath: videoPath, durationSec: beat.duration ?? 0 }, (p) => onProgress('Making the video', 0.3 + p * 0.7))
-    this.db.prepare('INSERT INTO videos(beat_id,format,path,created_at) VALUES(?,?,?,?)').run(beatId, 'youtube', videoPath, Date.now())
+    const videoId = Number(this.db.prepare('INSERT INTO videos(beat_id,format,path,created_at) VALUES(?,?,?,?)').run(beatId, 'youtube', videoPath, Date.now()).lastInsertRowid)
     const previewData = nativeImage.createFromPath(thumbPath).resize({ width: 640 }).toDataURL()
-    return { previewData, beatId, imageHash: next.hash, imagePath: next.path, videoPath, thumbPath, artists: chosen, package: pkg, styleFindings: describeProfile(style) }
+    const draft: PublishDraft = { previewData, videoId, beatId, imageHash: next.hash, imagePath: next.path, videoPath, thumbPath, artists: chosen, package: pkg, styleFindings: describeProfile(style) }
+    this.writeDraft(videoId, { draft, edits: null, uploaded: null })
+    return draft
   }
 
   async publish(draft: PublishDraft, edits: YtPublishEdits, onProgress: (label: string, pct: number) => void = () => {}): Promise<YtPublishResult> {
@@ -106,6 +128,8 @@ export class YtPublisher {
     // only now is the image spent, so a failed upload never burns one
     this.pool.markUsed(draft.imageHash, draft.imagePath, draft.beatId)
     this.content.savePost({ beatId: draft.beatId, platform: 'youtube', status: publishAt ? 'planned' : 'posted', date: publishAt?.getTime() ?? Date.now(), url: `https://www.youtube.com/watch?v=${r.videoId}`, caption: title })
+    const saved = this.readDraft(draft.videoId)
+    this.writeDraft(draft.videoId, { draft, edits: saved?.edits ?? null, uploaded: r })
     return r
   }
 }

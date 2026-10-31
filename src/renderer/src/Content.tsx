@@ -30,6 +30,7 @@ export function ContentView(p: Props) {
   const [tab, setTab] = useState<'create' | 'calendar' | 'videos'>('create')
   const [sub, setSub] = useState<'video' | 'copy' | 'youtube' | 'posts'>('video')
   const [q, setQ] = useState('')
+  const [editVideo, setEditVideo] = useState<number | null>(null)
   const [dlg, setDlg] = useState<{ post?: Post; beatId?: number; date?: number; status?: Post['status']; platform?: Post['platform'] } | null>(null)
 
   const list = useMemo(() => {
@@ -54,7 +55,7 @@ export function ContentView(p: Props) {
       </div>
 
       {tab === 'videos' ? (
-        <div className="sales-body"><VideosView toast={p.toast} /></div>
+        <div className="sales-body"><VideosView toast={p.toast} onEdit={(v) => { p.onSelectBeat(v.beatId); setEditVideo(v.id); setSub('youtube'); setTab('create') }} /></div>
       ) : tab === 'calendar' ? (
         <div className="sales-body">
           <Calendar beats={p.beats} content={p.content} sales={p.sales}
@@ -70,7 +71,7 @@ export function ContentView(p: Props) {
                 const ps = postsOf(b.id).filter((x) => x.status === 'posted')
                 const plats = [...new Set(ps.map((x) => x.platform))]
                 return (
-                  <div key={b.id} className={`cv-row ${p.beatId === b.id ? 'sel' : ''}`} onClick={() => p.onSelectBeat(b.id)}>
+                  <div key={b.id} className={`cv-row ${p.beatId === b.id ? 'sel' : ''}`} onClick={() => { setEditVideo(null); p.onSelectBeat(b.id) }}>
                     <div className="cn"><b>{b.title}</b><span className="mono dim">{fmtBpm(b.bpm)} {displayKey(b.key)}</span></div>
                     <div className="dots">{plats.length ? plats.map((pl) => <i key={pl} className="sw" style={{ background: platformColor(pl) }} title={`Posted on ${platformLabel(pl)}`} />) : <span className="dim small-note">not posted</span>}</div>
                   </div>
@@ -86,7 +87,7 @@ export function ContentView(p: Props) {
                 </div>
                 {sub === 'video' && <VideoBuilder key={beat.id} beat={beat} settings={p.settings} videos={p.content.videos} onPlayAt={p.onPlayAt} onExported={() => { p.reload(); p.reloadBeats() }} toast={p.toast} playId={p.playId} playing={p.playing} playTime={p.playTime} />}
                 {sub === 'copy' && <CopyPanel beat={beat} settings={p.settings} onTags={async (artists) => { await window.api.setTags(beat.id, { ...beat.tags, artist: artists }); p.reloadBeats() }} />}
-                {sub === 'youtube' && <YouTubePublish key={beat.id} beat={beat} settings={p.settings} toast={p.toast} reload={p.reload} reloadBeats={p.reloadBeats} />}
+                {sub === 'youtube' && <YouTubePublish key={`${beat.id}-${editVideo ?? 'new'}`} openVideoId={editVideo} beat={beat} settings={p.settings} toast={p.toast} reload={p.reload} reloadBeats={p.reloadBeats} />}
                 {sub === 'posts' && (
                   <div>
                     <div className="draft-actions" style={{ marginTop: 0 }}>

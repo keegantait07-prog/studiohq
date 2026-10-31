@@ -25,7 +25,7 @@ import { YtResearch } from './ytresearch'
 import { ImagePool } from './imagepool'
 import { YtPublisher } from './ytpublisher'
 import { setSecret } from './ytkv'
-import type { PublishDraft, YtPublishEdits } from '../shared/ytTypes'
+import type { PublishDraft, YtDraftEdits, YtPublishEdits } from '../shared/ytTypes'
 import type { Post, VideoOptions } from '../shared/types'
 import { splitSheetHtml, writePdf } from './splitsheet'
 import type { LogSaleInput, License, Sale, SplitRow } from '../shared/types'
@@ -280,6 +280,8 @@ function registerIpc(): void {
   h('yt:suggestArtists', (_, id: number) => yt.suggestArtists(id))
   h('yt:prepare', (_, id: number, artists: string[]) => yt.prepare(id, artists, (label, pct) => win?.webContents.send('yt:progress', { label, pct })))
   h('yt:publish', (_, draft: PublishDraft, edits: YtPublishEdits) => yt.publish(draft, edits, (label, pct) => win?.webContents.send('yt:progress', { label, pct })))
+  h('yt:loadDraft', (_, id: number) => yt.loadDraft(id))
+  h('yt:saveEdits', (_, id: number, edits: YtDraftEdits) => yt.saveEdits(id, edits))
   h('yt:signIn', () => ytAuth.signIn())
   h('yt:signOut', () => ytAuth.signOut())
   h('yt:setSecret', (_, kind: 'google' | 'anthropic', value: string | null) => { if (kind === 'google') ytAuth.setClientSecret(value); else setSecret(store.db, 'anthropic_key', value) })

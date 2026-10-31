@@ -1,4 +1,4 @@
-import type { PublishDraft, YtPublishEdits, YtPublishResult, YtStatus } from './ytTypes'
+import type { PublishDraft, SavedDraft, YtDraftEdits, YtPublishEdits, YtPublishResult, YtStatus } from './ytTypes'
 import type { VizFeatures } from './vizFeatures'
 import type { SceneLayout } from './vizScene'
 export const STATUSES = ['idea', 'wip', 'finished', 'sent', 'sold'] as const
@@ -174,7 +174,9 @@ export interface VideoOptions {
 export interface VizJob { id: number; style: VizStyle; accent: string; motion: VideoMotion; titles: VideoTitles; layout: SceneLayout; features: VizFeatures; meta: { title: string; tagline: string; footer: string; cta: string; bpm: number | null; key: string | null; cover: string | null } }
 export interface VideoExport { id: number; beatId: number; format: VideoFormat | 'youtube'; path: string; createdAt: number }
 /** A finished video as the Videos tab shows it: the record plus what is on disk now */
-export interface VideoFile { id: number; beatId: number; beatTitle: string; format: VideoExport['format']; path: string; createdAt: number; size: number; exists: boolean }
+export interface VideoFile { id: number; beatId: number; beatTitle: string; format: VideoExport['format']; path: string; createdAt: number; size: number; exists: boolean
+  /** YouTube videos only: whether saved details exist and whether the video was uploaded */
+  youtube?: { hasDraft: boolean; uploaded: YtPublishResult | null } }
 export interface ContentData { posts: Post[]; videos: VideoExport[] }
 export interface VideoProgress { label: string; pct: number }
 
@@ -333,6 +335,8 @@ export interface Api {
   ytSuggestArtists(beatId: number): Promise<string[]>
   ytPrepare(beatId: number, artists: string[]): Promise<PublishDraft>
   ytPublish(draft: PublishDraft, edits: YtPublishEdits): Promise<YtPublishResult>
+  ytLoadDraft(videoId: number): Promise<SavedDraft>
+  ytSaveEdits(videoId: number, edits: YtDraftEdits): Promise<void>
   ytSignIn(): Promise<void>
   ytSignOut(): Promise<void>
   ytSetSecret(kind: 'google' | 'anthropic', value: string | null): Promise<void>

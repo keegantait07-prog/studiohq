@@ -5,7 +5,7 @@ import { ago } from './format'
 const FORMAT = { vertical: 'Vertical', horizontal: 'Horizontal', youtube: 'YouTube' } as const
 const size = (b: number) => (b >= 1e9 ? `${(b / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(b / 1e6))} MB`)
 
-export function VideosView({ toast }: { toast: (m: string) => void }) {
+export function VideosView({ toast, onEdit }: { toast: (m: string) => void; onEdit: (v: VideoFile) => void }) {
   const [files, setFiles] = useState<VideoFile[] | null>(null)
   const [sure, setSure] = useState<number | null>(null)
   const load = () => window.api.videosList().then(setFiles)
@@ -24,10 +24,16 @@ export function VideosView({ toast }: { toast: (m: string) => void }) {
             <b>{v.beatTitle}</b>
             <span className="pst">{FORMAT[v.format] ?? v.format}</span>
             <span className="dim">{ago(v.createdAt)}{v.exists ? ` · ${size(v.size)}` : ''}</span>
+            {v.youtube && <span className="dim">{v.youtube.uploaded ? 'Uploaded (private)' : v.youtube.hasDraft ? 'Not uploaded yet' : 'No saved details'}</span>}
             <span style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
               {v.exists ? (
                 <>
-                  <button className="primary" onClick={() => run(() => window.api.videoOpen(v.id))}>Play</button>
+                  {v.youtube?.uploaded
+                    ? <button className="primary" onClick={() => window.api.ytOpenStudio(v.youtube!.uploaded!.studioUrl)}>Open in YouTube Studio</button>
+                    : v.youtube?.hasDraft
+                      ? <button className="primary" onClick={() => onEdit(v)}>Edit details</button>
+                      : <button className="primary" onClick={() => run(() => window.api.videoOpen(v.id))}>Play</button>}
+                  {(v.youtube?.hasDraft || v.youtube?.uploaded) && <button onClick={() => run(() => window.api.videoOpen(v.id))}>Play</button>}
                   <button onClick={() => run(() => window.api.videoReveal(v.id))}>Show in Finder</button>
                   {sure === v.id
                     ? <button onClick={() => { setSure(null); run(async () => { await window.api.videoTrash(v.id); toast('Moved to the Trash') }) }}>Move to Trash?</button>

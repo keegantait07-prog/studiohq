@@ -2,6 +2,7 @@ import type Database from 'better-sqlite3'
 import { existsSync, readdirSync, statSync } from 'fs'
 import { join } from 'path'
 import { fileSafeTitle, youtubeFileTitle } from '../shared/videoFiles'
+import type { YtPublishResult } from '../shared/ytTypes'
 import type { ContentData, Post, VideoExport, VideoFile } from '../shared/types'
 
 type Row = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -49,9 +50,10 @@ export class Content {
   videoFiles(exportDir: string): VideoFile[] {
     this.adoptYoutubeFiles(exportDir)
     const rows = this.db.prepare('SELECT v.*, b.title AS beat_title FROM videos v LEFT JOIN beats b ON b.id=v.beat_id ORDER BY v.created_at DESC, v.id DESC').all() as Row[]
+    const drafts = new Map((this.db.prepare('SELECT video_id, json FROM yt_drafts').all() as Row[]).map((d) => [d.video_id as number, (JSON.parse(d.json) as { uploaded: YtPublishResult | null }).uploaded]))
     return rows.map((r): VideoFile => {
       const exists = existsSync(r.path)
-      return { id: r.id, beatId: r.beat_id, beatTitle: r.beat_title ?? 'Unknown beat', format: r.format, path: r.path, createdAt: r.created_at, size: exists ? statSync(r.path).size : 0, exists }
+      return { id: r.id, beatId: r.beat_id, beatTitle: r.beat_title ?? 'Unknown beat', format: r.format, path: r.path, createdAt: r.created_at, size: exists ? statSync(r.path).size : 0, exists, ...(r.format === 'youtube' ? { youtube: { hasDraft: drafts.has(r.id), uploaded: drafts.get(r.id) ?? null } } : {}) }
     })
   }
   videoPath(id: number): string | null {

@@ -1,6 +1,6 @@
 // Runs the whole YouTube flow for one beat: research, packaging, image, video, the BeatStars link gate and the upload.
 import type Database from 'better-sqlite3'
-import { app, safeStorage } from 'electron'
+import { app, nativeImage, safeStorage } from 'electron'
 import { existsSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { beatProfile, suggestArtists, type KnownArtist } from '../shared/beatProfile'
@@ -80,7 +80,8 @@ export class YtPublisher {
     mkdirSync(settings.exportDir, { recursive: true })
     const videoPath = uniquePath(settings.exportDir, `${beat.title.replace(/[\\/:*?"<>|]/g, '').trim() || 'Beat'} - YouTube.mp4`)
     await exportStill({ audioPath: beat.path, framePath, outPath: videoPath, durationSec: beat.duration ?? 0 }, (p) => onProgress('Making the video', 0.3 + p * 0.7))
-    return { beatId, imageHash: next.hash, imagePath: next.path, videoPath, thumbPath, artists: chosen, package: pkg, styleFindings: describeProfile(style) }
+    const previewData = nativeImage.createFromPath(thumbPath).resize({ width: 640 }).toDataURL()
+    return { previewData, beatId, imageHash: next.hash, imagePath: next.path, videoPath, thumbPath, artists: chosen, package: pkg, styleFindings: describeProfile(style) }
   }
 
   async publish(draft: PublishDraft, edits: YtPublishEdits, onProgress: (label: string, pct: number) => void = () => {}): Promise<YtPublishResult> {

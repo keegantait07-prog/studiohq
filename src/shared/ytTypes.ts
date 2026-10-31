@@ -20,7 +20,7 @@ export interface PackageDraft { titles: string[]; description: string; tags: str
 
 export interface YtStatus { signedIn: boolean; hasClientId: boolean; hasAnthropicKey: boolean; encryptionOk: boolean; imagesLeft: number | null; quotaToday: number }
 
-export interface PublishDraft { beatId: number; imageHash: string; imagePath: string; videoPath: string; thumbPath: string; artists: string[]; package: PackageDraft; styleFindings: string[] }
+export interface PublishDraft { previewData: string; beatId: number; imageHash: string; imagePath: string; videoPath: string; thumbPath: string; artists: string[]; package: PackageDraft; styleFindings: string[] }
 
 /** What the producer settled on in the review screen */
 export interface YtPublishEdits { title: string; description: string; tags: string[]; hashtags: string[]; link: string; publishAt?: number }

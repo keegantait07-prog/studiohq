@@ -737,3 +737,9 @@ button.ghost em.nl { gap: 8px; }
 @container cvw (max-width: 760px) { .mon.phone { width: 168px; } .readout .rd.dim { display: none; } }
 @container cvw (min-width: 1000px) { .mon.phone { width: 236px; } }
 @media (prefers-reduced-motion: reduce) { .tile { animation: none; } }
+
+/* YouTube publisher */
+.ytp { display: flex; flex-direction: column; gap: 6px; max-width: 760px; } .ytp h3 { margin: 12px 0 2px; } .ytp textarea, .ytp input:not([type=radio]):not([type=checkbox]) { width: 100%; }
+.ytp .titlerow { display: flex; gap: 8px; align-items: center; } .ytp li { margin-left: 18px; }
+.yt-img { width: 100%; max-width: 480px; border-radius: 8px; border: 1px solid var(--line); }
+.yt-bar { height: 6px; background: var(--well); border-radius: 3px; overflow: hidden; max-width: 480px; } .yt-bar i { display: block; height: 100%; background: var(--accent); transition: width .3s; }

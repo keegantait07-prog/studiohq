@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { NetlifyStatus, Settings as S, SiteStatus } from '@shared/types'
+import { YouTubeSettings } from './YouTubeSettings'
 
 export function Settings({ onClose }: { onClose: () => void }) {
   const [s, setS] = useState<S | null>(null)
@@ -71,6 +72,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
           <div className="field"><label>Default hashtags</label><input defaultValue={s.hashtags} onBlur={(e) => window.api.setSetting({ hashtags: e.target.value.trim() })} /></div>
           <div className="folder" style={{ marginTop: 8 }}><span>Videos are saved to: {s.exportDir}</span><button onClick={async () => { await window.api.chooseExportDir(); load() }}>Change…</button></div>
         </section>
+        <YouTubeSettings s={s} reload={load} />
         <section>
           <h3>Netlify (private pitch pages)</h3>
           <p className="help">Pages and audio previews are published to your own Netlify site, under unguessable links. Create a personal access token in Netlify → User settings → Applications, and paste it here. It is stored encrypted with the macOS Keychain.</p>

@@ -3,6 +3,7 @@ import { PLATFORMS, type Beat, type ContentData, type Post, type Sale, type Sett
 import { displayKey } from '@shared/key'
 import { VideoBuilder } from './VideoBuilder'
 import { CopyPanel } from './CopyPanel'
+import { YouTubePublish } from './YouTubePublish'
 import { Calendar } from './Calendar'
 import { PostDialog } from './PostDialog'
 import { fmtBpm } from './format'
@@ -26,7 +27,7 @@ interface Props {
 
 export function ContentView(p: Props) {
   const [tab, setTab] = useState<'create' | 'calendar'>('create')
-  const [sub, setSub] = useState<'video' | 'copy' | 'posts'>('video')
+  const [sub, setSub] = useState<'video' | 'copy' | 'youtube' | 'posts'>('video')
   const [q, setQ] = useState('')
   const [dlg, setDlg] = useState<{ post?: Post; beatId?: number; date?: number; status?: Post['status']; platform?: Post['platform'] } | null>(null)
 
@@ -77,10 +78,11 @@ export function ContentView(p: Props) {
             {!beat ? <div className="empty">Pick a beat to make a video, write its title and tags, or log where you posted it.</div> : (
               <>
                 <div className="cv-beat"><h3>{beat.title}</h3>
-                  <div className="seg" style={{ width: 'auto' }}>{([['video', 'Video'], ['copy', 'Titles & tags'], ['posts', `Posts (${postsOf(beat.id).length})`]] as const).map(([k, l]) => <button key={k} className={sub === k ? 'on' : ''} onClick={() => setSub(k)}>{l}</button>)}</div>
+                  <div className="seg" style={{ width: 'auto' }}>{([['video', 'Video'], ['copy', 'Titles & tags'], ['youtube', 'YouTube'], ['posts', `Posts (${postsOf(beat.id).length})`]] as const).map(([k, l]) => <button key={k} className={sub === k ? 'on' : ''} onClick={() => setSub(k)}>{l}</button>)}</div>
                 </div>
                 {sub === 'video' && <VideoBuilder key={beat.id} beat={beat} settings={p.settings} videos={p.content.videos} onPlayAt={p.onPlayAt} onExported={() => { p.reload(); p.reloadBeats() }} toast={p.toast} playId={p.playId} playing={p.playing} playTime={p.playTime} />}
                 {sub === 'copy' && <CopyPanel beat={beat} settings={p.settings} onTags={async (artists) => { await window.api.setTags(beat.id, { ...beat.tags, artist: artists }); p.reloadBeats() }} />}
+                {sub === 'youtube' && <YouTubePublish key={beat.id} beat={beat} settings={p.settings} toast={p.toast} reload={p.reload} reloadBeats={p.reloadBeats} />}
                 {sub === 'posts' && (
                   <div>
                     <div className="draft-actions" style={{ marginTop: 0 }}>

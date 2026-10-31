@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { ThreadSummary } from '@shared/types'
+import type { AssistantPush, ThreadSummary } from '@shared/types'
 import { addError, answerApproval, initialState, loadThread, reduce, startRun, toolLabel, type Item, type ViewState } from './assistantState'
 
-export function Assistant({ onClose }: { onClose: () => void }) {
+export function Assistant({ onClose, hidden, onBusy }: { onClose: () => void; hidden?: boolean; onBusy?: (busy: boolean) => void }) {
   const [state, setState] = useState<ViewState>(initialState)
   const [threads, setThreads] = useState<ThreadSummary[]>([])
   const [text, setText] = useState('')
@@ -12,11 +12,22 @@ export function Assistant({ onClose }: { onClose: () => void }) {
 
   const refreshThreads = useCallback(() => window.api.assistantThreads().then(setThreads), [])
 
+  // Pushes for the thread being loaded are queued and replayed after the load.
+  // Risk: an event persisted before the fetch AND pushed after it could show text twice (tiny window).
+  const loading = useRef<AssistantPush[]>([])
+  const loadingId = useRef<number | null>(null)
   const open = useCallback(async (id: number) => {
-    const d = await window.api.assistantThread(id)
     threadRef.current = id
+    loading.current = []
+    loadingId.current = id
+    setState({ ...initialState(), threadId: id })
+    const d = await window.api.assistantThread(id)
+    if (threadRef.current !== id) return
+    loadingId.current = null
+    const queued = loading.current
+    loading.current = []
     stick.current = true
-    setState(d ? loadThread(d) : { ...initialState(), threadId: id })
+    setState(queued.reduce(reduce, d ? loadThread(d) : { ...initialState(), threadId: id }))
   }, [])
 
   const create = useCallback(async () => {
@@ -39,14 +50,19 @@ export function Assistant({ onClose }: { onClose: () => void }) {
 
   useEffect(() => window.api.onAssistant((p) => {
     if ('event' in p && (p.event.type === 'done' || p.event.type === 'error')) refreshThreads()
+    if (loadingId.current === p.threadId) loading.current.push(p)
     setState((s) => reduce(s, p))
   }), [refreshThreads])
+
+  const pending = state.items.some((i) => i.kind === 'approval' && i.outcome === 'pending')
+  const busy = state.running || pending
+  useEffect(() => { onBusy?.(busy) }, [busy, onBusy])
 
   // auto-scroll only when the user is already near the bottom
   useEffect(() => {
     const el = listRef.current
     if (el && stick.current) el.scrollTop = el.scrollHeight
-  }, [state.items])
+  }, [state.items, hidden])
 
   const send = async () => {
     const t = text.trim()
@@ -62,17 +78,17 @@ export function Assistant({ onClose }: { onClose: () => void }) {
 
   const answer = (id: string, approved: boolean) => {
     setState((s) => answerApproval(s, id, approved))
-    window.api.assistantApprove(id, approved)
+    window.api.assistantApprove(id, approved).catch(() => {})
   }
 
   return (
-    <aside className="assistant" aria-label="Studio Assistant">
+    <aside className={`assistant${hidden ? ' as-hidden' : ''}`} aria-label="Studio Assistant">
       <header>
-        <select value={state.threadId ?? ''} onChange={(e) => open(+e.target.value)} aria-label="Chat">
+        <select disabled={busy} value={state.threadId ?? ''} onChange={(e) => open(+e.target.value)} aria-label="Chat">
           {threads.map((t) => <option key={t.id} value={t.id}>{t.title || 'New chat'}</option>)}
           {state.threadId != null && !threads.some((t) => t.id === state.threadId) && <option value={state.threadId}>New chat</option>}
         </select>
-        <button onClick={create}>New chat</button>
+        <button disabled={busy} onClick={create}>New chat</button>
         <button className="ghost" onClick={onClose} aria-label="Close">×</button>
       </header>
       <div className="as-list" ref={listRef} onScroll={(e) => { const el = e.currentTarget; stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60 }}>

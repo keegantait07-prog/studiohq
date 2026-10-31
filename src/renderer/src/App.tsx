@@ -65,6 +65,9 @@ export function App() {
   const [palette, setPalette] = useState(false)
   const [settings, setSettings] = useState(false)
   const [assistantOpen, setAssistantOpen] = useState(false)
+  const [assistantMounted, setAssistantMounted] = useState(false)
+  const [assistantBusy, setAssistantBusy] = useState(false)
+  useEffect(() => { if (assistantOpen) setAssistantMounted(true) }, [assistantOpen])
   const [view, setView] = useState<'dashboard' | 'vault' | 'map' | 'crm' | 'sales' | 'content' | 'sounds' | 'feedback' | 'themes'>('dashboard')
   const [theme, setTheme] = useState(getTheme)
   const pickTheme = useCallback((id: string) => { applyTheme(id); setTheme(id) }, [])
@@ -264,7 +267,7 @@ export function App() {
       if (e.key === 'Escape') {
         if (palette) return setPalette(false)
         if (settings) return setSettings(false)
-        if (assistantOpen) return setAssistantOpen(false)
+        if (assistantOpen && !e.isComposing) return setAssistantOpen(false)
         if (typing) { (t as HTMLInputElement).blur(); return }
         if (query) return setQuery('')
       }
@@ -484,7 +487,8 @@ export function App() {
         </div>
       )}
       {cleanup && <Cleanup onClose={() => setCleanup(false)} onChanged={() => { reload(); reloadSounds() }} />}
-      {assistantOpen && <Assistant onClose={() => setAssistantOpen(false)} />}
+      {assistantMounted && <Assistant hidden={!assistantOpen} onBusy={setAssistantBusy} onClose={() => setAssistantOpen(false)} />}
+      {assistantMounted && !assistantOpen && assistantBusy && <button className="as-pill" onClick={() => setAssistantOpen(true)}>Assistant working…</button>}
       {settings && <Settings onClose={() => { setSettings(false); reload(); reloadCrm() }} />}
       {fbDlg && (
         <FeedbackDialog beats={audioBeats} initial={fbDlg.beatIds} hasToken={!!netlify?.hasToken} onClose={() => { setFbDlg(null); reloadFeedback() }} onBuilt={() => { reloadFeedback(); setView('feedback') }} />

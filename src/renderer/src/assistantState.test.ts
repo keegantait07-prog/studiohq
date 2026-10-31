@@ -55,3 +55,22 @@ describe('assistantState', () => {
     expect(s.running).toBe(false)
   })
 })
+
+describe('assistantState purity', () => {
+  it('ignores approval pushes for another thread', () => {
+    const s = base()
+    expect(reduce(s, { threadId: 2, approval: { id: 'a', tool: 't', summary: 's' } })).toBe(s)
+  })
+  it('tool-result with unknown id is a no-op', () => {
+    const s = reduce(base(), ev(1, { type: 'tool', id: 't', name: 'x', input: {} }))
+    expect(reduce(s, ev(1, { type: 'tool-result', id: 'zzz', isError: true })).items).toEqual(s.items)
+  })
+  it('does not mutate its input', () => {
+    const s = startRun(base(), 'q')
+    const snap = JSON.stringify(s)
+    reduce(s, ev(1, { type: 'text', text: 'x' }))
+    reduce(s, ev(1, { type: 'done', sessionId: 's' }))
+    answerApproval(s, 'a', true)
+    expect(JSON.stringify(s)).toBe(snap)
+  })
+})

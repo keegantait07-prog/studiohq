@@ -12,7 +12,7 @@ import { hotspot, takesOf } from './audition'
 import { keyColor } from './keyColor'
 import { Detail } from './Detail'
 import { Palette, type Command } from './Palette'
-import { Assistant } from './Assistant'
+import { Assistant, type AssistantStatus } from './Assistant'
 import { Settings } from './Settings'
 import { Crm } from './Crm'
 import { PitchDialog } from './PitchDialog'
@@ -66,7 +66,7 @@ export function App() {
   const [settings, setSettings] = useState(false)
   const [assistantOpen, setAssistantOpen] = useState(false)
   const [assistantMounted, setAssistantMounted] = useState(false)
-  const [assistantBusy, setAssistantBusy] = useState(false)
+  const [assistantStatus, setAssistantStatus] = useState<AssistantStatus>('idle')
   useEffect(() => { if (assistantOpen) setAssistantMounted(true) }, [assistantOpen])
   const [view, setView] = useState<'dashboard' | 'vault' | 'map' | 'crm' | 'sales' | 'content' | 'sounds' | 'feedback' | 'themes'>('dashboard')
   const [theme, setTheme] = useState(getTheme)
@@ -340,6 +340,10 @@ export function App() {
         <a className={`nav ${view === 'themes' ? 'on' : ''}`} onClick={() => setView('themes')}><em className="nl"><Icon name="themes" />Themes</em> <span>{THEMES.find((t) => t.id === theme)?.name}</span></a>
         <div className="grow" />
         {openSession && <a className="timerpill" onClick={() => setView('dashboard')} title="Studio session running">● {fmtClock(clock - openSession.startedAt)}</a>}
+        <button className={`ghost as-btn ${assistantOpen ? 'on' : ''}`} onClick={() => setAssistantOpen((o) => !o)} title="Ask the assistant to look things up or make changes (⌘J)">
+          <em className="nl"><Icon name="assistant" />Assistant</em>
+          {assistantStatus === 'approval' ? <span className="badge">approve</span> : assistantStatus === 'working' ? <span className="as-dot" title="Working…" /> : <kbd>⌘J</kbd>}
+        </button>
         <button className="ghost" onClick={() => setSettings(true)}><em className="nl"><Icon name="settings" />Settings</em> <kbd>⌘,</kbd></button>
       </nav>
 
@@ -487,8 +491,7 @@ export function App() {
         </div>
       )}
       {cleanup && <Cleanup onClose={() => setCleanup(false)} onChanged={() => { reload(); reloadSounds() }} />}
-      {assistantMounted && <Assistant hidden={!assistantOpen} onBusy={setAssistantBusy} onClose={() => setAssistantOpen(false)} />}
-      {assistantMounted && !assistantOpen && assistantBusy && <button className="as-pill" onClick={() => setAssistantOpen(true)}>Assistant working…</button>}
+      {assistantMounted && <Assistant hidden={!assistantOpen} onBusy={setAssistantStatus} onClose={() => setAssistantOpen(false)} />}
       {settings && <Settings onClose={() => { setSettings(false); reload(); reloadCrm() }} />}
       {fbDlg && (
         <FeedbackDialog beats={audioBeats} initial={fbDlg.beatIds} hasToken={!!netlify?.hasToken} onClose={() => { setFbDlg(null); reloadFeedback() }} onBuilt={() => { reloadFeedback(); setView('feedback') }} />

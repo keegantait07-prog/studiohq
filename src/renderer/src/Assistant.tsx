@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AssistantPush, ThreadSummary } from '@shared/types'
 import { addError, answerApproval, initialState, loadThread, reduce, startRun, toolLabel, type Item, type ViewState } from './assistantState'
 
-export function Assistant({ onClose, hidden, onBusy }: { onClose: () => void; hidden?: boolean; onBusy?: (busy: boolean) => void }) {
+export type AssistantStatus = 'idle' | 'working' | 'approval'
+
+export function Assistant({ onClose, hidden, onBusy }: { onClose: () => void; hidden?: boolean; onBusy?: (s: AssistantStatus) => void }) {
   const [state, setState] = useState<ViewState>(initialState)
   const [threads, setThreads] = useState<ThreadSummary[]>([])
   const [text, setText] = useState('')
@@ -56,7 +58,8 @@ export function Assistant({ onClose, hidden, onBusy }: { onClose: () => void; hi
 
   const pending = state.items.some((i) => i.kind === 'approval' && i.outcome === 'pending')
   const busy = state.running || pending
-  useEffect(() => { onBusy?.(busy) }, [busy, onBusy])
+  const status: AssistantStatus = pending ? 'approval' : state.running ? 'working' : 'idle'
+  useEffect(() => { onBusy?.(status) }, [status, onBusy])
 
   // auto-scroll only when the user is already near the bottom
   useEffect(() => {

@@ -766,4 +766,10 @@ button.ghost em.nl { gap: 8px; }
 .as-input { display: flex; gap: 6px; padding: 10px; border-top: 1px solid var(--line); align-items: flex-end; }
 .as-input textarea { flex: 1; resize: none; background: var(--well); border: 1px solid var(--line); border-radius: var(--r-field); padding: 7px 9px; }
 .assistant.as-hidden { display: none; }
-.as-pill { position: fixed; right: 14px; bottom: 98px; z-index: 15; border-radius: var(--r-btn); border: 1px solid var(--accent); background: var(--panel); color: var(--accent-text); font-size: 12px; padding: 4px 11px; }
+
+/* Assistant button in the sidebar */
+.side button.as-btn { display: flex; justify-content: space-between; align-items: center; }
+.side button.as-btn.on { background: var(--panel2); color: var(--text); }
+.as-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: as-pulse 1.2s ease-in-out infinite; }
+@keyframes as-pulse { 50% { opacity: .3; } }
+@media (prefers-reduced-motion: reduce) { .as-dot { animation: none; } }

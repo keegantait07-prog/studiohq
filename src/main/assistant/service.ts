@@ -31,6 +31,7 @@ export class AssistantService {
   private mcp: McpHandle | null = null
   private cwd: string
   private active: { threadId: number; run: Run } | null = null
+  private stopping = false
 
   constructor(private d: AssistantDeps) {
     this.approvals = d.approvals ?? new Approvals()
@@ -40,17 +41,18 @@ export class AssistantService {
   async start(): Promise<void> {
     mkdirSync(this.cwd, { recursive: true })
     this.approvals.onRequest = (approval) => {
-      if (this.active) this.d.push({ threadId: this.active.threadId, approval })
+      if (this.active && !this.stopping) this.d.push({ threadId: this.active.threadId, approval })
       else this.approvals.resolve(approval.id, false) // nobody is listening to this chat
     }
-    this.mcp = await startMcpServer(this.d.tools, this.approvals, () => {})
-    const config = { mcpServers: { studiohq: { type: 'http', url: this.mcp.url, headers: { Authorization: `Bearer ${this.mcp.token}` } } } }
+    const mcp = await startMcpServer(this.d.tools, this.approvals, () => {})
+    this.mcp = mcp
+    const config = { mcpServers: { studiohq: { type: 'http', url: mcp.url, headers: { Authorization: `Bearer ${mcp.token}` } } } }
     writeFileSync(join(this.cwd, 'mcp.json'), JSON.stringify(config), { mode: 0o600 })
   }
 
   async send(threadId: number, text: string): Promise<{ error?: string }> {
     if (this.active) return { error: BUSY }
-    if (!this.mcp) return { error: 'The assistant is not ready yet.' }
+    if (!this.mcp) return { error: 'The assistant failed to start. Restart Studio HQ and try again.' }
     const { threads } = this.d
     if (!threads.get(threadId)) return { error: 'That chat no longer exists.' }
     const bin = (this.d.find ?? findClaude)(this.d.claudePath())
@@ -96,7 +98,9 @@ export class AssistantService {
       } catch (e) {
         final = { type: 'error', message: e instanceof Error ? e.message : String(e) }
       }
+      this.approvals.rejectAll() // nothing left to approve once the run is over
       this.active = null
+      this.stopping = false
       this.d.push({ threadId, event: final })
     })
     return {}
@@ -104,6 +108,7 @@ export class AssistantService {
 
   stop(threadId: number): void {
     if (this.active?.threadId !== threadId) return
+    this.stopping = true
     this.active.run.stop()
     this.approvals.rejectAll()
   }
@@ -115,7 +120,7 @@ export class AssistantService {
   async shutdown(): Promise<void> {
     this.approvals.rejectAll()
     const a = this.active
-    if (a) { a.run.stop(); await a.run.done }
+    if (a) { this.stopping = true; a.run.stop(); await a.run.done }
     const mcp = this.mcp
     this.mcp = null
     if (mcp) await mcp.close()

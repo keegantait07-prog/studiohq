@@ -95,6 +95,15 @@ describe('runClaude', () => {
     await runClaude({ bin, cwd: dir, prompt: 'p', args: [], onEvent: (e) => ev.push(e) }).done
     expect(ev).toEqual([{ type: 'error', message: 'nope' }])
   })
+  it('stop() escalates to SIGKILL when the child ignores SIGTERM', async () => {
+    const { bin, dir } = script(`trap '' TERM\necho ready\nsleep 30`)
+    const run = runClaude({ bin, cwd: dir, prompt: 'p', args: [], onEvent: () => {}, killAfterMs: 200 })
+    await new Promise((r) => setTimeout(r, 300))
+    const t0 = Date.now()
+    run.stop()
+    await run.done
+    expect(Date.now() - t0).toBeLessThan(3000)
+  })
   it('stop() kills a sleeping child and resolves done without events', async () => {
     const { bin, dir } = script(`echo $$ > "$0.pid"\nsleep 30`)
     const ev: AssistantEvent[] = []

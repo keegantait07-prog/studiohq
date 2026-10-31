@@ -44,8 +44,12 @@ export function runClaude(o: {
   prompt: string
   args: string[]
   onEvent: (e: AssistantEvent) => void
+  /** How long after SIGTERM before the process group is SIGKILLed (default 2000). */
+  killAfterMs?: number
 }): Run {
   let terminal = false
+  let closed = false
+  let killTimer: ReturnType<typeof setTimeout> | null = null
   let stopped = false
   let stderr = ''
   let buf = ''
@@ -77,6 +81,8 @@ export function runClaude(o: {
       finish()
     })
     child.on('close', (code) => {
+      closed = true
+      if (killTimer) { clearTimeout(killTimer); killTimer = null }
       feed(buf); buf = ''
       if (!terminal && !stopped) {
         const tail = stderr.trim().split('\n').slice(-5).join('\n')
@@ -97,7 +103,15 @@ export function runClaude(o: {
       stopped = true
       if (child.exitCode !== null || child.pid === undefined) return
       // Own process group (detached) so grandchildren die too and release the pipes.
-      try { process.kill(-child.pid, 'SIGTERM') } catch { child.kill('SIGTERM') }
+      const pid = child.pid
+      try { process.kill(-pid, 'SIGTERM') } catch { child.kill('SIGTERM') }
+      if (killTimer || closed) return
+      killTimer = setTimeout(() => {
+        killTimer = null
+        if (closed) return
+        try { process.kill(-pid, 'SIGKILL') } catch { /* already gone (ESRCH) */ }
+      }, o.killAfterMs ?? 2000)
+      killTimer.unref()
     }
   }
 }

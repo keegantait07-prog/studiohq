@@ -424,7 +424,7 @@ app.whenReady().then(async () => {
     userDataDir: app.getPath('userData'),
     push: (p) => win?.webContents.send('assistant:push', p)
   })
-  await assistant.start()
+  try { await assistant.start() } catch (e) { console.error('assistant failed to start', e) }
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     { role: 'appMenu' },
     { label: 'File', submenu: [{ label: 'Back Up Database Now', click: () => backupNow() }, { role: 'close' }] },
@@ -468,5 +468,6 @@ app.on('before-quit', (e) => {
   // Let the assistant stop its CLI run and MCP server, then quit again.
   e.preventDefault()
   quitting = true
-  assistant.shutdown().catch((err) => console.error('assistant shutdown failed', err)).finally(() => app.quit())
+  const bounded = Promise.race([assistant.shutdown(), new Promise<void>((r) => setTimeout(r, 3000))])
+  bounded.catch((err) => console.error('assistant shutdown failed', err)).finally(() => app.quit())
 })

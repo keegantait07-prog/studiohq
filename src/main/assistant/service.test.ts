@@ -146,6 +146,43 @@ describe('AssistantService', () => {
     expect(threads.sessionId(id)).toBeNull()
   })
 
+  it('declines a pending approval when the run ends, so approving later is a no-op', async () => {
+    const bin = fake('sleep 0.6')
+    const approvals = new Approvals()
+    const s = make(bin, { approvals })
+    await s.start()
+    const id = threads.create()
+    await s.send(id, 'go')
+    const answer = approvals.request('save_contact', 'Add Sam')
+    const card = pushes.find((p) => 'approval' in p) as { approval: { id: string } }
+    await until(() => finals().length === 1)
+    expect(await answer).toBe(false)
+    s.approve(card.approval.id, true) // already settled
+    expect(await answer).toBe(false)
+  })
+
+  it('declines and never pushes approvals requested after stop()', async () => {
+    const bin = fake('sleep 30')
+    const approvals = new Approvals()
+    const s = make(bin, { approvals })
+    await s.start()
+    const id = threads.create()
+    await s.send(id, 'go')
+    s.stop(id)
+    const late = approvals.request('save_contact', 'late')
+    expect(pushes.some((p) => 'approval' in p)).toBe(false)
+    expect(await late).toBe(false)
+    await until(() => finals().length === 1)
+  })
+
+  it('send reports a start failure instead of crashing', async () => {
+    writeFileSync(join(dir, 'blocker'), 'x') // a file where the assistant dir's parent should be
+    svc = new AssistantService({ threads, tools: [], claudePath: () => '', userDataDir: join(dir, 'blocker'), push: () => {}, find: () => '/bin/true' })
+    await expect(svc.start()).rejects.toThrow()
+    const id = threads.create()
+    expect((await svc.send(id, 'hi')).error).toMatch(/failed to start/i)
+  })
+
   it('send to an unknown thread returns an error', async () => {
     const s = make(fake('true'))
     await s.start()

@@ -37,7 +37,7 @@ export class Threads {
     let title = r.title
     if (!hadUser) {
       const first = msgs.find((x) => x.role === 'user')
-      if (first && first.role === 'user') title = first.text.trim().slice(0, TITLE_LEN) || title
+      if (first && first.role === 'user') title = Array.from(first.text.trim()).slice(0, TITLE_LEN).join('') || title
     }
     this.db.prepare('UPDATE assistant_threads SET messages=?, title=?, updated_at=? WHERE id=?').run(JSON.stringify(msgs), title, Date.now(), id)
   }
@@ -47,7 +47,7 @@ export class Threads {
     return r?.cli_session_id ?? null
   }
 
-  setSessionId(id: number, s: string): void {
+  setSessionId(id: number, s: string | null): void {
     this.db.prepare('UPDATE assistant_threads SET cli_session_id=? WHERE id=?').run(s, id)
   }
 

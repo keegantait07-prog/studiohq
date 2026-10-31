@@ -30,11 +30,18 @@ describe('Threads', () => {
     t.append(id, { role: 'user', text: 'second' })
     expect(t.get(id)!.title).toBe('x'.repeat(40))
   })
-  it('round-trips the session id', () => {
+  it('does not split an emoji at the title boundary', () => {
+    const id = t.create()
+    t.append(id, { role: 'user', text: 'x'.repeat(39) + '😀tail' })
+    expect(t.get(id)!.title).toBe('x'.repeat(39) + '😀')
+  })
+  it('round-trips the session id and clears it with null', () => {
     const id = t.create()
     expect(t.sessionId(id)).toBeNull()
     t.setSessionId(id, 'abc')
     expect(t.sessionId(id)).toBe('abc')
+    t.setSessionId(id, null)
+    expect(t.sessionId(id)).toBeNull()
   })
   it('returns null for unknown threads and lists newest first', () => {
     expect(t.get(999)).toBeNull()

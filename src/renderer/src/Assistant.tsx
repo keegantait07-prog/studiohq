@@ -94,7 +94,7 @@ export function Assistant({ onClose, hidden, onBusy }: { onClose: () => void; hi
       <div className="as-list" ref={listRef} onScroll={(e) => { const el = e.currentTarget; stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60 }}>
         {state.items.length === 0 && <p className="help">Ask about your beats, pitches or sales. Anything that changes data asks you first.</p>}
         {state.items.map((it, i) => <Row key={i} it={it} onAnswer={answer} />)}
-        {state.running && <div className="as-working">Working…</div>}
+        {state.running && <div className="as-working">{pending ? 'Waiting for your approval' : 'Assistant working…'}</div>}
       </div>
       <div className="as-input">
         <textarea

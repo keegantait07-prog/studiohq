@@ -104,6 +104,28 @@ describe('read tools', () => {
   })
 })
 
+describe('list tool limits', () => {
+  it('wrap rows with a total and honour limit', async () => {
+    const r = (await tools.list_sales.run({ limit: 1 })) as { total: number; sales: unknown[] }
+    expect(r.total).toBeGreaterThanOrEqual(2)
+    expect(r.sales).toHaveLength(1)
+    expect((await tools.list_sales.run({})) as { total: number }).toHaveProperty('total')
+    for (const [n, k] of [['list_contacts', 'contacts'], ['list_pitches', 'pitches'], ['list_posts', 'posts'], ['feedback_inbox', 'comments']] as const) {
+      const x = (await tools[n].run({})) as Record<string, unknown>
+      expect(x, n).toHaveProperty('total')
+      expect(Array.isArray(x[k]), n).toBe(true)
+    }
+  })
+
+  it('caps at 50 by default', async () => {
+    const crm = new Crm(db, () => 7, () => {})
+    for (let i = 0; i < 60; i++) crm.saveContact({ name: `C${i}` })
+    const r = (await tools.list_contacts.run({})) as { total: number; contacts: unknown[] }
+    expect(r.contacts).toHaveLength(50)
+    expect(r.total).toBeGreaterThanOrEqual(60)
+  })
+})
+
 describe('write tools', () => {
   let wt: Record<string, ToolDef>
   let store: { updateBeat: ReturnType<typeof vi.fn>; setTags: ReturnType<typeof vi.fn> }
@@ -123,9 +145,9 @@ describe('write tools', () => {
     afterWrite = vi.fn()
     const deps = {
       store: { listBeats: () => beats, getBeat: (id: number) => { const b = beats.find((x) => x.id === id); return b ? { ...b, peaks: [], versions: [] } : null }, ...store },
-      crm: { all: () => ({ contacts: [{ id: 2 }, { id: 3, name: 'Dan', role: 'manager', email: 'd@x.com', sound: 'trap', links: [{ label: 'ig', url: 'u' }], notes: 'old', followupDays: 5 }], pitches: [{ id: 7 }] }), due: () => [], ...crm },
+      crm: { all: () => ({ contacts: [{ id: 2, name: 'Zoe' }, { id: 3, name: 'Dan', role: 'manager', email: 'd@x.com', sound: 'trap', links: [{ label: 'ig', url: 'u' }], notes: 'old', followupDays: 5 }], pitches: [{ id: 7, contactId: 3, subject: 'Beats for Dan' }] }), due: () => [], ...crm },
       sales: { all: () => ({ sales: [] }), ...sales },
-      content: { all: () => ({ posts: [{ id: 8 }], videos: [] }), ...content },
+      content: { all: () => ({ posts: [{ id: 8, beatId: 1, platform: 'instagram', status: 'planned', date: 5000, url: 'http://old', caption: 'old cap' }], videos: [] }), ...content },
       feedback: { all: () => ({ links: [], comments: [] }) },
       yt: { status: async () => ({}), ...yt },
       afterWrite
@@ -253,22 +275,88 @@ describe('write tools', () => {
     expect(afterWrite).toHaveBeenCalledTimes(1)
   })
 
-  it('prepare_youtube_draft only calls yt.prepare(beatId, artists ?? [], noop)', async () => {
+  it('prepare_youtube_draft keeps the beat\'s existing artist tags when artists is omitted', async () => {
+    beats = [beat(1, { title: 'Midnight Run', tags: { vibe: [], genre: [], artist: ['Drake', 'Future'] } })]
     const r = (await wt.prepare_youtube_draft.run({ beatId: 1 })) as Record<string, unknown>
-    expect(yt.prepare).toHaveBeenCalledWith(1, [], expect.any(Function))
+    expect(yt.prepare).toHaveBeenCalledWith(1, ['Drake', 'Future'], expect.any(Function))
     expect(r).toMatchObject({ ok: true, videoId: 12 })
     expect(r).not.toHaveProperty('previewData')
     expect(afterWrite).toHaveBeenCalledTimes(1)
-    await wt.prepare_youtube_draft.run({ beatId: 1, artists: ['A'] })
-    expect(yt.prepare).toHaveBeenLastCalledWith(1, ['A'], expect.any(Function))
-    expect(Object.keys(yt)).toEqual(['prepare'])
+    const d = wt.prepare_youtube_draft.describe({ beatId: 1 })
+    expect(d).toContain('Midnight Run')
+    expect(d).toContain('Drake')
+    expect(d).toMatch(/artist tags/i)
+    expect(d).toMatch(/Anthropic/)
+    expect(d).toMatch(/quota/i)
   })
 
-  it('every write tool has a plain-text describe', () => {
-    const samples: Record<string, Record<string, unknown>> = {
-      update_beat: { id: 1, status: 'sold' }, set_tags: { id: 1, tags: { vibe: ['x'] } }, save_contact: { name: 'Dan' }, log_pitch: { contactId: 1, beatIds: [1] },
-      log_sale: { beatId: 1, buyer: 'Sam', price: 5 }, save_post: { beatId: 1, platform: 'tiktok', status: 'planned' }, prepare_youtube_draft: { beatId: 1 }
+  it('prepare_youtube_draft passes explicit artists through and rejects unknown beats', async () => {
+    await wt.prepare_youtube_draft.run({ beatId: 1, artists: ['A'] })
+    expect(yt.prepare).toHaveBeenLastCalledWith(1, ['A'], expect.any(Function))
+    expect(wt.prepare_youtube_draft.describe({ beatId: 1, artists: ['A'] })).toContain('"A"')
+    expect(await wt.prepare_youtube_draft.run({ beatId: 99 })).toEqual({ error: 'No beat with id 99' })
+    expect(wt.prepare_youtube_draft.validate!({ beatId: 99 })).toBe('No beat with id 99')
+    expect(yt.prepare).toHaveBeenCalledTimes(1)
+  })
+
+  it('save_post update keeps fields that were not given', async () => {
+    expect(await wt.save_post.run({ id: 8, caption: 'new cap' })).toEqual({ ok: true, postId: 4 })
+    expect(content.savePost).toHaveBeenCalledWith({ id: 8, beatId: 1, platform: 'instagram', status: 'planned', date: 5000, url: 'http://old', caption: 'new cap' })
+    await wt.save_post.run({ id: 8, status: 'posted', url: 'http://new' })
+    expect(content.savePost).toHaveBeenLastCalledWith({ id: 8, beatId: 1, platform: 'instagram', status: 'posted', date: 5000, url: 'http://new', caption: 'old cap' })
+    const d = wt.save_post.describe({ id: 8, caption: 'new cap' })
+    expect(d).toMatch(/update/i)
+    expect(d).toContain('Midnight Run')
+    expect(d).toContain('new cap')
+    expect(d).toContain('http://old')
+  })
+
+  it('save_post create still requires beatId, platform and status', async () => {
+    expect(await wt.save_post.run({ platform: 'tiktok', status: 'planned' })).toHaveProperty('error')
+    expect(await wt.save_post.run({ beatId: 1, status: 'planned' })).toHaveProperty('error')
+    expect(await wt.save_post.run({ beatId: 1, platform: 'tiktok' })).toHaveProperty('error')
+    expect(content.savePost).not.toHaveBeenCalled()
+    expect(wt.save_post.validate!({ platform: 'tiktok', status: 'planned' })).toMatch(/required/)
+    expect(wt.save_post.validate!({ beatId: 1, platform: 'tiktok', status: 'planned' })).toBeNull()
+    expect(wt.save_post.describe({ beatId: 1, platform: 'tiktok', status: 'planned', caption: 'c' })).toMatch(/plan/i)
+  })
+
+  it('validate rejects arguments that can only fail', () => {
+    expect(wt.update_beat.validate!({ id: 1, status: 'done' })).toMatch(/Status must be/)
+    expect(wt.update_beat.validate!({ id: 99, status: 'sold' })).toMatch(/No beat/)
+    expect(wt.update_beat.validate!({ id: 1, status: 'sold' })).toBeNull()
+    expect(wt.set_tags.validate!({ id: 1, tags: { mood: ['x'] } })).toMatch(/Unknown tag kind/)
+    expect(wt.save_contact.validate!({ id: 99, name: 'Z' })).toMatch(/No contact/)
+    expect(wt.log_pitch.validate!({ contactId: 99 })).toMatch(/No contact/)
+    expect(wt.log_sale.validate!({ beatId: 1, buyer: 'x', price: 1, source: 'bitcoin' })).toMatch(/Source/)
+  })
+
+  it('approval cards name the target and show the values written', () => {
+    beats = [beat(1, { title: 'Midnight Run' }), beat(2, { title: 'Second Beat' })]
+    const long = 'n'.repeat(200)
+    const u = wt.update_beat.describe({ id: 1, status: 'sold', title: 'New Title', bpm: 150, notes: long })
+    for (const x of ['Midnight Run', 'sold', 'New Title', '150', 'REPLACES']) expect(u).toContain(x)
+    expect(u).toContain('n'.repeat(80) + '…')
+    expect(u).not.toContain('n'.repeat(81))
+    const t = wt.set_tags.describe({ id: 1, tags: { vibe: ['sad'], artist: ['Drake'] } })
+    for (const x of ['Midnight Run', 'sad', 'Drake']) expect(t).toContain(x)
+    const cu = wt.save_contact.describe({ id: 3, name: 'Daniel', email: 'new@x.com', notes: 'hello', links: [{ label: 'a', url: 'b' }] })
+    for (const x of ['Update', '"Dan"', 'Daniel', 'new@x.com', 'hello', '1 link']) expect(cu).toContain(x)
+    const cc = wt.save_contact.describe({ name: 'Newbie', role: 'manager' })
+    expect(cc).toContain('Create contact')
+    expect(cc).toContain('Newbie')
+    const lp = wt.log_pitch.describe({ contactId: 3, beatIds: [1, 2], subject: 'Fire' })
+    for (const x of ['Dan', 'Midnight Run', 'Second Beat', '"sent"', 'Fire']) expect(lp).toContain(x)
+    const lf = wt.log_pitch.describe({ followUpPitchId: 7 })
+    expect(lf).toContain('Dan')
+    expect(lf).toContain('Beats for Dan')
+    const ls = wt.log_sale.describe({ beatId: 1, buyer: 'Sam', price: 50, fee: 5, licenseName: 'Lease', exclusive: true, source: 'beatstars' })
+    for (const x of ['Midnight Run', 'Sam', '50', '5', 'Lease', 'exclusive', 'beatstars']) expect(ls).toContain(x)
+  })
+
+  it('describe never throws, even on junk arguments', () => {
+    for (const n of Object.keys(wt)) {
+      for (const a of [{}, { id: {}, tags: 5, beatIds: 'x', links: 3 }, { beatId: 'zz', artists: 7 }]) expect(typeof wt[n].describe(a as Record<string, unknown>), n).toBe('string')
     }
-    for (const [n, a] of Object.entries(samples)) expect(typeof wt[n].describe(a), n).toBe('string')
   })
 })

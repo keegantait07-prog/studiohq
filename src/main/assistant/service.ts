@@ -45,9 +45,14 @@ export class AssistantService {
       else this.approvals.resolve(approval.id, false) // nobody is listening to this chat
     }
     const mcp = await startMcpServer(this.d.tools, this.approvals, () => {})
+    try {
+      const config = { mcpServers: { studiohq: { type: 'http', url: mcp.url, headers: { Authorization: `Bearer ${mcp.token}` } } } }
+      writeFileSync(join(this.cwd, 'mcp.json'), JSON.stringify(config), { mode: 0o600 })
+    } catch (e) {
+      await mcp.close()
+      throw e
+    }
     this.mcp = mcp
-    const config = { mcpServers: { studiohq: { type: 'http', url: mcp.url, headers: { Authorization: `Bearer ${mcp.token}` } } } }
-    writeFileSync(join(this.cwd, 'mcp.json'), JSON.stringify(config), { mode: 0o600 })
   }
 
   async send(threadId: number, text: string): Promise<{ error?: string }> {
@@ -59,15 +64,11 @@ export class AssistantService {
     if (!bin) return { error: NO_CLI }
 
     threads.append(threadId, { role: 'user', text })
-    const args = buildArgs({
-      mcpConfigPath: join(this.cwd, 'mcp.json'),
-      sessionId: threads.sessionId(threadId),
-      systemPrompt: systemPrompt(this.d.producerName?.() ?? '')
-    })
 
     // Persist what streams: consecutive text becomes one assistant message; tool calls are marked failed when their result says so.
     let pending = ''
     let terminal: AssistantEvent | null = null
+    let retried = false
     const toolIndex = new Map<string, number>()
     const flush = (): void => {
       if (pending) { threads.append(threadId, { role: 'assistant', text: pending }); pending = '' }
@@ -86,9 +87,24 @@ export class AssistantService {
       this.d.push({ threadId, event: e })
     }
 
-    const run = runClaude({ bin, cwd: this.cwd, prompt: text, args, onEvent })
-    this.active = { threadId, run }
-    void run.done.then(() => {
+    const launch = (): void => {
+      terminal = null
+      const sessionId = threads.sessionId(threadId)
+      const args = buildArgs({ mcpConfigPath: join(this.cwd, 'mcp.json'), sessionId, systemPrompt: systemPrompt(this.d.producerName?.() ?? '') })
+      const run = runClaude({ bin, cwd: this.cwd, prompt: text, args, onEvent })
+      this.active = { threadId, run }
+      void run.done.then(() => {
+        const t = terminal as AssistantEvent | null
+        // Claude Code deletes old transcripts; a chat whose session is gone would fail every time, so start it afresh once.
+        if (sessionId && !retried && !this.stopping && t?.type === 'error' && /No conversation found/i.test(t.message)) {
+          retried = true
+          try { threads.setSessionId(threadId, null) } catch { /* fall through to surfacing the error */ }
+          if (threads.sessionId(threadId) === null) { launch(); return }
+        }
+        finish()
+      })
+    }
+    const finish = (): void => {
       let final = terminal as AssistantEvent | null
       try {
         flush()
@@ -102,7 +118,8 @@ export class AssistantService {
       this.active = null
       this.stopping = false
       this.d.push({ threadId, event: final })
-    })
+    }
+    launch()
     return {}
   }
 

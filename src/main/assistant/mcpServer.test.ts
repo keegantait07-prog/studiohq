@@ -77,6 +77,39 @@ describe('startMcpServer', () => {
     expect(JSON.parse(text(r))).toEqual({ ok: true })
   })
 
+  it('a write whose validate rejects returns the reason without asking for approval', async () => {
+    const bad: ToolDef = { name: 'strict', description: 'w', inputSchema: schema, kind: 'write', describe: () => 'strict', validate: (a) => (a.ok ? null : 'nope: bad args'), run: () => ({ ok: true }) }
+    const { requests, events } = await setup([bad])
+    const r = await client!.callTool({ name: 'strict', arguments: {} })
+    expect(r.isError).toBe(true)
+    expect(text(r)).toContain('nope: bad args')
+    expect(requests).toHaveLength(0)
+    expect(events[0]).toMatchObject({ tool: 'strict', ok: false })
+  })
+
+  it('a write with valid args still waits for approval when validate passes', async () => {
+    let ran = 0
+    const good: ToolDef = { name: 'strict', description: 'w', inputSchema: { type: 'object', properties: { ok: { type: 'boolean' } } }, kind: 'write', describe: () => 'strict', validate: (a) => (a.ok ? null : 'nope'), run: () => { ran++; return { ok: true } } }
+    const { approvals, requests } = await setup([good])
+    const p = client!.callTool({ name: 'strict', arguments: { ok: true } })
+    await vi.waitFor(() => expect(requests).toHaveLength(1))
+    await tick()
+    expect(ran).toBe(0)
+    approvals.resolve(requests[0].id, true)
+    expect((await p).isError).toBeFalsy()
+    expect(ran).toBe(1)
+  })
+
+  it('a throwing describe falls back to a generic card and still asks', async () => {
+    const t: ToolDef = { name: 'odd', description: 'w', inputSchema: schema, kind: 'write', describe: () => { throw new Error('x') }, run: () => ({ ok: true }) }
+    const { approvals, requests } = await setup([t])
+    const p = client!.callTool({ name: 'odd', arguments: {} })
+    await vi.waitFor(() => expect(requests).toHaveLength(1))
+    expect(requests[0].summary).toContain('odd')
+    approvals.resolve(requests[0].id, false)
+    await p
+  })
+
   it('declined write returns isError and never runs', async () => {
     const { ran, approvals, requests, events } = await setup()
     const p = client!.callTool({ name: 'change', arguments: { note: 'hi' } })

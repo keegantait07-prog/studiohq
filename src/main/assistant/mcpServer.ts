@@ -33,7 +33,12 @@ export async function startMcpServer(tools: ToolDef[], approvals: Approvals, onT
     if (!tool) return fail(`unknown tool: ${name}`)
     try {
       if (tool.kind !== 'read') {
-        const ok = await approvals.request(tool.name, tool.describe(args))
+        // Arguments that can only fail never reach the user. validate may only reject; every write still waits for approval below.
+        const bad = tool.validate?.(args)
+        if (bad) { emit({ tool: name, args, ok: false }); return fail(bad) }
+        let card: string
+        try { card = tool.describe(args) } catch { card = `Run ${tool.name}` }
+        const ok = await approvals.request(tool.name, card)
         if (closed) return fail('server closed')
         if (!ok) { emit({ tool: name, args, ok: false }); return fail('user declined') }
       }

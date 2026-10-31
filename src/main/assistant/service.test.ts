@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdtempSync, writeFileSync, chmodSync, rmSync, readFileSync, existsSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, chmodSync, rmSync, readFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type Database from 'better-sqlite3'
@@ -181,6 +181,48 @@ describe('AssistantService', () => {
     await expect(svc.start()).rejects.toThrow()
     const id = threads.create()
     expect((await svc.send(id, 'hi')).error).toMatch(/failed to start/i)
+  })
+
+  it('closes the MCP server and reports a start failure when mcp.json cannot be written', async () => {
+    mkdirSync(join(dir, 'assistant-cwd', 'mcp.json'), { recursive: true }) // a directory where the file goes
+    const s = make(fake('true'))
+    await expect(s.start()).rejects.toThrow()
+    const id = threads.create()
+    expect((await s.send(id, 'hi')).error).toMatch(/failed to start/i)
+  })
+
+  it('clears an expired session and retries once without --resume', async () => {
+    const argsFile = join(dir, 'calls.txt')
+    const bin = fake(`echo "CALL $*" >> '${argsFile}'
+case "$*" in *--resume*) ${emits([line({ type: 'result', is_error: true, errors: ['No conversation found with session ID: old'] })])} ;; *) ${emits([assistant({ type: 'text', text: 'fresh' }), result('new-sess')])} ;; esac`)
+    const s = make(bin)
+    await s.start()
+    const id = threads.create()
+    threads.setSessionId(id, 'old')
+    await s.send(id, 'hello again')
+    await until(() => finals().length === 1)
+    expect(finals()[0]).toEqual({ threadId: id, event: { type: 'done', sessionId: 'new-sess' } })
+    expect(pushes.some((p) => 'event' in p && p.event.type === 'error')).toBe(false)
+    const calls = readFileSync(argsFile, 'utf8').split('CALL ').filter(Boolean)
+    expect(calls).toHaveLength(2)
+    expect(calls[0]).toContain('--resume old')
+    expect(calls[1]).not.toContain('--resume')
+    expect(threads.sessionId(id)).toBe('new-sess')
+    expect(threads.get(id)!.messages).toEqual([{ role: 'user', text: 'hello again' }, { role: 'assistant', text: 'fresh' }])
+  })
+
+  it('surfaces the error when the retry fails too, retrying only once', async () => {
+    const argsFile = join(dir, 'calls.txt')
+    const bin = fake(`echo "CALL $*" >> '${argsFile}'\n${emits([line({ type: 'result', is_error: true, errors: ['No conversation found with session ID: x'] })])}`)
+    const s = make(bin)
+    await s.start()
+    const id = threads.create()
+    threads.setSessionId(id, 'old')
+    await s.send(id, 'x')
+    await until(() => finals().length === 1)
+    expect(finals()[0]).toMatchObject({ event: { type: 'error' } })
+    expect(readFileSync(argsFile, 'utf8').split('CALL ').filter(Boolean)).toHaveLength(2)
+    expect(threads.sessionId(id)).toBeNull()
   })
 
   it('send to an unknown thread returns an error', async () => {

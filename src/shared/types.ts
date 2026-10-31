@@ -72,6 +72,10 @@ export interface Settings {
   includeMidiPacks: boolean
   /** FL projects saved within this many days appear in the Vault as beats (0 = every project) */
   projectBeatDays: number
+  /** YouTube channels to study: a name, @handle, URL or channel ID each */
+  ytSeedChannels: string[]
+  ytImageFolder: string
+  ytClientId: string
 }
 
 // ---- Sound Library ----
@@ -277,7 +281,7 @@ export interface Api {
   getSettings(): Promise<Settings>
   addFolder(kind: 'watchFolders' | 'projectFolders' | 'soundFolders'): Promise<void>
   removeFolder(kind: 'watchFolders' | 'projectFolders' | 'soundFolders', path: string): Promise<void>
-  setSetting(patch: Partial<Pick<Settings, 'includeIdeas' | 'ownHandles' | 'producerName' | 'followupDays' | 'notify' | 'storeUrl' | 'contactEmail' | 'hashtags' | 'goalBeats' | 'goalPitches' | 'goalPosts' | 'autoTrackFL' | 'includeMidiPacks' | 'projectBeatDays'>>): Promise<void>
+  setSetting(patch: Partial<Pick<Settings, 'includeIdeas' | 'ownHandles' | 'producerName' | 'followupDays' | 'notify' | 'storeUrl' | 'contactEmail' | 'hashtags' | 'goalBeats' | 'goalPitches' | 'goalPosts' | 'autoTrackFL' | 'includeMidiPacks' | 'projectBeatDays' | 'ytSeedChannels' | 'ytImageFolder' | 'ytClientId'>>): Promise<void>
   backup(): Promise<string>
   exportCsv(): Promise<string | null>
   dataPath(): Promise<string>

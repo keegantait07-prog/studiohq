@@ -235,6 +235,10 @@ export function openDb(dir: string): Database.Database {
       subject TEXT NOT NULL,
       body TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS yt_cache (key TEXT PRIMARY KEY, json TEXT NOT NULL, fetched_at INTEGER NOT NULL);
+    CREATE TABLE IF NOT EXISTS yt_style (scope TEXT PRIMARY KEY, json TEXT NOT NULL, updated_at INTEGER NOT NULL);
+    CREATE TABLE IF NOT EXISTS yt_images (hash TEXT PRIMARY KEY, path TEXT NOT NULL, beat_id INTEGER, used_at INTEGER);
+    CREATE TABLE IF NOT EXISTS yt_quota (day TEXT NOT NULL, kind TEXT NOT NULL, units INTEGER NOT NULL, PRIMARY KEY(day, kind));
   `)
   const bcols = db.prepare('PRAGMA table_info(beats)').all() as { name: string }[]
   if (!bcols.some((c) => c.name === 'cover_path')) db.exec('ALTER TABLE beats ADD COLUMN cover_path TEXT')

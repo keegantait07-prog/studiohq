@@ -28,7 +28,10 @@ const DEFAULTS: Settings = {
   goalPosts: 3,
   autoTrackFL: false,
   includeMidiPacks: false,
-  projectBeatDays: 30
+  projectBeatDays: 30,
+  ytSeedChannels: ['BuJaa BEATS', 'Soulker', 'CashMoneyAP', 'Fat Cat Beats', 'Profetesa Beats'],
+  ytImageFolder: '',
+  ytClientId: ''
 }
 
 type Row = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any

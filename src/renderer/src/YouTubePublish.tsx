@@ -3,7 +3,7 @@ import type { Beat, Settings } from '@shared/types'
 import { validateBeatstarsUrl } from '@shared/ytPackage'
 import type { PublishDraft, YtPublishResult, YtStatus } from '@shared/ytTypes'
 
-type Step = 'pick' | 'preparing' | 'review' | 'link' | 'done'
+type Step = 'pick' | 'preparing' | 'review' | 'done'
 interface Props { beat: Beat; settings: Settings | null; toast: (m: string) => void; reload: () => void; reloadBeats: () => void }
 
 export function YouTubePublish({ beat, settings, toast, reload, reloadBeats }: Props) {
@@ -55,7 +55,7 @@ export function YouTubePublish({ beat, settings, toast, reload, reloadBeats }: P
         tags: tags.split(',').map((t) => t.trim()).filter(Boolean), hashtags: hashtags.split(/\s+/).filter(Boolean)
       })
       setResult(r); reload(); toast('Uploaded to YouTube as private'); setStep('done')
-    } catch (e) { setErr(String((e as Error).message)); setStep('link') }
+    } catch (e) { setErr(String((e as Error).message)); setStep('review') }
   }
 
   if (step === 'preparing') return (
@@ -71,41 +71,40 @@ export function YouTubePublish({ beat, settings, toast, reload, reloadBeats }: P
     </div>
   )
 
-  if (draft && (step === 'review' || step === 'link')) return (
+  if (draft && step === 'review') return (
     <div className="ytp">
       <img className="yt-img" src={draft.previewData} alt="Video image" />
       <div className="draft-actions" style={{ marginTop: 6 }}><button onClick={() => window.api.revealPath(draft.videoPath)}>Show the video file</button><span className="dim">The video is this image for the whole beat.</span></div>
-      {step === 'review' ? (
-        <>
-          {draft.package.source === 'template' && <p className="help warn">Written from the built-in templates (no Anthropic key, or Claude did not give a usable answer).</p>}
-          <h3>Title</h3>
-          {draft.package.titles.map((t) => <label key={t} className="check"><input type="radio" checked={title === t} onChange={() => setTitle(t)} /> {t}</label>)}
-          <div className="titlerow"><input value={title} onChange={(e) => setTitle(e.target.value)} /><span className={title.length > 100 ? 'warn mono' : 'dim mono'}>{title.length}/100</span></div>
-          <h3>Description</h3>
-          <p className="help">The BeatStars link replaces the marker <code>{'{{BEATSTARS_LINK}}'}</code> in the next step.</p>
-          <textarea rows={10} value={description} onChange={(e) => setDescription(e.target.value)} />
-          <h3>Tags <span className="dim">({tags.length}/480)</span></h3>
-          <textarea rows={3} value={tags} onChange={(e) => setTags(e.target.value)} />
-          <h3>Hashtags</h3>
-          <input value={hashtags} onChange={(e) => setHashtags(e.target.value)} />
-          <h3>What the research found</h3>
-          <ul className="help">{draft.styleFindings.map((f) => <li key={f}>{f}</li>)}</ul>
-          {err && <p className="help warn">{err}</p>}
-          <div className="draft-actions"><button className="primary" disabled={!title.trim() || title.length > 100 || tags.length > 480} onClick={() => setStep('link')}>Continue</button><button onClick={() => { setStep('pick'); setDraft(null) }}>Start over</button></div>
-        </>
-      ) : (
-        <>
-          <h3>BeatStars link</h3>
-          <p className="help">Paste the link to this beat on BeatStars. It goes into the description before anything is uploaded.</p>
-          <input autoFocus value={link} placeholder="https://www.beatstars.com/beat/…" onChange={(e) => setLink(e.target.value)} />
-          {link.trim() && !linkCheck.ok && <p className="help warn">{linkCheck.reason}</p>}
-          <label className="check" style={{ marginTop: 8 }}><input type="checkbox" checked={schedule} onChange={(e) => setSchedule(e.target.checked)} /> Schedule it (stays private until then)</label>
-          {schedule && <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} />}
-          {scheduleBad && <p className="help warn">Pick a time at least 15 minutes from now.</p>}
-          {err && <p className="help warn">{err}</p>}
-          <div className="draft-actions"><button className="primary" disabled={!linkCheck.ok || scheduleBad} onClick={publish}>Upload to YouTube</button><button onClick={() => setStep('review')}>Back</button></div>
-        </>
-      )}
+      {draft.package.source === 'template' && <p className="help warn">Written from the built-in templates (no Anthropic key, or Claude did not give a usable answer).</p>}
+      <h3>Title</h3>
+      {draft.package.titles.map((t) => <label key={t} className="check"><input type="radio" checked={title === t} onChange={() => setTitle(t)} /> {t}</label>)}
+      <div className="titlerow"><input value={title} onChange={(e) => setTitle(e.target.value)} /><span className={title.length > 100 ? 'warn mono' : 'dim mono'}>{title.length}/100</span></div>
+      <h3>Description</h3>
+      <p className="help">The BeatStars link you paste below replaces the marker <code>{'{{BEATSTARS_LINK}}'}</code>.</p>
+      <textarea rows={10} value={description} onChange={(e) => setDescription(e.target.value)} />
+      <h3>Tags <span className="dim">({tags.length}/480)</span></h3>
+      <textarea rows={3} value={tags} onChange={(e) => setTags(e.target.value)} />
+      <h3>Hashtags</h3>
+      <input value={hashtags} onChange={(e) => setHashtags(e.target.value)} />
+      <h3>What the research found</h3>
+      <ul className="help">{draft.styleFindings.map((f) => <li key={f}>{f}</li>)}</ul>
+
+      <div className="yt-sticky">
+        <div className="field" style={{ margin: 0 }}>
+          <label>BeatStars link (required)</label>
+          <input value={link} placeholder="https://www.beatstars.com/beat/…" onChange={(e) => setLink(e.target.value)} />
+          {link.trim() && !linkCheck.ok && <span className="help warn" style={{ margin: 0 }}>{linkCheck.reason}</span>}
+        </div>
+        <label className="check"><input type="checkbox" checked={schedule} onChange={(e) => setSchedule(e.target.checked)} /> Schedule it (stays private until then)</label>
+        {schedule && <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} />}
+        {scheduleBad && <span className="help warn" style={{ margin: 0 }}>Pick a time at least 15 minutes from now.</span>}
+        {err && <span className="help warn" style={{ margin: 0 }}>{err}</span>}
+        <div className="draft-actions" style={{ margin: 0 }}>
+          <button className="primary" disabled={!linkCheck.ok || scheduleBad || !title.trim() || title.length > 100} onClick={publish}>Upload to YouTube</button>
+          <button onClick={() => { setStep('pick'); setDraft(null) }}>Start over</button>
+          {!linkCheck.ok && <span className="dim">Paste the BeatStars link to enable Upload.</span>}
+        </div>
+      </div>
     </div>
   )
 

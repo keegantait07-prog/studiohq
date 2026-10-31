@@ -743,3 +743,4 @@ button.ghost em.nl { gap: 8px; }
 .ytp .titlerow { display: flex; gap: 8px; align-items: center; } .ytp li { margin-left: 18px; }
 .yt-img { width: 100%; max-width: 480px; border-radius: 8px; border: 1px solid var(--line); }
 .yt-bar { height: 6px; background: var(--well); border-radius: 3px; overflow: hidden; max-width: 480px; } .yt-bar i { display: block; height: 100%; background: var(--accent); transition: width .3s; }
+.yt-sticky { position: sticky; bottom: -28px; margin: 12px -28px -28px; padding: 12px 28px 16px; display: flex; flex-direction: column; gap: 8px; background: var(--panel); border-top: 1px solid var(--line); z-index: 2; }

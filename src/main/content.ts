@@ -1,5 +1,8 @@
 import type Database from 'better-sqlite3'
-import type { ContentData, Post, VideoExport } from '../shared/types'
+import { existsSync, readdirSync, statSync } from 'fs'
+import { join } from 'path'
+import { fileSafeTitle, youtubeFileTitle } from '../shared/videoFiles'
+import type { ContentData, Post, VideoExport, VideoFile } from '../shared/types'
 
 type Row = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -25,5 +28,36 @@ export class Content {
   }
   deletePost(id: number): void {
     this.db.prepare('DELETE FROM posts WHERE id=?').run(id)
+  }
+
+  /** YouTube exports made before they were recorded: match "<title> - YouTube.mp4" files in the export folder to their beat. */
+  private adoptYoutubeFiles(dir: string): void {
+    let names: string[]
+    try { names = readdirSync(dir) } catch { return }
+    const known = new Set((this.db.prepare('SELECT path FROM videos').all() as Row[]).map((r) => r.path))
+    const beats = this.db.prepare('SELECT id, title FROM beats WHERE missing=0').all() as Row[]
+    for (const n of names) {
+      const t = youtubeFileTitle(n)
+      const path = join(dir, n)
+      if (!t || known.has(path)) continue
+      const beat = beats.find((b) => fileSafeTitle(b.title) === t)
+      if (beat) this.db.prepare('INSERT INTO videos(beat_id,format,path,created_at) VALUES(?,?,?,?)').run(beat.id, 'youtube', path, statSync(path).mtimeMs)
+    }
+  }
+
+  /** Every recorded video with its size and whether the file is still there, newest first. */
+  videoFiles(exportDir: string): VideoFile[] {
+    this.adoptYoutubeFiles(exportDir)
+    const rows = this.db.prepare('SELECT v.*, b.title AS beat_title FROM videos v LEFT JOIN beats b ON b.id=v.beat_id ORDER BY v.created_at DESC, v.id DESC').all() as Row[]
+    return rows.map((r): VideoFile => {
+      const exists = existsSync(r.path)
+      return { id: r.id, beatId: r.beat_id, beatTitle: r.beat_title ?? 'Unknown beat', format: r.format, path: r.path, createdAt: r.created_at, size: exists ? statSync(r.path).size : 0, exists }
+    })
+  }
+  videoPath(id: number): string | null {
+    return (this.db.prepare('SELECT path FROM videos WHERE id=?').get(id) as Row | undefined)?.path ?? null
+  }
+  forgetVideo(id: number): void {
+    this.db.prepare('DELETE FROM videos WHERE id=?').run(id)
   }
 }

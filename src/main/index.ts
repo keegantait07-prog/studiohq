@@ -265,6 +265,16 @@ function registerIpc(): void {
   h('content:vizFeatures', (_, id: number, start: number, length: number) => vizFeatures(store.db, id, start, length))
   h('content:chooseCover', async (_, id: number) => { const ok = await pickCover(store.db, win!, id); if (ok) store.bumpAll(); return ok })
   h('content:clearCover', (_, id: number) => { store.db.prepare('UPDATE beats SET cover_path=NULL WHERE id=?').run(id); store.bumpAll() })
+  // ---- Finished videos ----
+  h('videos:list', () => content.videoFiles(store.getSettings().exportDir))
+  h('videos:open', async (_, id: number) => { const p = content.videoPath(id); if (p) await shell.openPath(p) })
+  h('videos:reveal', (_, id: number) => { const p = content.videoPath(id); if (p) shell.showItemInFolder(p) })
+  h('videos:trash', async (_, id: number) => {
+    const p = content.videoPath(id)
+    if (p) { try { await shell.trashItem(p) } catch { /* already gone */ } }
+    content.forgetVideo(id)
+  })
+
   // ---- YouTube publisher ----
   h('yt:status', () => yt.status())
   h('yt:suggestArtists', (_, id: number) => yt.suggestArtists(id))

@@ -4,6 +4,7 @@ import { displayKey } from '@shared/key'
 import { VideoBuilder } from './VideoBuilder'
 import { CopyPanel } from './CopyPanel'
 import { YouTubePublish } from './YouTubePublish'
+import { VideosView } from './VideosView'
 import { Calendar } from './Calendar'
 import { PostDialog } from './PostDialog'
 import { fmtBpm } from './format'
@@ -26,7 +27,7 @@ interface Props {
 }
 
 export function ContentView(p: Props) {
-  const [tab, setTab] = useState<'create' | 'calendar'>('create')
+  const [tab, setTab] = useState<'create' | 'calendar' | 'videos'>('create')
   const [sub, setSub] = useState<'video' | 'copy' | 'youtube' | 'posts'>('video')
   const [q, setQ] = useState('')
   const [dlg, setDlg] = useState<{ post?: Post; beatId?: number; date?: number; status?: Post['status']; platform?: Post['platform'] } | null>(null)
@@ -46,12 +47,15 @@ export function ContentView(p: Props) {
         <div className="seg" style={{ width: 'auto' }}>
           <button className={tab === 'create' ? 'on' : ''} onClick={() => setTab('create')}>Create</button>
           <button className={tab === 'calendar' ? 'on' : ''} onClick={() => setTab('calendar')}>Calendar</button>
+          <button className={tab === 'videos' ? 'on' : ''} onClick={() => setTab('videos')}>Videos</button>
         </div>
         <div className="grow" />
         <button className="primary" onClick={() => setDlg({ status: 'planned', beatId: beat?.id })}>+ Plan a post</button>
       </div>
 
-      {tab === 'calendar' ? (
+      {tab === 'videos' ? (
+        <div className="sales-body"><VideosView toast={p.toast} /></div>
+      ) : tab === 'calendar' ? (
         <div className="sales-body">
           <Calendar beats={p.beats} content={p.content} sales={p.sales}
             onEditPost={(post) => setDlg({ post })} onNewPost={(date) => setDlg({ date, status: 'planned' })}

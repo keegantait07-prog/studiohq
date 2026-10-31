@@ -7,6 +7,7 @@ import { beatProfile, suggestArtists, type KnownArtist } from '../shared/beatPro
 import { describeProfile } from '../shared/styleProfile'
 import { buildUploadMetadata } from '../shared/ytUpload'
 import { COST, quotaAllows } from '../shared/ytQuota'
+import { fileSafeTitle } from '../shared/videoFiles'
 import { checkYouTubeMetadata, fillLink, validateBeatstarsUrl } from '../shared/ytPackage'
 import { LINK_PLACEHOLDER, type PublishDraft, type YtPublishEdits, type YtPublishResult, type YtStatus } from '../shared/ytTypes'
 import type { Content } from './content'
@@ -78,8 +79,9 @@ export class YtPublisher {
     onProgress('Preparing the image', 0.3)
     const { framePath, thumbPath } = this.pool.prepare(next.path, this.work)
     mkdirSync(settings.exportDir, { recursive: true })
-    const videoPath = uniquePath(settings.exportDir, `${beat.title.replace(/[\\/:*?"<>|]/g, '').trim() || 'Beat'} - YouTube.mp4`)
+    const videoPath = uniquePath(settings.exportDir, `${fileSafeTitle(beat.title)} - YouTube.mp4`)
     await exportStill({ audioPath: beat.path, framePath, outPath: videoPath, durationSec: beat.duration ?? 0 }, (p) => onProgress('Making the video', 0.3 + p * 0.7))
+    this.db.prepare('INSERT INTO videos(beat_id,format,path,created_at) VALUES(?,?,?,?)').run(beatId, 'youtube', videoPath, Date.now())
     const previewData = nativeImage.createFromPath(thumbPath).resize({ width: 640 }).toDataURL()
     return { previewData, beatId, imageHash: next.hash, imagePath: next.path, videoPath, thumbPath, artists: chosen, package: pkg, styleFindings: describeProfile(style) }
   }

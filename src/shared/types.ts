@@ -172,7 +172,9 @@ export interface VideoOptions {
 }
 /** One export's drawing job, handed to the hidden window that renders the frames. */
 export interface VizJob { id: number; style: VizStyle; accent: string; motion: VideoMotion; titles: VideoTitles; layout: SceneLayout; features: VizFeatures; meta: { title: string; tagline: string; footer: string; cta: string; bpm: number | null; key: string | null; cover: string | null } }
-export interface VideoExport { id: number; beatId: number; format: VideoFormat; path: string; createdAt: number }
+export interface VideoExport { id: number; beatId: number; format: VideoFormat | 'youtube'; path: string; createdAt: number }
+/** A finished video as the Videos tab shows it: the record plus what is on disk now */
+export interface VideoFile { id: number; beatId: number; beatTitle: string; format: VideoExport['format']; path: string; createdAt: number; size: number; exists: boolean }
 export interface ContentData { posts: Post[]; videos: VideoExport[] }
 export interface VideoProgress { label: string; pct: number }
 
@@ -311,6 +313,10 @@ export interface Api {
   startSession(): Promise<void>
   stopSession(): Promise<void>
   contentAll(): Promise<ContentData>
+  videosList(): Promise<VideoFile[]>
+  videoOpen(id: number): Promise<void>
+  videoReveal(id: number): Promise<void>
+  videoTrash(id: number): Promise<void>
   savePost(p: Partial<Post> & Pick<Post, 'beatId' | 'platform' | 'status' | 'date'>): Promise<number>
   deletePost(id: number): Promise<void>
   exportVideo(o: VideoOptions): Promise<string[]>

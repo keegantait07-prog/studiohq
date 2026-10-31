@@ -105,8 +105,92 @@ export function validatePackage(p: PackageDraft, exampleTitles: string[]): strin
   return out
 }
 
-/** The offline template package, with the link placeholder on the first line. */
-export function fallbackPackage(beat: BeatProfile, producer: string, year: number): PackageDraft {
+const cap = (s: string) => s.replace(/\b\w/g, (c) => c.toUpperCase())
+const compact = (s: string) => s.replace(/[^a-z0-9]/gi, '').toLowerCase()
+const uniq = (a: string[]) => [...new Set(a.map((x) => x.trim()).filter(Boolean))]
+
+/** The researched habit when a majority of top videos share it. */
+const common = (rate: number | undefined) => (rate ?? 0) >= 0.5
+
+function styledTitles(beat: BeatProfile, style: StyleProfile, year: number): string[] {
+  const t = style.title
+  const bracket = Object.entries(t.bracketRate).filter(([, r]) => common(r)).sort((a, b) => b[1] - a[1])[0]?.[0]
+  const sepBest = Object.entries(t.separators).sort((a, b) => b[1] - a[1])[0]
+  const sep = sepBest && sepBest[1] >= 0.3 ? ` ${sepBest[0].trim()} ` : ' - '
+  const [a1, a2] = beat.artist.map(cap)
+  const mood = [beat.vibe[0], beat.genre[0]].filter(Boolean).map(cap).join(' ')
+  const who = a1 && a2 && common(t.pairRate) ? `${a1} x ${a2}` : a1 ?? mood
+  const head = `${who ? `${who} ` : ''}Type Beat${common(t.yearRate) ? ` ${year}` : ''}`
+  const name = common(t.quotedNameRate) ? `"${beat.title}"` : beat.title
+  const bpm = beat.bpm ? `${Math.round(beat.bpm)} BPM` : ''
+  const second = a2 && !common(t.pairRate) ? `${a2} Type Beat${common(t.yearRate) ? ` ${year}` : ''}` : ''
+  const variants: string[][] = [
+    [head, name],
+    [head, name, mood || bpm],
+    [name, head],
+    [head, [mood, 'Instrumental'].filter(Boolean).join(' '), bpm],
+    [second || head, name, bpm],
+    [head, bpm]
+  ]
+  const limit = Math.max(t.medianLength + 25, 45)
+  const prefix = bracket ? `${bracket} ` : ''
+  const shape = (x: string) => (t.casing === 'lower' ? x.toLowerCase() : t.casing === 'upper' ? x.toUpperCase() : x)
+  const built = variants.map((segs0) => {
+    const segs = segs0.filter(Boolean)
+    while (segs.length > 1 && (prefix + segs.join(sep)).length > limit) segs.pop()
+    return shape((prefix + segs.join(sep)).slice(0, TITLE_MAX))
+  })
+  return [...new Map(built.map((x) => [x.toLowerCase(), x])).values()]
+}
+
+/** A researched tag is kept only when it is generic or about this beat, never another artist's. */
+function genericTag(tag: string, beat: BeatProfile): boolean {
+  const own = [...beat.artist, ...beat.genre, ...beat.vibe].map((x) => x.toLowerCase())
+  if (own.some((o) => tag.includes(o))) return true
+  return /^(free |new |hard |dark |sad |rap |trap )?(type beat|instrumental|beats?)( \d{4})?$/.test(tag)
+}
+
+function styledPackage(beat: BeatProfile, producer: string, year: number, style: StyleProfile): PackageDraft {
+  const base = generateCopy(
+    { title: beat.title, bpm: beat.bpm, key: beat.key, genre: beat.genre, vibe: beat.vibe, artist: beat.artist },
+    { producer, storeUrl: '', email: '', hashtags: '' },
+    { free: true, year }
+  )
+  const titles = styledTitles(beat, style, year)
+  // top up to three so the producer always has a choice
+  for (const t of base.titles) if (titles.length < 3 && !titles.some((x) => x.toLowerCase() === t.slice(0, TITLE_MAX).toLowerCase())) titles.push(t.slice(0, TITLE_MAX))
+
+  const freeLine = Object.keys(style.title.bracketRate).some((k) => /free/i.test(k) && common(style.title.bracketRate[k])) ? `Free for non-profit use. Credit required: (prod. ${producer || 'me'})` : ''
+  const q = common(style.title.quotedNameRate) ? `"${beat.title}"` : beat.title
+  const who = beat.artist.map(cap).join(' x ')
+  const meta = [[beat.genre[0] && cap(beat.genre[0]), beat.bpm ? `${Math.round(beat.bpm)} BPM` : '', beat.key ?? ''].filter(Boolean).join(' | ')]
+  const body = [
+    freeLine, '',
+    `${q}${who ? ` - ${who} type beat` : ''}`,
+    ...meta,
+    beat.vibe.length ? `Mood: ${beat.vibe.map(cap).join(', ')}` : '',
+    '',
+    producer ? `Produced by ${producer}` : ''
+  ].filter((l, i, a) => !(l === '' && (i === 0 || a[i - 1] === ''))).join('\n').trim().split('\n')
+  const at = Math.min(Math.max(style.description.linkLine - 1, 0), body.length)
+  const lines = [...body.slice(0, at), `Lease / buy this beat: ${LINK_PLACEHOLDER}`, ...body.slice(at)]
+
+  const tags: string[] = []
+  for (const t of uniq([...base.tags, ...style.tags.top.map((x) => x.toLowerCase()).filter((x) => genericTag(x, beat))])) {
+    if (youtubeTagLength([...tags, t]) > TAGS_MAX || (style.tags.medianCount >= 8 && tags.length >= style.tags.medianCount)) break
+    tags.push(t)
+  }
+
+  const wantHashtags = common(style.description.hashtagBlockRate)
+  const own = [...beat.artist, ...beat.genre, ...beat.vibe].map(compact)
+  const generic = style.hashtags.top.filter((h) => /typebeat|instrumental|beat|trap|drill|rap|hiphop|rnb|producer|music/.test(h) || own.some((o) => o && h.includes(o)))
+  const hashtags = wantHashtags ? uniq([...generic, ...base.hashtags]).slice(0, Math.min(15, Math.max(1, style.description.medianHashtags))) : []
+  return { titles, description: lines.join('\n'), tags, hashtags, source: 'template' }
+}
+
+/** The offline template package, with the link placeholder in the description. With research it follows the learned style. */
+export function fallbackPackage(beat: BeatProfile, producer: string, year: number, style?: StyleProfile): PackageDraft {
+  if (style && style.sample > 0) return styledPackage(beat, producer, year, style)
   const c = generateCopy(
     { title: beat.title, bpm: beat.bpm, key: beat.key, genre: beat.genre, vibe: beat.vibe, artist: beat.artist },
     { producer, storeUrl: '', email: '', hashtags: '' },

@@ -8,7 +8,7 @@ export async function packageBeat(
   o: { beat: BeatProfile; style: StyleProfile; producer: string; apiKey: string | null; year: number },
   fetchFn: typeof fetch = fetch
 ): Promise<PackageDraft> {
-  const fallback = () => fallbackPackage(o.beat, o.producer, o.year)
+  const fallback = () => fallbackPackage(o.beat, o.producer, o.year, o.style)
   if (!o.apiKey) return fallback()
   const { system, user } = buildPrompt(o.beat, o.style, o.producer)
   const examples = o.style.examples.map((e) => e.title)

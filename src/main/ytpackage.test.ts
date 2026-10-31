@@ -49,4 +49,11 @@ describe('packageBeat', () => {
     expect(calls).toBe(0)
     expect((await run('k', (async () => new Response('{}', { status: 500 })) as unknown as typeof fetch)).source).toBe('template')
   })
+
+  it('shapes the template fallback with the researched style when there is no key', async () => {
+    const vids = Array.from({ length: 4 }, (_, i) => ({ id: `v${i}`, channelId: 'c', channelTitle: 'C', title: `[FREE] Future Type Beat 2026 - "N${i}" | Dark Trap`, description: 'Buy: https://beatstars.com/x\n#typebeat', tags: ['future type beat'], publishedAt: '2026-10-01T00:00:00Z', views: 1 }))
+    const p = await packageBeat({ beat, style: buildStyleProfile(vids, 'future'), producer: 'Smalls', apiKey: null, year: 2026 }, (async () => reply(okBody)()) as unknown as typeof fetch)
+    expect(p.source).toBe('template')
+    expect(p.titles.every((t) => t.startsWith('[FREE] '))).toBe(true)
+  })
 })

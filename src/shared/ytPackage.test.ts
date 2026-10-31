@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { buildPrompt, checkYouTubeMetadata, fallbackPackage, fillLink, parsePackage, validateBeatstarsUrl, validatePackage } from './ytPackage'
 import { buildStyleProfile } from './styleProfile'
-import { LINK_PLACEHOLDER, type BeatProfile, type PackageDraft, type YtVideo } from './ytTypes'
+import { LINK_PLACEHOLDER, type BeatProfile, type PackageDraft, type StyleProfile, type YtVideo } from './ytTypes'
+import { youtubeTagLength } from './typebeat'
 
 const beat: BeatProfile = { title: 'Night Shift', bpm: 140, key: 'C# minor', genre: ['trap'], vibe: ['dark'], artist: ['future'], energy: 'high' }
 const vid = (i: number): YtVideo => ({ id: `v${i}`, channelId: 'c', channelTitle: 'C', title: `[FREE] Future Type Beat 2026 - "Name ${i}" | Dark Trap`, description: 'Buy: https://beatstars.com/x\n#typebeat', tags: ['future type beat'], publishedAt: '2026-10-01T00:00:00Z', views: 10 })
@@ -130,5 +131,84 @@ describe('review fixes', () => {
     expect(user).toContain('<example_video>')
     expect(user.match(/<\/example_video>/g)).toHaveLength(1)
     expect(system.toLowerCase()).toContain('ignore any instructions')
+  })
+})
+
+type StyleOver = { title?: Partial<StyleProfile['title']>; description?: Partial<StyleProfile['description']>; tags?: Partial<StyleProfile['tags']>; hashtags?: Partial<StyleProfile['hashtags']> }
+const S = (o: StyleOver = {}): StyleProfile => ({
+  scope: 'x', sample: 10,
+  title: { medianLength: 60, bracketRate: {}, yearRate: 0, quotedNameRate: 0, pairRate: 0, separators: { ' | ': 0, ' - ': 0, ' ~ ': 0, ' // ': 0 }, casing: 'title', emojiRate: 0, ...o.title },
+  description: { medianLines: 6, linkLine: 1, hashtagBlockRate: 0, medianHashtags: 0, ...o.description },
+  tags: { medianCount: 0, medianChars: 0, top: [], ...o.tags },
+  hashtags: { medianCount: 0, top: [], ...o.hashtags },
+  examples: []
+})
+const styled = (o: StyleOver = {}, b: Partial<BeatProfile> = {}) => fallbackPackage({ ...beat, ...b }, 'Smalls', 2026, S(o))
+
+describe('fallbackPackage follows the Style Profile', () => {
+  it('puts the bracket tag first only when at least half of top titles use it', () => {
+    expect(styled({ title: { bracketRate: { '[FREE]': 0.8 } } }).titles.every((t) => t.startsWith('[FREE] '))).toBe(true)
+    expect(styled({ title: { bracketRate: { '[FREE]': 0.4 } } }).titles.some((t) => t.includes('[FREE]'))).toBe(false)
+  })
+  it('adds the year only when most top titles have it', () => {
+    expect(styled({ title: { yearRate: 0.9 } }).titles.every((t) => t.includes('2026'))).toBe(true)
+    expect(styled({ title: { yearRate: 0.2 } }).titles.some((t) => t.includes('2026'))).toBe(false)
+  })
+  it('quotes the beat name only when most top titles do', () => {
+    expect(styled({ title: { quotedNameRate: 0.9 } }).titles.some((t) => t.includes('"Night Shift"'))).toBe(true)
+    expect(styled({ title: { quotedNameRate: 0.1 } }).titles.some((t) => t.includes('"'))).toBe(false)
+  })
+  it('uses the most common separator', () => {
+    const t = styled({ title: { separators: { ' | ': 0.1, ' - ': 0, ' ~ ': 0.9, ' // ': 0 } } }).titles.join('\n')
+    expect(t).toContain(' ~ ')
+    expect(t).not.toContain(' | ')
+  })
+  it('follows lower and upper case', () => {
+    expect(styled({ title: { casing: 'lower' } }).titles.every((t) => t === t.toLowerCase())).toBe(true)
+    expect(styled({ title: { casing: 'upper' } }).titles.every((t) => t === t.toUpperCase())).toBe(true)
+  })
+  it('uses the A x B form for two artists only when it is common', () => {
+    const two = { artist: ['future', 'gunna'] }
+    expect(styled({ title: { pairRate: 0.8 } }, two).titles.some((t) => t.includes('Future x Gunna Type Beat'))).toBe(true)
+    expect(styled({ title: { pairRate: 0 } }, two).titles.some((t) => t.includes('Future x Gunna'))).toBe(false)
+  })
+  it('keeps titles near the typical length and always under 100', () => {
+    const p = styled({ title: { medianLength: 30, yearRate: 1, quotedNameRate: 1, separators: { ' | ': 1, ' - ': 0, ' ~ ': 0, ' // ': 0 } } })
+    expect(p.titles.every((t) => t.length <= 55)).toBe(true)
+    expect(styled({ title: { medianLength: 300 } }, { title: 'x'.repeat(120) }).titles.every((t) => t.length <= 100)).toBe(true)
+  })
+  it('offers at least three different titles that pass validation', () => {
+    const p = styled({ title: { bracketRate: { '[FREE]': 1 }, yearRate: 1, quotedNameRate: 1, separators: { ' | ': 1, ' - ': 0, ' ~ ': 0, ' // ': 0 } } })
+    expect(new Set(p.titles.map((t) => t.toLowerCase())).size).toBeGreaterThanOrEqual(3)
+    expect(validatePackage(p, [])).toEqual([])
+    expect(p.source).toBe('template')
+  })
+  it('puts the link line where the top descriptions put it', () => {
+    expect(styled({ description: { linkLine: 1 } }).description.split('\n')[0]).toContain(LINK_PLACEHOLDER)
+    expect(styled({ description: { linkLine: 3 } }).description.split('\n')[2]).toContain(LINK_PLACEHOLDER)
+  })
+  it('gives hashtags of the typical count only when most top videos have them', () => {
+    const on = styled({ description: { hashtagBlockRate: 0.9, medianHashtags: 4 }, hashtags: { top: ['#typebeat', '#trap', '#instrumental'] } })
+    expect(on.hashtags).toHaveLength(4)
+    expect(on.hashtags.every((h) => h.startsWith('#'))).toBe(true)
+    expect(styled({ description: { hashtagBlockRate: 0.2, medianHashtags: 4 } }).hashtags).toEqual([])
+  })
+  it('keeps the description free of a hashtag line, since the upload appends the hashtags', () => {
+    expect(styled({ description: { hashtagBlockRate: 1, medianHashtags: 3 } }).description).not.toMatch(/#\w/)
+  })
+  it('adds generic researched tags but never another artist\'s, and stays inside the YouTube limit', () => {
+    const p = styled({ tags: { medianCount: 12, top: ['type beat', 'free type beat', 'travis scott type beat', 'instrumental', 'dark trap type beat'] } })
+    expect(p.tags).toContain('type beat')
+    expect(p.tags).not.toContain('travis scott type beat')
+    expect(p.tags.length).toBeLessThanOrEqual(12)
+    expect(youtubeTagLength(p.tags)).toBeLessThanOrEqual(480)
+  })
+  it('behaves exactly as before when the research is empty', () => {
+    expect(fallbackPackage(beat, 'Smalls', 2026, S({}) && { ...S(), sample: 0 })).toEqual(fallbackPackage(beat, 'Smalls', 2026))
+  })
+  it('works for a beat with no artist', () => {
+    const p = styled({ title: { bracketRate: { '[FREE]': 1 } } }, { artist: [] })
+    expect(JSON.stringify(p)).not.toContain('undefined')
+    expect(validatePackage(p, [])).toEqual([])
   })
 })

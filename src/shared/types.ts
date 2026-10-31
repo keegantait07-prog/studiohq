@@ -1,3 +1,4 @@
+import type { PublishDraft, YtPublishEdits, YtPublishResult, YtStatus } from './ytTypes'
 import type { VizFeatures } from './vizFeatures'
 import type { SceneLayout } from './vizScene'
 export const STATUSES = ['idea', 'wip', 'finished', 'sent', 'sold'] as const
@@ -321,6 +322,17 @@ export interface Api {
   revealPath(path: string): Promise<void>
   chooseExportDir(): Promise<void>
   onVideoProgress(cb: (p: VideoProgress) => void): () => void
+  // ---- YouTube publisher ----
+  ytStatus(): Promise<YtStatus>
+  ytSuggestArtists(beatId: number): Promise<string[]>
+  ytPrepare(beatId: number, artists: string[]): Promise<PublishDraft>
+  ytPublish(draft: PublishDraft, edits: YtPublishEdits): Promise<YtPublishResult>
+  ytSignIn(): Promise<void>
+  ytSignOut(): Promise<void>
+  ytSetSecret(kind: 'google' | 'anthropic', value: string | null): Promise<void>
+  ytChooseImageFolder(): Promise<void>
+  ytOpenStudio(url: string): Promise<void>
+  onYtProgress(cb: (p: VideoProgress) => void): () => void
   /** The analysed timeline the visualizer scenes draw from, for a clip of a beat. */
   vizFeatures(beatId: number, start: number, length: number): Promise<VizFeatures>
   /** Only used by the hidden export window that draws the frames. */

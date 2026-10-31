@@ -20,6 +20,12 @@ import { startInbox } from './inbox'
 import { writeExports } from './exporter'
 import { cleanupList, trashProjects } from './cleanup'
 import { VideoExporter, coverData, pickCover, vizFeatures } from './video'
+import { YtAuth } from './ytauth'
+import { YtResearch } from './ytresearch'
+import { ImagePool } from './imagepool'
+import { YtPublisher } from './ytpublisher'
+import { setSecret } from './ytkv'
+import type { PublishDraft, YtPublishEdits } from '../shared/ytTypes'
 import type { Post, VideoOptions } from '../shared/types'
 import { splitSheetHtml, writePdf } from './splitsheet'
 import type { LogSaleInput, License, Sale, SplitRow } from '../shared/types'
@@ -47,6 +53,8 @@ let projectsAdded = 0
 let feedback: Feedback
 let sessions: Sessions
 let videos: VideoExporter
+let ytAuth: YtAuth
+let yt: YtPublisher
 
 const MIME: Record<string, string> = { mp3: 'audio/mpeg', wav: 'audio/wav', flac: 'audio/flac', m4a: 'audio/mp4', aif: 'audio/aiff', aiff: 'audio/aiff', ogg: 'audio/ogg' }
 
@@ -257,6 +265,19 @@ function registerIpc(): void {
   h('content:vizFeatures', (_, id: number, start: number, length: number) => vizFeatures(store.db, id, start, length))
   h('content:chooseCover', async (_, id: number) => { const ok = await pickCover(store.db, win!, id); if (ok) store.bumpAll(); return ok })
   h('content:clearCover', (_, id: number) => { store.db.prepare('UPDATE beats SET cover_path=NULL WHERE id=?').run(id); store.bumpAll() })
+  // ---- YouTube publisher ----
+  h('yt:status', () => yt.status())
+  h('yt:suggestArtists', (_, id: number) => yt.suggestArtists(id))
+  h('yt:prepare', (_, id: number, artists: string[]) => yt.prepare(id, artists, (label, pct) => win?.webContents.send('yt:progress', { label, pct })))
+  h('yt:publish', (_, draft: PublishDraft, edits: YtPublishEdits) => yt.publish(draft, edits, (label, pct) => win?.webContents.send('yt:progress', { label, pct })))
+  h('yt:signIn', () => ytAuth.signIn())
+  h('yt:signOut', () => ytAuth.signOut())
+  h('yt:setSecret', (_, kind: 'google' | 'anthropic', value: string | null) => { if (kind === 'google') ytAuth.setClientSecret(value); else setSecret(store.db, 'anthropic_key', value) })
+  h('yt:chooseImageFolder', async () => {
+    const r = await dialog.showOpenDialog(win!, { title: 'Folder of images for YouTube videos', properties: ['openDirectory'] })
+    if (!r.canceled && r.filePaths[0]) store.saveSettings({ ...store.getSettings(), ytImageFolder: r.filePaths[0] })
+  })
+  h('yt:openStudio', (_, url: string) => { if (url.startsWith('https://studio.youtube.com/')) return shell.openExternal(url) })
   h('app:revealPath', (_, p: string) => shell.showItemInFolder(p))
   h('settings:chooseExportDir', async () => {
     const r = await dialog.showOpenDialog(win!, { title: 'Where should videos be saved?', properties: ['openDirectory', 'createDirectory'] })
@@ -362,6 +383,8 @@ app.whenReady().then(async () => {
   sessions = new Sessions(db)
   videos = new VideoExporter(db, () => store.getSettings().exportDir)
   packs = new Packs(db, () => store.getSettings().producerName)
+  ytAuth = new YtAuth(db, () => store.getSettings().ytClientId)
+  yt = new YtPublisher(db, store, content, ytAuth, new YtResearch(db, ytAuth, () => store.getSettings().ytSeedChannels), new ImagePool(db, () => store.getSettings().ytImageFolder))
   catalog = new Catalog(db, () => packs.token_(), () => store.getSettings().storeUrl, () => store.getSettings().ownHandles)
   registerIpc()
   Menu.setApplicationMenu(Menu.buildFromTemplate([

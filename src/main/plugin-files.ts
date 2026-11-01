@@ -17,15 +17,23 @@ const RANK: Record<Confidence, number> = { exact: 3, likely: 2, maybe: 1 }
 const tokens = (s: string) => s.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
+/** A name that continues with a version-like token ("Massive X", "Serum 2", "Ozone 9") is a sibling product, not this one. */
+const SEQUEL = /^(\d+|[a-z]|ii|iii|iv|vi|vii|viii|ix|xi|xii)$/
+
 function hasSeq(hay: string[], needle: string[]): boolean {
   if (!needle.length) return false
-  for (let i = 0; i + needle.length <= hay.length; i++) if (needle.every((t, j) => hay[i + j] === t)) return true
+  for (let i = 0; i + needle.length <= hay.length; i++) {
+    if (needle.every((t, j) => hay[i + j] === t)) {
+      const next = hay[i + needle.length]
+      if (next === undefined || !SEQUEL.test(next)) return true
+    }
+  }
   return false
 }
 
 export function matchConfidence(p: PluginIdent, candidateName: string): Confidence | null {
   for (const id of p.bundleIds) {
-    if (id && new RegExp(`${escapeRe(id)}($|[^A-Za-z0-9])`, 'i').test(candidateName)) return 'likely'
+    if (id && new RegExp(`${escapeRe(id)}($|\\.)`, 'i').test(candidateName)) return 'likely'
   }
   const ct = tokens(candidateName)
   const pt = tokens(p.name)

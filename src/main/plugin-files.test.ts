@@ -21,6 +21,17 @@ describe('matchConfidence', () => {
     expect(matchConfidence(serum, 'Serum2')).toBeNull()
     expect(matchConfidence(serum, 'Serumania')).toBeNull()
   })
+  test('a sequel or sibling product (a trailing number, letter or numeral) is not this plugin', () => {
+    expect(matchConfidence(serum, 'Serum 2')).toBeNull()
+    expect(matchConfidence(serum, 'Serum X')).toBeNull()
+    // The vendor name still matches, which is only "maybe" (and loose files with a maybe are dropped by findPluginFiles).
+    expect(matchConfidence(serum, 'com.xferrecords.Serum 2.plist')).not.toBe('likely')
+    expect(matchConfidence({ name: 'Massive', vendor: 'native-instruments', bundleIds: ['com.native-instruments.Massive'] }, 'com.native-instruments.Massive X.plist')).not.toBe('likely')
+  })
+  test('the same trailing token is fine when it is part of the plugin name', () => {
+    expect(matchConfidence({ name: 'Analog Lab V', vendor: 'arturia', bundleIds: [] }, 'Analog Lab V')).toBe('likely')
+    expect(matchConfidence({ name: 'Massive X', vendor: 'ni', bundleIds: [] }, 'Massive X Presets')).toBe('likely')
+  })
   test('vendor-only match is maybe', () => {
     expect(matchConfidence(serum, 'Xfer')).toBe('maybe')
     expect(matchConfidence(serum, 'xferrecords')).toBe('maybe')

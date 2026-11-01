@@ -140,7 +140,8 @@ export type FixKind = 'disable' | 'unquarantine' | 'resign' | 'remove-bundle' | 
 export interface PluginBundle { path: string; format: PluginFormat; size: number; archs: string[]; bundleId: string; version: string }
 export interface PluginInfo { id: number; name: string; vendor: string; bundles: PluginBundle[]; totalSize: number; health: 'ok' | 'warn' | 'bad' | 'disabled' }
 export interface PluginFile { path: string; size: number; confidence: Confidence; location: string }
-export interface HealthFinding { id: number; pluginId: number; kind: HealthKind; severity: 'warn' | 'bad'; detail: string; certainty: 'confirmed' | 'likely'; fix: FixKind | null }
+/** pluginId is null for problems with no installed plugin behind them (e.g. a stale entry in FL's own plugin list). path is the one file/bundle a fix acts on, when it is not the whole plugin. */
+export interface HealthFinding { id: number; pluginId: number | null; name: string; path: string; kind: HealthKind; severity: 'warn' | 'bad'; detail: string; certainty: 'confirmed' | 'likely'; fix: FixKind | null }
 export interface RemoveResult { removed: number; bytes: number; skipped: string[]; failed: string[] }
 export interface SoundList { dirs: string[]; items: SoundRow[]; projects: ProjectSection[]; roots: string[] }
 export interface SoundStatus { phase: 'scanning' | 'reading' | 'hashing' | 'idle'; done: number; total: number }

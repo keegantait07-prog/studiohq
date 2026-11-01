@@ -395,7 +395,7 @@ export function Plugins({ toast }: { toast: (m: string) => void }) {
           <div className="overlay" onClick={() => !busy && setDialog(null)}>
             <div className="modal pl-modal" onClick={(e) => e.stopPropagation()}>
               <header><h2>{dialog.heading}</h2></header>
-              <p className="help">Here is exactly what will happen. Nothing runs until you press the button.</p>
+              <p className="help">Here is exactly what will happen. Nothing runs until you press the button. If any of it is in /Library, macOS asks for your password once.</p>
               <div className="pl-plans">
                 {dialog.sections.map((s) => (
                   <label key={s.key} className={`pl-plan pl-sec ${s.on ? '' : 'off'}`}>

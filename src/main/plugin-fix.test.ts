@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'vitest'
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { adminExecArgs, applyFix, applyFixes, disablePlugin, listDisabled, localMove, previewFix, removeIniSection, restoreDisabled, type FixDeps } from './plugin-fix'
+import { applyFix, applyFixes, disablePlugin, listDisabled, localMove, previewFix, removeIniSection, restoreDisabled, type FixDeps } from './plugin-fix'
 import { removeWith } from './plugin-remove'
 import { openDb } from './db'
 import type { FixKind, HealthFinding } from '../shared/types'
@@ -10,21 +10,24 @@ import type { FixKind, HealthFinding } from '../shared/types'
 let tmp: string
 let home: string
 let db: ReturnType<typeof openDb>
-let execCalls: { cmd: string; args: string[]; admin: boolean }[]
+let execCalls: { cmd: string; args: string[] }[]
+let adminCalls: { cmd: string; args: string[] }[][]
+let adminFailed: number[] = []
 let flRunning = false
 
 const deps = (): FixDeps => ({
   move: async (src, dest) => localMove(src, dest),
-  exec: async (cmd, args, admin) => { execCalls.push({ cmd, args, admin }) },
+  exec: async (cmd, args) => { execCalls.push({ cmd, args }) },
+  runAdmin: async (cmds) => { adminCalls.push(cmds); return adminFailed },
   needsAdmin: () => false,
   flRunning: () => flRunning,
-  removePaths: (d, plugin, paths, h) => removeWith(d, { toTrash: async () => {}, adminTrash: async () => {}, needsAdmin: () => false }, plugin, paths, h, [])
+  removePaths: (d, plugin, paths, h) => removeWith(d, { toTrash: async () => {}, adminTrashMany: async () => {}, needsAdmin: () => false, gone: () => true }, plugin, paths, h, [])
 })
 const finding = (over: Partial<HealthFinding>): HealthFinding => ({ id: 1, pluginId: 1, name: 'Serum', path: '', kind: 'duplicate', severity: 'warn', certainty: 'confirmed', detail: '', fix: 'disable', ...over })
 
 beforeAll(() => { tmp = realpathSync(mkdtempSync(join(tmpdir(), 'plug-fix-'))); home = join(tmp, 'home'); db = openDb(join(tmp, 'db')) })
 afterAll(() => { db.close(); rmSync(tmp, { recursive: true, force: true }) })
-beforeEach(() => { execCalls = []; flRunning = false })
+beforeEach(() => { execCalls = []; adminCalls = []; adminFailed = []; flRunning = false })
 
 const mkBundle = (rel: string, body = 'binary') => {
   const p = join(home, 'Library/Audio/Plug-Ins/VST3', rel)
@@ -74,12 +77,12 @@ describe('applyFix', () => {
   test('unquarantine runs xattr with the path as its own argument', async () => {
     const p = mkBundle('Quar "x" é.vst3')
     await applyFix(db, deps(), finding({ kind: 'quarantine', fix: 'unquarantine', path: p }), home)
-    expect(execCalls).toEqual([{ cmd: 'xattr', args: ['-dr', 'com.apple.quarantine', p], admin: false }])
+    expect(execCalls).toEqual([{ cmd: 'xattr', args: ['-dr', 'com.apple.quarantine', p] }])
   })
   test('resign ad-hoc signs the bundle', async () => {
     const p = mkBundle('Sign.vst3')
     await applyFix(db, deps(), finding({ kind: 'signature', fix: 'resign', path: p }), home)
-    expect(execCalls[0]).toEqual({ cmd: 'codesign', args: ['--force', '--deep', '--sign', '-', p], admin: false })
+    expect(execCalls[0]).toEqual({ cmd: 'codesign', args: ['--force', '--deep', '--sign', '-', p] })
   })
   test('remove-bundle goes through the safe remover and is refused outside the allowlist', async () => {
     await expect(applyFix(db, deps(), finding({ kind: 'broken-bundle', fix: 'remove-bundle', path: '/System/Library/CoreServices' }), home)).rejects.toThrow(/refus|not allowed|skipped/i)
@@ -157,24 +160,69 @@ describe('applyFixes (many at once)', () => {
     expect(r.failed).toHaveLength(1)
     expect(r.failed[0]).toContain('A')
   })
-  test('cancelling the password prompt stops the batch instead of asking again for every plugin', async () => {
+  test('cancelling the password prompt applies nothing that needs it, and asks only once', async () => {
     const ps = ['C1', 'C2', 'C3'].map((n) => mkBundle(`${n}.vst3`))
-    let calls = 0
-    const d = { ...deps(), exec: async () => { calls++; throw new Error('User canceled. (-128)') } }
+    let asked = 0
+    const d = { ...deps(), needsAdmin: () => true, runAdmin: async () => { asked++; throw new Error('User canceled. (-128)') } }
     const r = await applyFixes(db, d, ps.map((p, i) => finding({ name: `C${i}`, kind: 'signature', fix: 'resign', path: p })), home)
-    expect(calls).toBe(1)
+    expect(asked).toBe(1)
     expect(r.applied).toBe(0)
     expect(r.failed.join(' ')).toMatch(/cancel/i)
   })
+  test('fixes that need administrator rights are all done in one admin call, however many plugins', async () => {
+    const q = ['Q1', 'Q2', 'Q3'].map((n) => mkBundle(`${n}.vst3`))
+    const dis = ['D1', 'D2'].map((n) => mkBundle(`${n}.vst3`))
+    const d = { ...deps(), needsAdmin: () => true }
+    const fs = [...q.map((p, i) => finding({ name: `Q${i}`, kind: 'quarantine', fix: 'unquarantine', path: p })), ...dis.map((p, i) => finding({ name: `D${i}`, kind: 'duplicate', fix: 'disable', path: p }))]
+    const r = await applyFixes(db, d, fs, home)
+    expect(adminCalls).toHaveLength(1)
+    expect(adminCalls[0]).toHaveLength(5)
+    expect(adminCalls[0].filter((c) => c.cmd === '/usr/bin/xattr')).toHaveLength(3)
+    expect(adminCalls[0].filter((c) => c.cmd === '/bin/mv')).toHaveLength(2)
+    expect(r).toEqual({ applied: 5, failed: [] })
+    expect(execCalls).toEqual([]) // nothing ran un-elevated
+  })
+  test('only the operation that failed is reported, and only it is left un-logged', async () => {
+    const ps = ['F1', 'F2', 'F3'].map((n) => mkBundle(`${n}.vst3`))
+    adminFailed = [1]
+    const d = { ...deps(), needsAdmin: () => true }
+    const r = await applyFixes(db, d, ps.map((p, i) => finding({ name: `F${i + 1}`, kind: 'quarantine', fix: 'unquarantine', path: p })), home)
+    expect(r.applied).toBe(2)
+    expect(r.failed).toHaveLength(1)
+    expect(r.failed[0]).toContain('F2')
+    const logged = (p: string) => db.prepare("SELECT 1 FROM plugin_actions WHERE kind = 'unquarantine' AND original_path = ?").get(p)
+    expect(logged(ps[0])).toBeTruthy()
+    expect(logged(ps[1])).toBeFalsy()
+  })
+  test('a broken bundle that needs administrator rights goes to the Trash inside the same admin call, owned by you', async () => {
+    const b = mkBundle('Broken.vst3')
+    const d = { ...deps(), needsAdmin: () => true }
+    const r = await applyFixes(db, d, [finding({ name: 'Broken', kind: 'broken-bundle', fix: 'remove-bundle', path: b })], home)
+    expect(r.applied).toBe(1)
+    const cmds = adminCalls[0]
+    expect(cmds[0].cmd).toBe('/bin/mv')
+    expect(cmds[0].args[0]).toBe(b)
+    expect(cmds[0].args[1].startsWith(join(home, '.Trash'))).toBe(true)
+    expect(cmds.some((c) => c.cmd === '/usr/sbin/chown')).toBe(true)
+  })
 })
 
-describe('previews and admin args', () => {
+describe('restoring several plugins needing administrator rights', () => {
+  test('is one admin call', async () => {
+    const a = mkBundle('RestA.vst3'); const b = mkBundle('RestB.vst3')
+    await disablePlugin(db, deps(), { name: 'RestA', bundles: [{ path: a, format: 'vst3' }] }, home)
+    await disablePlugin(db, deps(), { name: 'RestB', bundles: [{ path: b, format: 'vst3' }] }, home)
+    const ids = listDisabled(db).filter((x) => x.originalPath === a || x.originalPath === b).map((x) => x.actionId)
+    adminCalls = []
+    const r = await restoreDisabled(db, { ...deps(), needsAdmin: () => true }, ids)
+    expect(adminCalls).toHaveLength(1)
+    expect(adminCalls[0]).toHaveLength(2)
+    expect(r.restored).toBe(2)
+  })
+})
+
+describe('previews', () => {
   test.each(['disable', 'unquarantine', 'resign', 'remove-bundle', 'clear-fl-entry'] as FixKind[])('previewFix describes %s', (fix) => {
     expect(previewFix(finding({ fix, path: '/x/Y.vst3' })).length).toBeGreaterThan(10)
-  })
-  test('adminExecArgs passes command and arguments to osascript untouched', () => {
-    const args = adminExecArgs('/bin/mv', ['/a b/"c" é.vst3', '/d'])
-    expect(args.slice(-3)).toEqual(['/bin/mv', '/a b/"c" é.vst3', '/d'])
-    expect(args.slice(0, -3).join('\n')).not.toContain('é')
   })
 })

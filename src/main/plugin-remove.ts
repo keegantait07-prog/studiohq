@@ -1,11 +1,11 @@
 // Removing plugin files. Safety rules: only paths strictly inside known plugin/library locations, never Apple's own files,
 // symlinks that leave those locations are refused, and everything goes to the macOS Trash (recoverable).
 import type Database from 'better-sqlite3'
-import { execFile } from 'child_process'
 import { accessSync, constants, existsSync, lstatSync, realpathSync } from 'fs'
 import { basename, dirname, extname, isAbsolute, join, relative, sep } from 'path'
-import type { RemoveResult } from '../shared/types'
+import type { RemoveManyResult, RemoveResult } from '../shared/types'
 import { dirSize } from './plugins'
+import { runAdmin } from './plugin-admin'
 
 /** Where plugin bundles live (VST2, VST3, AU, AAX), for the user and the whole system. */
 export function pluginRoots(home: string): string[] {
@@ -61,9 +61,14 @@ export function isRemovable(path: string, home: string, extraRoots: string[] = [
 
 export interface RemoveDeps {
   toTrash(path: string): Promise<void>
-  adminTrash(path: string): Promise<void>
+  /** Move every protected path to the Trash behind a single password prompt. Rejects if the prompt is cancelled. */
+  adminTrashMany(paths: string[]): Promise<void>
   needsAdmin(path: string): boolean
+  /** True once the path is no longer where it was. Defaults to checking the disk. */
+  gone?(path: string): boolean
 }
+
+export interface RemoveItem { plugin: { id: number; name: string }; paths: string[] }
 
 /** Moving to the Trash needs write access to the folder the item sits in. */
 export function needsAdmin(path: string): boolean {
@@ -77,53 +82,72 @@ export function trashDest(home: string, src: string, exists: (p: string) => bool
   return exists(first) ? join(home, '.Trash', `${stem} ${stamp}${ext}`) : first
 }
 
-/** Paths go in as separate osascript arguments, so no quoting of names is needed or attempted. */
-export function adminTrashArgs(src: string, dest: string): string[] {
-  return [
-    '-e', 'on run argv',
-    '-e', 'do shell script "/bin/mv " & quoted form of (item 1 of argv) & " " & quoted form of (item 2 of argv) with administrator privileges',
-    '-e', 'end run',
-    src, dest
-  ]
-}
-
-function adminTrash(home: string, path: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    execFile('osascript', adminTrashArgs(path, trashDest(home, path)), { timeout: 120000 }, (err, _o, stderr) => (err ? reject(new Error(stderr.trim() || err.message)) : resolve()))
+/** Trash names for a whole batch, so two items called "Massive.vst" never land on the same name. */
+export function uniqueTrashDests(home: string, srcs: string[], exists: (p: string) => boolean = existsSync): string[] {
+  const taken = new Set<string>()
+  return srcs.map((src, i) => {
+    const dest = trashDest(home, src, (p) => exists(p) || taken.has(p), Date.now() + i)
+    taken.add(dest)
+    return dest
   })
 }
 
-export async function removeWith(
-  db: Database.Database, deps: RemoveDeps, plugin: { id: number; name: string }, paths: string[], home: string, extraRoots: string[]
-): Promise<RemoveResult> {
-  const res: RemoveResult = { removed: 0, bytes: 0, skipped: [], failed: [] }
-  let declined = false
-  for (const path of paths) {
-    if (!isRemovable(path, home, extraRoots)) { res.skipped.push(path); continue }
-    try { lstatSync(path) } catch { continue } // already gone, e.g. it was inside a folder trashed a moment ago
-    const admin = deps.needsAdmin(path)
-    if (admin && declined) { res.skipped.push(path); continue } // said no to the password prompt: do not ask again for each file
-    const size = await dirSize(path)
-    try {
-      await (admin ? deps.adminTrash(path) : deps.toTrash(path))
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
-      if (admin) { res.skipped.push(path); if (/cancel|-128/i.test(msg)) declined = true } // the admin prompt was declined or failed
-      else res.failed.push(`${path}: ${msg}`)
-      continue
+const stillThere = (p: string) => { try { lstatSync(p); return true } catch { return false } }
+
+/** Remove files for any number of plugins. User-owned files are trashed one by one; everything that needs administrator rights is moved in ONE batch, so there is one password prompt. */
+export async function removeBatchWith(db: Database.Database, deps: RemoveDeps, items: RemoveItem[], home: string, extraRoots: string[]): Promise<RemoveManyResult> {
+  const out: RemoveManyResult = { plugins: 0, removed: 0, bytes: 0, skipped: [], failed: [], declined: false }
+  const log = (name: string, path: string, note: string) =>
+    db.prepare('INSERT INTO plugin_actions (at, kind, plugin_name, original_path, new_path, note) VALUES (?, ?, ?, ?, ?, ?)').run(Date.now(), 'remove', name, path, '', note)
+  const queue: { name: string; path: string; size: number }[] = []
+  for (const it of items) {
+    out.plugins++
+    for (const path of it.paths) {
+      if (!isRemovable(path, home, extraRoots)) { out.skipped.push(path); continue }
+      if (!stillThere(path)) continue // already gone, e.g. it was inside a folder trashed a moment ago
+      const size = await dirSize(path)
+      if (deps.needsAdmin(path)) { queue.push({ name: it.plugin.name, path, size }); continue }
+      try { await deps.toTrash(path) } catch (e) { out.failed.push(`${path}: ${e instanceof Error ? e.message : String(e)}`); continue }
+      out.removed++; out.bytes += size
+      log(it.plugin.name, path, 'moved to the Trash')
     }
-    res.removed++
-    res.bytes += size
-    db.prepare('INSERT INTO plugin_actions (at, kind, plugin_name, original_path, new_path, note) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(Date.now(), 'remove', plugin.name, path, '', admin ? 'removed with admin rights' : 'moved to the Trash')
   }
-  if (declined) res.declined = true
-  return res
+  if (!queue.length) return out
+  try {
+    await deps.adminTrashMany(queue.map((q) => q.path))
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    if (/cancel|-128/i.test(msg)) { out.declined = true; out.skipped.push(...queue.map((q) => q.path)) } // said no to the one prompt
+    else out.failed.push(...queue.map((q) => `${q.path}: ${msg}`))
+    return out
+  }
+  const gone = deps.gone ?? ((p: string) => !stillThere(p))
+  for (const q of queue) {
+    if (gone(q.path)) { out.removed++; out.bytes += q.size; log(q.name, q.path, 'removed with admin rights') }
+    else out.failed.push(`${q.path}: still there after the password step`)
+  }
+  return out
 }
 
-export async function removePluginFiles(
-  db: Database.Database, plugin: { id: number; name: string }, paths: string[], home: string, extraRoots: string[]
-): Promise<RemoveResult> {
+const single = (r: RemoveManyResult): RemoveResult => ({ removed: r.removed, bytes: r.bytes, skipped: r.skipped, failed: r.failed, ...(r.declined ? { declined: true } : {}) })
+
+export async function removeWith(db: Database.Database, deps: RemoveDeps, plugin: { id: number; name: string }, paths: string[], home: string, extraRoots: string[]): Promise<RemoveResult> {
+  return single(await removeBatchWith(db, deps, [{ plugin, paths }], home, extraRoots))
+}
+
+export async function removePluginsMany(db: Database.Database, items: RemoveItem[], home: string, extraRoots: string[]): Promise<RemoveManyResult> {
   const { toTrash } = await import('./cleanup') // loaded here because it needs Electron
-  return removeWith(db, { toTrash, adminTrash: (p) => adminTrash(home, p), needsAdmin }, plugin, paths, home, extraRoots)
+  const adminTrashMany = async (paths: string[]) => {
+    const dests = uniqueTrashDests(home, paths)
+    // Move into your Trash, then hand the items back to you so emptying the Trash never asks again.
+    await runAdmin(paths.flatMap((p, i) => [
+      { cmd: '/bin/mv', args: [p, dests[i]] },
+      { cmd: '/usr/sbin/chown', args: ['-R', String(process.getuid?.() ?? 501), dests[i]] }
+    ]))
+  }
+  return removeBatchWith(db, { toTrash, adminTrashMany, needsAdmin }, items, home, extraRoots)
+}
+
+export async function removePluginFiles(db: Database.Database, plugin: { id: number; name: string }, paths: string[], home: string, extraRoots: string[]): Promise<RemoveResult> {
+  return single(await removePluginsMany(db, [{ plugin, paths }], home, extraRoots))
 }

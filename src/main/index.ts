@@ -21,7 +21,7 @@ import { writeExports } from './exporter'
 import { cleanupList, trashProjects } from './cleanup'
 import { listPlugins, scanPlugins } from './plugins'
 import { findPluginFiles } from './plugin-files'
-import { removePluginFiles } from './plugin-remove'
+import { removePluginsMany, type RemoveItem } from './plugin-remove'
 import { getFinding, listFindings, runHealthChecks } from './plugin-health'
 import { applyFix, applyFixes, listDisabled, previewFix, realFixDeps, restoreDisabled } from './plugin-fix'
 import { VideoExporter, coverData, pickCover, vizFeatures } from './video'
@@ -243,27 +243,30 @@ function registerIpc(): void {
     return p ? findPluginFiles(p, pluginHome(), store.getSettings().soundFolders) : []
   })
   // The window is not trusted to name files: only paths the finder itself proposes for that plugin can be removed.
-  const removeOne = async (id: number, paths: string[]): Promise<RemoveResult> => {
-    const p = listPlugins(store.db).find((x) => x.id === id)
-    if (!p || !Array.isArray(paths)) return { removed: 0, bytes: 0, skipped: [], failed: ['Unknown plugin'] }
-    const proposed = new Set((await findPluginFiles(p, pluginHome(), store.getSettings().soundFolders)).map((f) => f.path))
-    const asked = paths.filter((x): x is string => typeof x === 'string')
-    const r = await removePluginFiles(store.db, p, asked.filter((x) => proposed.has(x)), pluginHome(), pluginExtraRoots())
-    r.skipped.push(...asked.filter((x) => !proposed.has(x)))
+  const removeMany = async (items: { id: number; paths: string[] }[]): Promise<RemoveManyResult> => {
+    const plan: RemoveItem[] = []
+    const rejected: string[] = []
+    const unknown: string[] = []
+    for (const it of items) {
+      if (!it || !Number.isInteger(it.id)) continue
+      const p = listPlugins(store.db).find((x) => x.id === it.id)
+      if (!p || !Array.isArray(it.paths)) { unknown.push(`Unknown plugin ${it.id}`); continue }
+      const proposed = new Set((await findPluginFiles(p, pluginHome(), store.getSettings().soundFolders)).map((f) => f.path))
+      const asked = it.paths.filter((x): x is string => typeof x === 'string')
+      plan.push({ plugin: p, paths: asked.filter((x) => proposed.has(x)) })
+      rejected.push(...asked.filter((x) => !proposed.has(x)))
+    }
+    // everything that needs administrator rights is moved in one batch: one password prompt, however many plugins
+    const r = await removePluginsMany(store.db, plan, pluginHome(), pluginExtraRoots())
+    r.skipped.push(...rejected); r.failed.push(...unknown)
+    await scanPlugins(store.db, pluginHome())
     return r
   }
-  h('plugins:remove', (_, id: number, paths: string[]) => removeOne(id, paths))
-  h('plugins:removeMany', async (_, items: { id: number; paths: string[] }[]): Promise<RemoveManyResult> => {
-    const out: RemoveManyResult = { plugins: 0, removed: 0, bytes: 0, skipped: [], failed: [], declined: false }
-    for (const it of Array.isArray(items) ? items : []) {
-      if (!it || !Number.isInteger(it.id)) continue
-      const r = await removeOne(it.id, it.paths)
-      out.plugins++; out.removed += r.removed; out.bytes += r.bytes; out.skipped.push(...r.skipped); out.failed.push(...r.failed)
-      if (r.declined) { out.declined = true; break } // said no to the password prompt: stop, do not ask for every plugin
-    }
-    await scanPlugins(store.db, pluginHome())
-    return out
+  h('plugins:remove', async (_, id: number, paths: string[]): Promise<RemoveResult> => {
+    const r = await removeMany([{ id, paths }])
+    return { removed: r.removed, bytes: r.bytes, skipped: r.skipped, failed: r.failed, ...(r.declined ? { declined: true } : {}) }
   })
+  h('plugins:removeMany', (_, items: { id: number; paths: string[] }[]) => removeMany(Array.isArray(items) ? items : []))
   h('plugins:health', () => runHealthChecks(store.db, pluginHome()))
   h('plugins:findings', () => listFindings(store.db))
   h('plugins:fixPreview', (_, id: number) => { const f = getFinding(store.db, id); return f ? previewFix(f) : 'That finding is gone. Run the health check again.' })

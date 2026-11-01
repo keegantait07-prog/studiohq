@@ -253,6 +253,15 @@ The Content view's video builder now has ten animation styles and four frame mot
 
 Vault, **Clean up projects…** (also in the ⌘K palette). It lists every project in your FL folders with its age, size, sample and MIDI counts, whether a bounce exists, and any autosave backups. Filter by "Never exported", "Exported" or "Older than 90 days", sort oldest, newest or largest, then mark the ones to go (**X**), listen to ones that have audio (**Space**), open one in FL (**O**), and move them to the **macOS Trash** after a confirmation. Safety: only `.flp` files inside your own project folders (never templates), always recoverable from the Trash, samples and exported audio are never touched, finished/sent/sold beats are skipped by "Mark all shown", and a bounce that was linked to a trashed project keeps working. If macOS refuses the direct move, the app asks Finder to do it.
 
+## Plugins (find, uninstall and fix VSTs)
+
+**Plugins** in the sidebar lists every VST2, VST3, AU and AAX plugin on the Mac (formats of the same plugin are merged) with its real disk footprint, and finds everything else a plugin left behind: installer-receipt files, presets and caches in Application Support, preferences, saved state, `/Applications` folders, and matches in your Documents and sound folders.
+
+- **Uninstall:** pick a plugin, review the files, and everything checked goes to the **Trash** (never deleted outright). Each file is labelled *installed by it* (from the installer's receipt), *likely*, or *maybe*; maybes are unchecked, and content shared with a vendor's other products (e.g. Native Instruments' Shared Content) is only ever a maybe. Files in `/Library` ask for your Mac password. The app only removes files it found for that plugin itself, and refuses anything outside the plugin and library folders.
+- **Check for problems** looks for what makes FL crash or say "not found": FL's own plugin list marking a plugin as failed, entries for plugins that no longer exist, plugins missing from FL's list, broken installs, crash reports that name a plugin, duplicate copies, quarantined plugins, and arm64 signature problems. Chip-type and signature checks are skipped for plugins FL already scanned fine, since FL hosts Intel-only plugins.
+- **Fixes** are always previewed first and are undoable: *Disable* moves a plugin to `~/Library/Application Support/Studio HQ/Disabled Plugins` (Restore puts it back), FL's plugin list is backed up to `Studio HQ/FL Backups` before an entry is cleared (close FL first), broken installs go to the Trash.
+- The "FL flagged it as failing" finding is based on a scan flag in FL's `Plugin database/Installed/.Plugins.ini` that matches plugins which fail to load; Image-Line doesn't document it, so it is reported as *likely*.
+
 ## Studio Assistant
 
 Press **⌘J** (or ⌘K, "Open Studio Assistant") for a chat panel that can look things up and make changes in your Vault, CRM, sales and content, for example "how many beats are finished?" or "set Night Drive to finished".

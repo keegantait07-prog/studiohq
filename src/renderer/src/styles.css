@@ -811,3 +811,8 @@ button.ghost em.nl { gap: 8px; }
 .pl-plan-head { display: flex; gap: 10px; align-items: center; cursor: pointer; } .pl-plan-head .dim { margin-left: auto; font-size: 12px; } .pl-caret { width: 12px; color: var(--dim); }
 .pl-sec { display: grid; grid-template-columns: 20px 1fr; gap: 10px; align-items: start; cursor: pointer; padding: 10px 12px; } .pl-sec p { margin: 3px 0 4px; font-size: 12px; color: var(--text-2); } .pl-sec.off { opacity: .5; } .pl-sec input { width: auto; margin-top: 3px; }
 .pl-mfoot { display: flex; gap: 10px; align-items: center; padding-top: 10px; border-top: 1px solid var(--line-soft); } .pl-mfoot .grow { flex: 1; }
+
+/* Loop Vault sections */
+.secrow { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 10px; padding: 7px 14px; background: var(--panel2); border-bottom: 1px solid var(--line-soft); cursor: pointer; font-size: 12px; user-select: none; }
+.secrow:hover { background: var(--raise); } .secrow b { font-weight: 600; letter-spacing: .01em; } .secrow .caret { width: 12px; color: var(--dim); } .secrow .dim { margin-left: auto; }
+select.grp { width: auto; margin-left: 4px; padding: 2px 6px; }

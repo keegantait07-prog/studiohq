@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react'
 import { STATUSES, type Beat, type BeatDetail, type ContentData, type CrmData, type FeedbackData, type SoundList, type SoundStatus, type StudioSession, type SalesData, type Sale, type ScanStatus, type Settings as AppSettings, type Status, type TagKind, type NetlifyStatus, type VaultKind } from '@shared/types'
 import { displayKey } from '@shared/key'
 import { parseQuery } from './query'
@@ -24,6 +24,7 @@ import { errMsg } from './salesUtils'
 import { ContentView } from './Content'
 import { startOfDay } from './suggest'
 import { SoundLibrary } from './SoundLibrary'
+import { groupRows, type GroupBy } from '@shared/loopGroups'
 import { Plugins } from './Plugins'
 import { FeedbackView } from './FeedbackView'
 import { FeedbackDialog } from './FeedbackDialog'
@@ -79,6 +80,11 @@ export function App() {
   const colls = isLoop ? loopCollections : collections
   const setColls = isLoop ? setLoopCollections : setCollections
   const [collapse, setCollapse] = useState(true)
+  // Loop Vault sections: how the list is grouped and which sections are folded shut (both remembered)
+  const [groupBy, setGroupBy] = useState<GroupBy>(() => { try { const v = localStorage.getItem('shq.loopGroupBy'); return v === 'folder' || v === 'bpm' || v === 'key' || v === 'none' ? v : 'folder' } catch { return 'folder' } })
+  const [shut, setShut] = useState<Set<string>>(() => { try { return new Set<string>(JSON.parse(localStorage.getItem('shq.loopShut') ?? '[]')) } catch { return new Set<string>() } })
+  useEffect(() => { try { localStorage.setItem('shq.loopGroupBy', groupBy) } catch { /* private window */ } }, [groupBy])
+  useEffect(() => { try { localStorage.setItem('shq.loopShut', JSON.stringify([...shut])) } catch { /* private window */ } }, [shut])
   const [detail, setDetail] = useState<BeatDetail | null>(null)
   const [playingDetail, setPlayingDetail] = useState<BeatDetail | null>(null)
   const [allTags, setAllTags] = useState<Record<TagKind, string[]>>({ vibe: [], genre: [], artist: [] })
@@ -199,6 +205,15 @@ export function App() {
     return out.sort((a, b) => b.beat.mtime - a.beat.mtime)
   }, [list, parsed, statusTab, collapse])
 
+  const grouped = isLoop && groupBy !== 'none'
+  const sections = useMemo(() => (isLoop ? groupRows(rows, groupBy, appSettings?.loopFolders ?? []) : [{ key: 'all', label: '', rows }]), [isLoop, rows, groupBy, appSettings?.loopFolders])
+  const secId = (k: string) => `${groupBy}|${k}`
+  const isShut = (k: string) => grouped && shut.has(secId(k))
+  // what you can actually see and move through: rows inside a folded section are skipped
+  const navRows = useMemo(() => sections.flatMap((s) => (grouped && shut.has(`${groupBy}|${s.key}`) ? [] : s.rows)), [sections, shut, groupBy, grouped])
+  const toggleSec = (k: string) => setShut((s) => { const n = new Set(s); const id = secId(k); if (n.has(id)) n.delete(id); else n.add(id); return n })
+  const setAllSecs = (fold: boolean) => setShut((s) => { const n = new Set(s); for (const sec of sections) { if (fold) n.add(secId(sec.key)); else n.delete(secId(sec.key)) } return n })
+
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: list.length }
     for (const b of list) c[b.status] = (c[b.status] ?? 0) + 1
@@ -207,11 +222,12 @@ export function App() {
 
   const selectedIdx = rows.findIndex((r) => r.beat.id === selectedId || (collapse && r.beat.groupId === list.find((b) => b.id === selectedId)?.groupId))
   const move = useCallback((d: number) => {
-    if (!rows.length) return
-    const i = Math.max(0, Math.min(rows.length - 1, (selectedIdx < 0 ? (d > 0 ? -1 : rows.length) : selectedIdx) + d))
-    setSelectedId(rows[i].beat.id)
-    document.querySelector(`[data-row="${rows[i].beat.id}"]`)?.scrollIntoView({ block: 'nearest' })
-  }, [rows, selectedIdx])
+    if (!navRows.length) return
+    const at = navRows.findIndex((r) => r.beat.id === selectedId || (collapse && r.beat.groupId === list.find((b) => b.id === selectedId)?.groupId))
+    const i = Math.max(0, Math.min(navRows.length - 1, (at < 0 ? (d > 0 ? -1 : navRows.length) : at) + d))
+    setSelectedId(navRows[i].beat.id)
+    document.querySelector(`[data-row="${navRows[i].beat.id}"]`)?.scrollIntoView({ block: 'nearest' })
+  }, [navRows, selectedId, collapse, list])
 
   const setStatus = async (id: number, s: Status) => { try { await window.api.updateBeat(id, { status: s }) } catch (e) { toast(errMsg(e)) } reload() }
   const hasAudio = useCallback((id: number) => { const b = everything.find((x) => x.id === id); return !!b && (b.ext !== 'flp' || b.hasPreview) }, [everything])
@@ -449,6 +465,12 @@ export function App() {
           {!isLoop && <button className="ghost" onClick={() => setCleanup(true)} title="Sift through FL projects and move the ones you don't want to the Trash">Clean up projects…</button>}
           {!isLoop && <button className="ghost" disabled={reindexing} onClick={() => reindexNow(true)} title="Look for new FL Studio projects now">{reindexing ? 'Scanning…' : 'Rescan FL projects'}</button>}
           <label className="check small"><input type="checkbox" checked={collapse} onChange={(e) => setCollapse(e.target.checked)} /> Group versions</label>
+          {isLoop && (
+            <>
+              <label className="check small">Group by <select className="grp" value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupBy)}><option value="folder">Folder</option><option value="bpm">BPM</option><option value="key">Key</option><option value="none">None</option></select></label>
+              {grouped && <><button className="ghost" onClick={() => setAllSecs(true)}>Collapse all</button><button className="ghost" onClick={() => setAllSecs(false)}>Expand all</button></>}
+            </>
+          )}
         </div>
 
         <div className="table">
@@ -456,7 +478,14 @@ export function App() {
             <span /><span>{isLoop ? 'Loop' : 'Beat'}</span><span>Tags</span><span className="r">BPM</span><span>Key</span><span className="r">Length</span><span>Status</span><span className="r">Added</span>
           </div>
           <div className="tbody">
-            {rows.map(({ beat: b, count }) => {
+            {sections.map((sec) => (
+              <Fragment key={sec.key}>
+                {grouped && (
+                  <div className="secrow" onClick={() => toggleSec(sec.key)} title={isShut(sec.key) ? 'Click to open' : 'Click to fold'}>
+                    <span className="caret">{isShut(sec.key) ? '▸' : '▾'}</span><b>{sec.label}</b><span className="dim">{sec.rows.length} {isLoop ? (sec.rows.length === 1 ? 'loop' : 'loops') : ''}</span>
+                  </div>
+                )}
+                {!isShut(sec.key) && sec.rows.map(({ beat: b, count }) => {
               const sel = b.id === selectedId || (collapse && selectedIdx >= 0 && rows[selectedIdx]?.beat.id === b.id)
               const isPlaying = player.id === b.id && player.playing
               return (
@@ -479,6 +508,8 @@ export function App() {
                 </div>
               )
             })}
+              </Fragment>
+            ))}
             {loaded && !rows.length && (
               <div className="empty">
                 {list.length === 0 ? (scanning ? `Importing your ${isLoop ? 'loops' : 'beats'}…` : <>No {isLoop ? 'loops' : 'beats'} yet. Add a folder in <a onClick={() => setSettings(true)}>Settings</a>.</>) : `No ${isLoop ? 'loops' : 'beats'} match.`}

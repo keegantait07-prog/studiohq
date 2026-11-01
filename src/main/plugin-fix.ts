@@ -180,7 +180,10 @@ async function clearFlEntries(db: Database.Database, deps: FixDeps, fs: HealthFi
   const next = [...sections].reduce((t, s) => removeIniSection(t, s), text)
   const backups = join(supportDir(home), 'FL Backups')
   mkdirSync(backups, { recursive: true })
-  const backup = join(backups, `Plugins.ini ${new Date().toISOString().replace(/[:.]/g, '-')}.bak`)
+  // Never overwrite an earlier backup, even one made in the same millisecond.
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+  let backup = join(backups, `Plugins.ini ${stamp}.bak`)
+  for (let i = 2; existsSync(backup); i++) backup = join(backups, `Plugins.ini ${stamp} (${i}).bak`)
   writeFileSync(backup, text)
   const tmp = `${flDbPath}.studiohq-tmp`
   try { writeFileSync(tmp, next); renameSync(tmp, flDbPath) } catch (e) { rmSync(tmp, { force: true }); throw e }

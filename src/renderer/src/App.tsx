@@ -25,6 +25,7 @@ import { ContentView } from './Content'
 import { startOfDay } from './suggest'
 import { SoundLibrary } from './SoundLibrary'
 import { groupRows, type GroupBy } from '@shared/loopGroups'
+import { KitMaker } from './KitMaker'
 import { Plugins } from './Plugins'
 import { FeedbackView } from './FeedbackView'
 import { FeedbackDialog } from './FeedbackDialog'
@@ -48,7 +49,7 @@ function rank(b: Beat): number {
 export function App() {
   const [beats, setBeats] = useState<Beat[]>([])
   const [loaded, setLoaded] = useState(false)
-  const [view, setView] = useState<'dashboard' | 'vault' | 'loops' | 'map' | 'crm' | 'sales' | 'content' | 'sounds' | 'plugins' | 'feedback' | 'themes'>('dashboard')
+  const [view, setView] = useState<'dashboard' | 'vault' | 'loops' | 'map' | 'crm' | 'sales' | 'content' | 'sounds' | 'kits' | 'plugins' | 'feedback' | 'themes'>('dashboard')
   // the Beat Vault and the Loop Vault each keep their own search, status tab and selection
   const vaultKind: VaultKind = view === 'loops' ? 'loop' : 'beat'
   const isLoop = vaultKind === 'loop'
@@ -395,6 +396,7 @@ export function App() {
         <a className={`nav ${view === 'sales' ? 'on' : ''}`} onClick={() => setView('sales')}><em className="nl"><Icon name="sales" />Sales & Collabs</em> <span>{salesData.sales.length}</span></a>
         <a className={`nav ${view === 'content' ? 'on' : ''}`} onClick={() => setView('content')}><em className="nl"><Icon name="content" />Content</em> {overduePosts > 0 ? <span className="badge">{overduePosts}</span> : <span>{content.posts.filter((p) => p.status === 'posted').length}</span>}</a>
         <a className={`nav ${view === 'sounds' ? 'on' : ''}`} onClick={() => setView('sounds')}><em className="nl"><Icon name="sounds" />Sound Library</em> <span>{sounds ? sounds.items.length.toLocaleString() : ''}</span></a>
+        <a className={`nav ${view === 'kits' ? 'on' : ''}`} onClick={() => setView('kits')}><em className="nl"><Icon name="kits" />Kit Maker</em> <span></span></a>
         <a className={`nav ${view === 'plugins' ? 'on' : ''}`} onClick={() => setView('plugins')}><em className="nl"><Icon name="plugins" />Plugins</em> <span></span></a>
         <a className={`nav ${view === 'feedback' ? 'on' : ''}`} onClick={() => setView('feedback')}><em className="nl"><Icon name="feedback" />Feedback</em> {unseenFeedback > 0 ? <span className="badge">{unseenFeedback}</span> : <span>{feedback.links.length}</span>}</a>
         <a className={`nav ${view === 'themes' ? 'on' : ''}`} onClick={() => setView('themes')}><em className="nl"><Icon name="themes" />Themes</em> <span>{THEMES.find((t) => t.id === theme)?.name}</span></a>
@@ -420,6 +422,8 @@ export function App() {
         <SonicMap beats={beats} onQuery={openCollection} onPlay={(id) => { setSelectedId(id); safePlay(id) }} onOpen={(id) => openItem(id)} />
       ) : view === 'sounds' ? (
         <SoundLibrary data={sounds} roots={appSettings?.soundFolders ?? []} status={soundStatus} query={soundQuery} onQuery={setSoundQuery} projectSel={soundProject} onProjectSel={setSoundProject} onReload={reloadSounds} onPauseMain={() => { if (player.playing) player.toggle() }} toast={toast} />
+      ) : view === 'kits' ? (
+        <KitMaker data={sounds} onPauseMain={() => { if (player.playing) player.toggle() }} toast={toast} />
       ) : view === 'plugins' ? (
         <Plugins toast={toast} />
       ) : view === 'feedback' ? (

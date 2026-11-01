@@ -146,6 +146,8 @@ export interface RemoveManyResult { plugins: number; removed: number; bytes: num
 export interface RemoveResult { removed: number; bytes: number; skipped: string[]; failed: string[]; declined?: boolean }
 export interface SoundList { dirs: string[]; items: SoundRow[]; projects: ProjectSection[]; roots: string[] }
 export interface SoundStatus { phase: 'scanning' | 'reading' | 'hashing' | 'idle'; done: number; total: number }
+export interface KitExportReq { name: string; tag: string; outDir: string; files: { id: number; folder: string; name: string }[] }
+export interface KitExportResult { dir: string; copied: number; failed: string[] }
 export interface DupGroup { hash: string; size: number; files: { id: number; path: string; mtime: number; fav: boolean }[] }
 
 // ---- Feedback links ----
@@ -327,6 +329,9 @@ export interface Api {
   soundsDuplicates(): Promise<DupGroup[]>
   soundsTrash(ids: number[]): Promise<number>
   soundsReveal(id: number): Promise<void>
+  kitDefaults(): Promise<{ outDir: string }>
+  kitPickFolder(): Promise<string | null>
+  kitExport(req: KitExportReq): Promise<KitExportResult>
   projectOpen(id: number): Promise<void>
   cleanupList(): Promise<CleanupItem[]>
   cleanupTrash(ids: number[], withBackups: boolean): Promise<CleanupResult>

@@ -10,6 +10,7 @@ const G: Record<string, ReactNode> = {
   sales: <><circle className="f" cx="12" cy="12" r="8.5" /><path d="M12 7v10M9.5 9.8c0-1.2 1.1-1.8 2.5-1.8s2.5.6 2.5 1.8-1.1 1.5-2.5 1.9-2.5.7-2.5 1.9 1.1 1.8 2.5 1.8 2.5-.6 2.5-1.8" /></>,
   content: <><rect className="f" x="3.5" y="5" width="17" height="14" /><path d="M10 9.2v5.6l4.8-2.8z" /></>,
   sounds: <><circle className="f" cx="12" cy="12" r="8.5" /><path d="M12 12l3.6-3.6M5.5 17.5l1 -1M18.5 17.5l-1-1M12 3.5v1.6" /></>,
+  kits: <><rect className="f" x="3.5" y="3.5" width="7" height="7" rx="1.5" /><rect className="f" x="13.5" y="3.5" width="7" height="7" rx="1.5" /><rect className="f" x="3.5" y="13.5" width="7" height="7" rx="1.5" /><path d="M17 13.5v7M13.5 17h7" /></>,
   feedback: <path className="f" d="M4 5h16v11H10.5L6 20v-4H4z" />,
   plugins: <><path d="M9 3.5v5M15 3.5v5" /><path className="f" d="M5.5 8.5h13v3.5a6.5 6.5 0 0 1-13 0z" /><path d="M12 18.5v2" /></>,
   themes: <><circle cx="12" cy="12" r="8.5" /><path className="f" d="M12 3.5a8.5 8.5 0 0 1 0 17z" style={{ fillOpacity: 1 }} /></>,

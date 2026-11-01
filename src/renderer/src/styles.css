@@ -816,3 +816,18 @@ button.ghost em.nl { gap: 8px; }
 .secrow { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 10px; padding: 7px 14px; background: var(--panel2); border-bottom: 1px solid var(--line-soft); cursor: pointer; font-size: 12px; user-select: none; }
 .secrow:hover { background: var(--raise); } .secrow b { font-weight: 600; letter-spacing: .01em; } .secrow .caret { width: 12px; color: var(--dim); } .secrow .dim { margin-left: auto; }
 select.grp { width: auto; margin-left: 4px; padding: 2px 6px; }
+
+/* Kit Maker */
+.km .pl-wrap { overflow: hidden; }
+.km-meta { display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 12px; } .km-meta label { display: flex; flex-direction: column; gap: 4px; color: var(--dim); font-size: 11px; } .km-meta small { font-size: 11px; }
+.km-dir { display: flex; gap: 6px; } .km-dir input { flex: 1; }
+.km-slots { display: flex; flex-wrap: wrap; gap: 6px; }
+.km-slot { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 7px 12px; min-width: 88px; border-radius: 10px; }
+.km-slot b { font-weight: 600; font-size: 12px; } .km-slot.on { border-color: var(--accent); background: var(--accent-soft, var(--panel2)); color: var(--accent-text); }
+.km-tools { display: flex; align-items: center; gap: 12px; } .km-tools > input { flex: 1; max-width: 420px; }
+.km-target { display: flex; align-items: center; gap: 6px; color: var(--dim); font-size: 11px; white-space: nowrap; } .km-target input { width: 64px; }
+.km-prev { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.km-list { flex: 1; min-height: 0; overflow-y: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-lo); }
+.km-row { display: grid; grid-template-columns: 34px minmax(0, 1.4fr) minmax(0, 1fr) 60px 84px; gap: 10px; align-items: center; padding: 4px 10px; border-bottom: 1px solid var(--rowline); }
+.km-row:hover { background: var(--hov); } .km-row.on { background: rgba(var(--accent-rgb), .07); }
+.km-play { padding: 2px 0; width: 28px; font-size: 10px; }

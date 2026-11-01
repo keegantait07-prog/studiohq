@@ -12,6 +12,7 @@ import { Catalog } from './catalog'
 import { Sales } from './sales'
 import { Content } from './content'
 import { Sounds } from './sounds'
+import { exportKit } from './kitmaker'
 import { ProjectIndex } from './flpindex'
 import { Feedback } from './feedback'
 import { Sessions } from './sessions'
@@ -225,6 +226,18 @@ function registerIpc(): void {
   // ---- Sound Library ----
   h('sounds:list', () => sounds.list(projectIndex.list()))
   h('sounds:scan', () => scanLibrary())
+  h('kits:defaults', () => ({ outDir: join(app.getPath('home'), 'Desktop', '!DRUM KITS', '! MY KITS') }))
+  h('kits:pickFolder', async () => {
+    const r = await dialog.showOpenDialog(win!, { title: 'Where should the kit be saved?', properties: ['openDirectory', 'createDirectory'], buttonLabel: 'Save kits here' })
+    return r.canceled ? null : r.filePaths[0]
+  })
+  h('kits:export', async (_, req: { name: string; tag: string; outDir: string; files: { id: number; folder: string; name: string }[] }) => {
+    const files = req.files.map((f) => ({ from: sounds.pathOf(f.id), folder: f.folder, name: f.name })).filter((f): f is { from: string; folder: string; name: string } => !!f.from)
+    const r = await exportKit(files, req.outDir, req.name, join(app.getPath('userData'), 'kit-map.json'))
+    shell.showItemInFolder(r.dir)
+    scanLibrary().catch((e) => console.error('library scan failed', e))
+    return r
+  })
   h('projects:reindex', () => reindexProjects())
   h('cleanup:list', () => cleanupList(store.db, store.getSettings().projectFolders))
   h('cleanup:trash', async (_, ids: number[], withBackups: boolean) => {

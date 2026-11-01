@@ -248,6 +248,50 @@ export function openDb(dir: string): Database.Database {
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS plugins (
+      id INTEGER PRIMARY KEY,
+      key TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      vendor TEXT NOT NULL DEFAULT '',
+      total_size INTEGER NOT NULL DEFAULT 0,
+      scanned_at INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS plugin_bundles (
+      id INTEGER PRIMARY KEY,
+      plugin_id INTEGER NOT NULL REFERENCES plugins(id) ON DELETE CASCADE,
+      path TEXT NOT NULL UNIQUE,
+      format TEXT NOT NULL,
+      size INTEGER NOT NULL DEFAULT 0,
+      archs TEXT NOT NULL DEFAULT '',
+      bundle_id TEXT NOT NULL DEFAULT '',
+      version TEXT NOT NULL DEFAULT ''
+    );
+    CREATE TABLE IF NOT EXISTS plugin_files (
+      id INTEGER PRIMARY KEY,
+      plugin_id INTEGER NOT NULL REFERENCES plugins(id) ON DELETE CASCADE,
+      path TEXT NOT NULL,
+      size INTEGER NOT NULL DEFAULT 0,
+      confidence TEXT NOT NULL,
+      location TEXT NOT NULL DEFAULT ''
+    );
+    CREATE TABLE IF NOT EXISTS plugin_findings (
+      id INTEGER PRIMARY KEY,
+      plugin_id INTEGER NOT NULL REFERENCES plugins(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL,
+      severity TEXT NOT NULL,
+      detail TEXT NOT NULL DEFAULT '',
+      certainty TEXT NOT NULL DEFAULT 'likely',
+      fix TEXT
+    );
+    CREATE TABLE IF NOT EXISTS plugin_actions (
+      id INTEGER PRIMARY KEY,
+      at INTEGER NOT NULL,
+      kind TEXT NOT NULL,
+      plugin_name TEXT NOT NULL DEFAULT '',
+      original_path TEXT NOT NULL DEFAULT '',
+      new_path TEXT NOT NULL DEFAULT '',
+      note TEXT NOT NULL DEFAULT ''
+    );
   `)
   const bcols = db.prepare('PRAGMA table_info(beats)').all() as { name: string }[]
   if (!bcols.some((c) => c.name === 'cover_path')) db.exec('ALTER TABLE beats ADD COLUMN cover_path TEXT')

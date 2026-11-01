@@ -130,6 +130,17 @@ describe('findPluginFiles', () => {
     expect(files.find((f) => f.path === mine)?.confidence).toBe('exact')
     expect(files.some((f) => f.path === otherBundle)).toBe(false)
   })
+  test('receipt items that do not mention the plugin (shared vendor content) are only maybe', async () => {
+    const shared = join(home, 'Library/Application Support/Xfer/Shared Content')
+    mkdirSync(shared, { recursive: true }); writeFileSync(join(shared, 's.dat'), 'x')
+    const files = await findPluginFiles(plugin(serum, join(home, 'Library/Audio/Plug-Ins/VST3/Serum.vst3')), home, [], { receipts: async () => [shared, join(shared, 's.dat')], systemRoots: [] })
+    expect(files.find((f) => f.path === shared)?.confidence).toBe('maybe')
+  })
+  test('a vendor-only name match on a loose file (a preferences plist) is ignored', async () => {
+    writeFileSync(join(home, 'Library/Preferences/com.xferrecords.Other.plist'), 'x')
+    const files = await findPluginFiles(plugin(serum, join(home, 'Library/Audio/Plug-Ins/VST3/Serum.vst3')), home, [], none)
+    expect(files.some((f) => f.path.endsWith('Other.plist'))).toBe(false)
+  })
   test('nested matches collapse into the outermost folder', async () => {
     const files = await findPluginFiles(plugin(serum, join(home, 'Library/Audio/Plug-Ins/VST3/Serum.vst3')), home, [], none)
     expect(files.some((f) => f.path.endsWith('Xfer/Serum/a.fxp'))).toBe(false)

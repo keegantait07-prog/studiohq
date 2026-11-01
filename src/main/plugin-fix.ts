@@ -7,6 +7,7 @@ import { accessSync, constants, cpSync, existsSync, mkdirSync, readFileSync, ren
 import { basename, dirname, extname, join } from 'path'
 import type { FixKind, HealthFinding, PluginFormat, RemoveResult } from '../shared/types'
 import { listPlugins } from './plugins'
+import { parseFlPluginDb } from './plugin-health'
 import { needsAdmin as parentNeedsAdmin, removePluginFiles } from './plugin-remove'
 
 export interface FixDeps {
@@ -131,7 +132,7 @@ export function previewFix(f: HealthFinding): string {
     case 'unquarantine': return `Remove the macOS quarantine flag from ${at}. This tells macOS you trust the plugin; only do it for plugins you installed yourself.`
     case 'resign': return `Re-sign ${at} on this Mac with an ad-hoc signature so Apple Silicon will load it. This changes the plugin's files; reinstalling the plugin undoes it.`
     case 'remove-bundle': return `Move the broken plugin ${at} to the Trash. It cannot load as it is.`
-    case 'clear-fl-entry': return `Back up FL's plugin list, then remove the entry "${f.path}" from it. Close FL Studio first; FL rebuilds the entry the next time it scans.`
+    case 'clear-fl-entry': return `Back up FL's plugin list, then remove its entries for "${f.name}". Close FL Studio first; FL re-scans the plugin the next time it looks for plugins.`
     default: return 'No automatic fix is available. See the details for what to do.'
   }
 }
@@ -161,14 +162,17 @@ export async function applyFix(db: Database.Database, deps: FixDeps, f: HealthFi
     case 'clear-fl-entry': {
       if (deps.flRunning()) throw new Error('Close FL Studio first: it rewrites its plugin list when it quits and would undo this.')
       const text = readFileSync(flDbPath, 'utf8')
-      const next = removeIniSection(text, f.path)
+      // A finding names either one FL section or a plugin file; a file can be listed in several sections (effects, generators).
+      const sections = f.path.startsWith('/') ? [...new Set(parseFlPluginDb(text).filter((e) => e.path === f.path).map((e) => e.section))] : [f.path]
+      if (!sections.length) throw new Error(`FL's plugin list has no entry for ${f.path}`)
+      const next = sections.reduce((t, s) => removeIniSection(t, s), text)
       const backups = join(supportDir(home), 'FL Backups')
       mkdirSync(backups, { recursive: true })
       const backup = join(backups, `Plugins.ini ${new Date().toISOString().replace(/[:.]/g, '-')}.bak`)
       writeFileSync(backup, text)
       const tmp = `${flDbPath}.studiohq-tmp`
       try { writeFileSync(tmp, next); renameSync(tmp, flDbPath) } catch (e) { rmSync(tmp, { force: true }); throw e }
-      log(db, 'clear-fl-entry', f.name, flDbPath, backup, `removed [${f.path}]`)
+      log(db, 'clear-fl-entry', f.name, flDbPath, backup, `removed ${sections.map((s) => `[${s}]`).join(' ')}`)
       return
     }
     default:

@@ -125,7 +125,12 @@ export async function findPluginFiles(plugin: PluginInfo, home: string, extraRoo
   const mine = (p: string) => own.some((o) => p === o || p.startsWith(o + sep))
   const theirs = (p: string) => !mine(p) && roots.some((r) => p.startsWith(r + sep))
   const receipts = await (deps.receipts ?? realReceipts)(ident)
-  for (const p of collapseCovered(receipts.filter((r) => !theirs(r) && !mine(r)))) add(p, 'exact', 'Installer receipt')
+  // An installer also drops content shared with the vendor's other products (e.g. "Shared Content"). Only items that mention this
+  // plugin count as its own; the rest are listed, unchecked.
+  for (const p of collapseCovered(receipts.filter((r) => !theirs(r) && !mine(r)))) {
+    const own = p.split(sep).some((seg) => matchConfidence(ident, seg) === 'likely')
+    add(p, own ? 'exact' : 'maybe', own ? 'Installer receipt' : 'Installer receipt (may be shared)')
+  }
 
   for (const root of searchRoots(home, extraRoots, systemRoots)) {
     for (const name of list(root.dir)) {
@@ -133,7 +138,7 @@ export async function findPluginFiles(plugin: PluginInfo, home: string, extraRoo
       if (mine(path) || theirs(path)) continue
       const c = matchConfidence(ident, name)
       if (c === 'likely') add(path, 'likely', root.location, root.cap)
-      else if (c === 'maybe') {
+      else if (c === 'maybe' && isDir(path)) {
         // A vendor folder: take the product folder inside it, not the whole vendor folder that also holds other products.
         const inside = isDir(path) ? list(path).filter((n) => matchConfidence(ident, n) === 'likely') : []
         if (inside.length) for (const n of inside) add(join(path, n), 'likely', root.location, root.cap)

@@ -10,7 +10,7 @@ import { listPlugins } from './plugins'
 export type FindingDraft = Omit<HealthFinding, 'id'>
 export type BundleDraft = Omit<FindingDraft, 'pluginId' | 'name'>
 export interface CrashReport { app: string; crashedFrames: string[]; images: string[] }
-export interface FlEntry { section: string; name: string; path: string }
+export interface FlEntry { section: string; name: string; path: string; flag: string }
 export interface HealthDeps { appsDir?: string; diagDirs?: string[]; flDbPath?: string; codesign?: boolean }
 
 const isFl = (app: string) => /^fl[\s_-]?(studio|64)?/i.test(app) || /image-?line/i.test(app)
@@ -50,12 +50,15 @@ export function attributeCrash(report: CrashReport, plugins: PluginInfo[]): { pl
 
 // ---- architecture and duplicates ----
 
-export function checkArch(plugin: PluginInfo, flArchs: string[]): FindingDraft | null {
-  const bad = plugin.bundles.find((b) => b.archs.length > 0 && !b.archs.some((a) => flArchs.includes(a)))
+/** flAccepted: files FL's own plugin list says it scanned fine. FL bridges Intel-only plugins, so those are not a problem. */
+export function checkArch(plugin: PluginInfo, flArchs: string[], flAccepted: Set<string> = new Set()): FindingDraft | null {
+  // Once FL's list is known it only records file paths for VST/VST3, so AU/AAX bundles can't be judged against it.
+  const judgeable = (b: PluginBundle) => flAccepted.size === 0 || b.format === 'vst2' || b.format === 'vst3'
+  const bad = plugin.bundles.find((b) => judgeable(b) && !flAccepted.has(b.path) && b.archs.length > 0 && !b.archs.some((a) => flArchs.includes(a)))
   if (!bad) return null
   return {
-    pluginId: plugin.id, name: plugin.name, path: bad.path, kind: 'arch', severity: 'bad', certainty: 'likely', fix: 'disable',
-    detail: `Built for ${bad.archs.join(' + ')} only, but FL runs as ${flArchs.join(' + ')}. It can't load there unless you open FL with Rosetta.`
+    pluginId: plugin.id, name: plugin.name, path: bad.path, kind: 'arch', severity: 'warn', certainty: 'likely', fix: 'disable',
+    detail: `Built for ${bad.archs.join(' + ')} only, but FL runs as ${flArchs.join(' + ')}, and FL's plugin list doesn't show it as scanned OK. It may not load.`
   }
 }
 
@@ -83,11 +86,12 @@ export function findDuplicates(plugins: PluginInfo[]): FindingDraft[] {
 
 export function classifyCodesign(stderr: string): BundleDraft | null {
   const msg = stderr.trim()
-  if (!msg) return null
+  if (!msg || /detritus/i.test(msg)) return null // stray Finder metadata: not a reason for a plugin to fail loading
   if (/not signed at all/i.test(msg)) return { path: '', kind: 'signature', severity: 'warn', certainty: 'likely', fix: 'resign', detail: 'Not code-signed. Apple Silicon can refuse to load unsigned plugins; re-signing locally usually fixes it.' }
   return { path: '', kind: 'signature', severity: 'bad', certainty: 'likely', fix: 'resign', detail: `Signature is invalid or the plugin was modified after signing (${msg.split('\n')[0].replace(/^.*?: /, '')}). macOS may kill FL when it loads.` }
 }
 
+/** Only arm64 code needs a valid signature to load; Intel code runs under Rosetta without one. */
 export async function checkBundle(b: PluginBundle, opts: { codesign?: boolean } = {}): Promise<BundleDraft[]> {
   const out: BundleDraft[] = []
   const broken = (detail: string) => out.push({ path: b.path, kind: 'broken-bundle', severity: 'bad', certainty: 'confirmed', fix: 'remove-bundle', detail })
@@ -106,7 +110,7 @@ export async function checkBundle(b: PluginBundle, opts: { codesign?: boolean } 
   if ((await run('xattr', ['-p', 'com.apple.quarantine', b.path])).ok) {
     out.push({ path: b.path, kind: 'quarantine', severity: 'warn', certainty: 'likely', fix: 'unquarantine', detail: 'macOS still has this plugin quarantined (downloaded and never approved), which can make hosts fail to load it.' })
   }
-  if (opts.codesign !== false && !out.some((f) => f.kind === 'broken-bundle')) {
+  if (opts.codesign !== false && b.archs.includes('arm64') && !out.some((f) => f.kind === 'broken-bundle')) {
     const v = await run('codesign', ['--verify', '--deep', '--strict', b.path], 60000)
     if (!v.ok) { const c = classifyCodesign(v.err); if (c) out.push({ ...c, path: b.path }) }
   }
@@ -115,34 +119,53 @@ export async function checkBundle(b: PluginBundle, opts: { codesign?: boolean } 
 
 // ---- FL's own plugin list ----
 
-/** FL keeps its plugin list in "Plugin database/Installed/.Plugins.ini": one [section] per plugin, with the file path for VST/VST3. */
+/** FL keeps its plugin list in "Plugin database/Installed/.Plugins.ini": one [section] per plugin, with the file path and a scan flag for VST/VST3.
+ *  Flag 1 = scanned fine. Flag 2 shows up on exactly the plugins that fail to scan (e.g. both bundles that were missing their executable), so it is used as "FL itself says this failed". */
 export function parseFlPluginDb(text: string): FlEntry[] {
   const out: FlEntry[] = []
   let section = ''
   let name = ''
-  const paths: string[] = []
-  const flush = () => { for (const path of paths) out.push({ section, name: name || section.split('/').pop() || section, path }); paths.length = 0 }
-  for (const raw of text.replace(/^﻿/, '').split(/\r?\n/)) {
+  let files: Record<string, string> = {}
+  let flags: Record<string, string> = {}
+  const flush = () => { for (const [i, path] of Object.entries(files)) out.push({ section, name: name || section.split('/').pop() || section, path, flag: flags[i] ?? '' }); files = {}; flags = {} }
+  for (const raw of text.replace(/^\ufeff/, '').split(/\r?\n/)) {
     const line = raw.trim()
     const sec = /^\[(.+)\]$/.exec(line)
     if (sec) { flush(); section = sec[1]; name = ''; continue }
     const kv = /^([^=]+)=(.*)$/.exec(line)
     if (!kv) continue
+    const file = /^ps_file_filename_(\d+)$/.exec(kv[1])
+    const flag = /^ps_file_scanflags_(\d+)$/.exec(kv[1])
     if (kv[1] === 'ps_name') name = kv[2]
-    else if (/^ps_file_filename_\d+$/.test(kv[1]) && kv[2].startsWith('/')) paths.push(kv[2])
+    else if (file && kv[2].startsWith('/')) files[file[1]] = kv[2]
+    else if (flag) flags[flag[1]] = kv[2]
   }
   flush()
   return out
 }
 
+/** Files FL's plugin list says it scanned fine. */
+export const flAcceptedPaths = (entries: FlEntry[]): Set<string> => new Set(entries.filter((e) => e.flag === '1').map((e) => e.path))
+
 export function compareFlDatabase(entries: FlEntry[], plugins: PluginInfo[], exists: (p: string) => boolean = existsSync): FindingDraft[] {
   const out: FindingDraft[] = []
-  for (const e of entries) {
-    if (exists(e.path)) continue
-    out.push({
-      pluginId: null, name: e.name, path: e.section, kind: 'stale-fl-db', severity: 'warn', certainty: 'confirmed', fix: 'clear-fl-entry',
-      detail: `FL's plugin list still has "${e.name}", but ${e.path} no longer exists. That is what produces a "plugin not found" error.`
-    })
+  // FL lists each plugin file once per kind (effect, generator), so report each file once.
+  const byPath = new Map<string, FlEntry[]>()
+  for (const e of entries) byPath.set(e.path, [...(byPath.get(e.path) ?? []), e])
+  for (const [path, list] of byPath) {
+    const owner = plugins.find((p) => p.bundles.some((b) => b.path === path))
+    const name = owner?.name ?? list[0].name
+    if (!exists(path)) {
+      out.push({
+        pluginId: null, name, path, kind: 'stale-fl-db', severity: 'warn', certainty: 'confirmed', fix: 'clear-fl-entry',
+        detail: `FL's plugin list still has "${name}", but ${path} no longer exists. That is what produces a "plugin not found" error.`
+      })
+    } else if (list.some((e) => e.flag === '2')) {
+      out.push({
+        pluginId: owner?.id ?? null, name, path, kind: 'fl-error', severity: 'bad', certainty: 'likely', fix: 'clear-fl-entry',
+        detail: `FL Studio's own plugin list marks "${name}" as failed. That matches plugins that show an error or crash when you open them. Resetting FL's entry makes it re-scan the plugin; if it fails again, disable the plugin.`
+      })
+    }
   }
   const known = new Set(entries.map((e) => e.path))
   for (const p of plugins) {
@@ -184,8 +207,13 @@ export async function runHealthChecks(db: Database.Database, home: string, deps:
   const plugins = listPlugins(db)
   const drafts: FindingDraft[] = []
 
+  const flDb = deps.flDbPath ?? join(home, 'Documents/Image-Line/FL Studio/Presets/Plugin database/Installed/.Plugins.ini')
+  let flEntries: FlEntry[] | null = null
+  if (existsSync(flDb)) { try { flEntries = parseFlPluginDb(readFileSync(flDb, 'utf8')) } catch { /* unreadable: skip */ } }
+  const accepted = flEntries ? flAcceptedPaths(flEntries) : new Set<string>()
+
   const flArchs = await flArchitectures(deps.appsDir ?? '/Applications')
-  if (flArchs) for (const p of plugins) { const f = checkArch(p, flArchs); if (f) drafts.push(f) }
+  if (flArchs) for (const p of plugins) { const f = checkArch(p, flArchs, accepted); if (f) drafts.push(f) }
 
   const diagDirs = deps.diagDirs ?? [join(home, 'Library/Logs/DiagnosticReports'), join(home, 'Library/Logs/DiagnosticReports/Retired')]
   const reports: { file: string; mtime: number }[] = []
@@ -211,11 +239,11 @@ export async function runHealthChecks(db: Database.Database, home: string, deps:
   drafts.push(...findDuplicates(plugins))
 
   const bundles = plugins.flatMap((p) => p.bundles.map((b) => ({ p, b })))
-  const checked = await pool(bundles, 6, ({ b }) => checkBundle(b, { codesign: deps.codesign }))
+  // Signature checks are slow and only matter for plugins FL has not already scanned fine.
+  const checked = await pool(bundles, 6, ({ b }) => checkBundle(b, { codesign: deps.codesign !== false && !accepted.has(b.path) }))
   checked.forEach((list, i) => { for (const d of list) drafts.push({ ...d, pluginId: bundles[i].p.id, name: bundles[i].p.name }) })
 
-  const flDb = deps.flDbPath ?? join(home, 'Documents/Image-Line/FL Studio/Presets/Plugin database/Installed/.Plugins.ini')
-  if (existsSync(flDb)) { try { drafts.push(...compareFlDatabase(parseFlPluginDb(readFileSync(flDb, 'utf8')), plugins)) } catch { /* unreadable: skip */ } }
+  if (flEntries) drafts.push(...compareFlDatabase(flEntries, plugins))
 
   return db.transaction(() => {
     db.prepare('DELETE FROM plugin_findings').run()

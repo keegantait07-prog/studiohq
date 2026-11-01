@@ -45,6 +45,13 @@ describe('checkArch', () => {
     expect(f.fix).toBe('disable')
     expect(f.path).toBe('/a.vst3')
   })
+  test('an Intel-only plugin that FL itself scanned fine is not reported', () => {
+    expect(checkArch(plugin(1, 'Old', [bundle('/a.vst3', { archs: ['x86_64'] })]), ['arm64'], new Set(['/a.vst3']))).toBeNull()
+  })
+  test('AU plugins are not judged against FL’s list, which only records file paths for VST and VST3', () => {
+    const p = plugin(1, 'Old', [bundle('/a.component', { format: 'au', archs: ['x86_64'] })])
+    expect(checkArch(p, ['arm64'], new Set(['/other.vst3']))).toBeNull()
+  })
   test('universal and unknown architectures are fine', () => {
     expect(checkArch(plugin(1, 'U', [bundle('/a.vst3', { archs: ['x86_64', 'arm64'] })]), ['arm64'])).toBeNull()
     expect(checkArch(plugin(1, 'U', [bundle('/a.vst3', { archs: [] })]), ['arm64'])).toBeNull()
@@ -71,8 +78,8 @@ describe('FL plugin database', () => {
     '[Effects/AudioUnit/Au]\nps_name=Au\n'
   test('parses sections that point at real files and ignores FL-internal and AU entries', () => {
     expect(parseFlPluginDb(ini)).toEqual([
-      { section: 'Effects/VST3/Serum', name: 'Serum', path: '/Library/Audio/Plug-Ins/VST3/Serum.vst3' },
-      { section: 'Effects/VST/Gone', name: 'Gone', path: '/Library/Audio/Plug-Ins/VST/Gone.vst' }
+      { section: 'Effects/VST3/Serum', name: 'Serum', path: '/Library/Audio/Plug-Ins/VST3/Serum.vst3', flag: '1' },
+      { section: 'Effects/VST/Gone', name: 'Gone', path: '/Library/Audio/Plug-Ins/VST/Gone.vst', flag: '' }
     ])
   })
   test('an entry whose file is gone is stale, and an installed plugin FL has never scanned is flagged', () => {
@@ -84,9 +91,24 @@ describe('FL plugin database', () => {
     expect(stale.kind).toBe('stale-fl-db')
     expect(stale.fix).toBe('clear-fl-entry')
     expect(stale.pluginId).toBeNull()
+    expect(stale.path).toBe('/Library/Audio/Plug-Ins/VST/Gone.vst')
     const unscanned = f.find((x) => x.pluginId === 2)!
     expect(unscanned.fix).toBeNull()
     expect(f.some((x) => x.pluginId === 1)).toBe(false)
+  })
+})
+
+describe('FL error flag', () => {
+  const ini = ['Effects', 'Generators'].map((k) => `[${k}/VST/Bad]\nps_name=Bad\nps_file_filename_0=/Library/Audio/Plug-Ins/VST/Bad.vst\nps_file_scanflags_0=2\n`).join('\n') +
+    '\n[Effects/VST/Fine]\nps_name=Fine\nps_file_filename_0=/Library/Audio/Plug-Ins/VST/Fine.vst\nps_file_scanflags_0=1\n'
+  test('a plugin FL marked with the error flag is one finding, even though FL lists it twice, and resets its entry', () => {
+    const p = plugin(7, 'Bad', [bundle('/Library/Audio/Plug-Ins/VST/Bad.vst', { format: 'vst2' })])
+    const f = compareFlDatabase(parseFlPluginDb(ini), [p], () => true).filter((x) => x.kind === 'fl-error')
+    expect(f).toHaveLength(1)
+    expect(f[0]).toMatchObject({ pluginId: 7, fix: 'clear-fl-entry', path: '/Library/Audio/Plug-Ins/VST/Bad.vst', severity: 'bad', certainty: 'likely' })
+  })
+  test('plugins FL scanned fine are not flagged', () => {
+    expect(compareFlDatabase(parseFlPluginDb(ini), [plugin(8, 'Fine', [bundle('/Library/Audio/Plug-Ins/VST/Fine.vst', { format: 'vst2' })])], () => true).some((x) => x.pluginId === 8)).toBe(false)
   })
 })
 
@@ -95,6 +117,9 @@ describe('codesign', () => {
     expect(classifyCodesign('/x.vst3: code object is not signed at all')?.severity).toBe('warn')
     expect(classifyCodesign('/x.vst3: a sealed resource is missing or invalid')?.severity).toBe('bad')
     expect(classifyCodesign('')).toBeNull()
+  })
+  test('stray Finder metadata is not a load problem', () => {
+    expect(classifyCodesign('/x.vst3: resource fork, Finder information, or similar detritus not allowed')).toBeNull()
   })
 })
 
@@ -114,6 +139,10 @@ describe('checkBundle', () => {
   test('a bundle whose executable is missing is broken and can be removed', async () => {
     const f = await checkBundle(bundle(join(tmp, 'NoExe.vst3')), { codesign: false })
     expect(f.find((x) => x.kind === 'broken-bundle')?.fix).toBe('remove-bundle')
+  })
+  test('Intel-only bundles are not signature-checked (Rosetta does not need a valid arm64 signature)', async () => {
+    const f = await checkBundle(bundle(join(tmp, 'Quar.vst3'), { archs: ['x86_64'] }))
+    expect(f.some((x) => x.kind === 'signature')).toBe(false)
   })
   test('a quarantined bundle is flagged with the unquarantine fix', async () => {
     const f = await checkBundle(bundle(join(tmp, 'Quar.vst3')), { codesign: false })

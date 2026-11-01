@@ -135,7 +135,7 @@ export interface CleanupResult { trashed: number; bytes: number; backups: number
 // ---- Plugin manager ----
 export type PluginFormat = 'vst2' | 'vst3' | 'au' | 'aax'
 export type Confidence = 'exact' | 'likely' | 'maybe'
-export type HealthKind = 'crash' | 'arch' | 'quarantine' | 'signature' | 'broken-bundle' | 'duplicate' | 'stale-fl-db' | 'missing-content'
+export type HealthKind = 'crash' | 'fl-error' | 'arch' | 'quarantine' | 'signature' | 'broken-bundle' | 'duplicate' | 'stale-fl-db' | 'missing-content'
 export type FixKind = 'disable' | 'unquarantine' | 'resign' | 'remove-bundle' | 'clear-fl-entry'
 export interface PluginBundle { path: string; format: PluginFormat; size: number; archs: string[]; bundleId: string; version: string }
 export interface PluginInfo { id: number; name: string; vendor: string; bundles: PluginBundle[]; totalSize: number; health: 'ok' | 'warn' | 'bad' | 'disabled' }

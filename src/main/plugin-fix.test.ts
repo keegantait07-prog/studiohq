@@ -108,6 +108,13 @@ describe('clear-fl-entry', () => {
     expect(backups).toHaveLength(1)
     expect(readFileSync(join(home, 'Library/Application Support/Studio HQ/FL Backups', backups[0]), 'utf8')).toBe(ini)
   })
+  test('a plugin file path clears every FL entry that points at it', async () => {
+    writeFileSync(file, '[Effects/VST/Bad]\nps_file_filename_0=/p/Bad.vst\n\n[Generators/VST/Bad]\nps_file_filename_0=/p/Bad.vst\n\n[Effects/VST/Keep]\nps_file_filename_0=/p/Keep.vst\n')
+    await applyFix(db, deps(), finding({ pluginId: null, kind: 'fl-error', fix: 'clear-fl-entry', path: '/p/Bad.vst', name: 'Bad' }), home, file)
+    const out = readFileSync(file, 'utf8')
+    expect(out).not.toContain('Bad.vst')
+    expect(out).toContain('[Effects/VST/Keep]')
+  })
   test('refuses while FL Studio is running', async () => {
     flRunning = true
     await expect(applyFix(db, deps(), f(), home, file)).rejects.toThrow(/FL Studio/)

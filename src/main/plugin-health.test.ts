@@ -3,7 +3,7 @@ import { execFileSync } from 'child_process'
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { attributeCrash, checkArch, checkBundle, classifyCodesign, compareFlDatabase, findDuplicates, parseCrashReport, parseFlPluginDb, runHealthChecks } from './plugin-health'
+import { attributeCrash, checkArch, checkBundle, classifyCodesign, compareFlDatabase, findDuplicates, getFinding, listFindings, parseCrashReport, parseFlPluginDb, runHealthChecks } from './plugin-health'
 import { openDb } from './db'
 import type { PluginBundle, PluginInfo } from '../shared/types'
 
@@ -127,6 +127,22 @@ describe('runHealthChecks', () => {
     const db = openDb(join(tmp, 'db'))
     const r = await runHealthChecks(db, join(tmp, 'home'), { appsDir: join(tmp, 'Applications') })
     expect(r).toEqual([])
+    db.close()
+    rmSync(tmp, { recursive: true, force: true })
+  })
+})
+
+describe('stored findings', () => {
+  test('findings written by a run can be listed and fetched by id, including ones with no plugin', async () => {
+    const tmp = realpathSync(mkdtempSync(join(tmpdir(), 'plug-store-')))
+    const db = openDb(join(tmp, 'db'))
+    const flDb = join(tmp, '.Plugins.ini')
+    writeFileSync(flDb, '[Effects/VST/Gone]\nps_name=Gone\nps_file_filename_0=/nowhere/Gone.vst\n')
+    const ran = await runHealthChecks(db, join(tmp, 'home'), { appsDir: join(tmp, 'Applications'), flDbPath: flDb })
+    expect(ran).toHaveLength(1)
+    expect(listFindings(db)).toEqual(ran)
+    expect(getFinding(db, ran[0].id)).toEqual(ran[0])
+    expect(getFinding(db, 9999)).toBeNull()
     db.close()
     rmSync(tmp, { recursive: true, force: true })
   })

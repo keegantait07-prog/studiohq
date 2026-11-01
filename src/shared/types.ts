@@ -329,6 +329,17 @@ export interface Api {
   projectOpen(id: number): Promise<void>
   cleanupList(): Promise<CleanupItem[]>
   cleanupTrash(ids: number[], withBackups: boolean): Promise<CleanupResult>
+  pluginsList(): Promise<PluginInfo[]>
+  pluginsScan(): Promise<PluginInfo[]>
+  pluginFiles(id: number): Promise<PluginFile[]>
+  pluginsRemove(id: number, paths: string[]): Promise<RemoveResult>
+  pluginsHealth(): Promise<HealthFinding[]>
+  pluginsFindings(): Promise<HealthFinding[]>
+  pluginsFixPreview(findingId: number): Promise<string>
+  pluginsFixApply(findingId: number): Promise<{ error?: string }>
+  pluginsDisabled(): Promise<{ actionId: number; name: string; originalPath: string; at: number }[]>
+  pluginsRestore(actionIds: number[]): Promise<{ restored: number; failed: string[] }>
+  pluginReveal(path: string): Promise<void>
   reindexProjects(): Promise<{ added: number; total: number }>
   projectReveal(id: number): Promise<void>
   startDrag(kind: 'sound' | 'beat', ids: number[]): void

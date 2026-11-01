@@ -223,3 +223,16 @@ export async function runHealthChecks(db: Database.Database, home: string, deps:
     return drafts.map((d) => ({ ...d, id: Number(ins.run(d.pluginId, d.name, d.path, d.kind, d.severity, d.detail, d.certainty, d.fix).lastInsertRowid) }))
   })()
 }
+
+const toFinding = (r: Record<string, any>): HealthFinding => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
+  id: r.id, pluginId: r.plugin_id, name: r.name, path: r.path, kind: r.kind, severity: r.severity, detail: r.detail, certainty: r.certainty, fix: r.fix
+})
+
+export function listFindings(db: Database.Database): HealthFinding[] {
+  return (db.prepare('SELECT * FROM plugin_findings ORDER BY id').all() as Record<string, any>[]).map(toFinding) // eslint-disable-line @typescript-eslint/no-explicit-any
+}
+
+export function getFinding(db: Database.Database, id: number): HealthFinding | null {
+  const r = db.prepare('SELECT * FROM plugin_findings WHERE id = ?').get(id) as Record<string, any> | undefined // eslint-disable-line @typescript-eslint/no-explicit-any
+  return r ? toFinding(r) : null
+}

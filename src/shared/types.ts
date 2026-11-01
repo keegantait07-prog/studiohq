@@ -131,6 +131,18 @@ export interface CleanupItem {
   backupBytes: number
 }
 export interface CleanupResult { trashed: number; bytes: number; backups: number; failed: string[] }
+
+// ---- Plugin manager ----
+export type PluginFormat = 'vst2' | 'vst3' | 'au' | 'aax'
+export type Confidence = 'exact' | 'likely' | 'maybe'
+export type HealthKind = 'crash' | 'fl-error' | 'arch' | 'quarantine' | 'signature' | 'broken-bundle' | 'duplicate' | 'stale-fl-db' | 'missing-content'
+export type FixKind = 'disable' | 'unquarantine' | 'resign' | 'remove-bundle' | 'clear-fl-entry'
+export interface PluginBundle { path: string; format: PluginFormat; size: number; archs: string[]; bundleId: string; version: string }
+export interface PluginInfo { id: number; name: string; vendor: string; bundles: PluginBundle[]; totalSize: number; health: 'ok' | 'warn' | 'bad' | 'disabled' }
+export interface PluginFile { path: string; size: number; confidence: Confidence; location: string }
+/** pluginId is null for problems with no installed plugin behind them (e.g. a stale entry in FL's own plugin list). path is the one file/bundle a fix acts on, when it is not the whole plugin. */
+export interface HealthFinding { id: number; pluginId: number | null; name: string; path: string; kind: HealthKind; severity: 'warn' | 'bad'; detail: string; certainty: 'confirmed' | 'likely'; fix: FixKind | null }
+export interface RemoveResult { removed: number; bytes: number; skipped: string[]; failed: string[] }
 export interface SoundList { dirs: string[]; items: SoundRow[]; projects: ProjectSection[]; roots: string[] }
 export interface SoundStatus { phase: 'scanning' | 'reading' | 'hashing' | 'idle'; done: number; total: number }
 export interface DupGroup { hash: string; size: number; files: { id: number; path: string; mtime: number; fav: boolean }[] }
@@ -317,6 +329,17 @@ export interface Api {
   projectOpen(id: number): Promise<void>
   cleanupList(): Promise<CleanupItem[]>
   cleanupTrash(ids: number[], withBackups: boolean): Promise<CleanupResult>
+  pluginsList(): Promise<PluginInfo[]>
+  pluginsScan(): Promise<PluginInfo[]>
+  pluginFiles(id: number): Promise<PluginFile[]>
+  pluginsRemove(id: number, paths: string[]): Promise<RemoveResult>
+  pluginsHealth(): Promise<HealthFinding[]>
+  pluginsFindings(): Promise<HealthFinding[]>
+  pluginsFixPreview(findingId: number): Promise<string>
+  pluginsFixApply(findingId: number): Promise<{ error?: string }>
+  pluginsDisabled(): Promise<{ actionId: number; name: string; originalPath: string; at: number }[]>
+  pluginsRestore(actionIds: number[]): Promise<{ restored: number; failed: string[] }>
+  pluginReveal(path: string): Promise<void>
   reindexProjects(): Promise<{ added: number; total: number }>
   projectReveal(id: number): Promise<void>
   startDrag(kind: 'sound' | 'beat', ids: number[]): void

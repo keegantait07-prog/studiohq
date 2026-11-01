@@ -19,6 +19,11 @@ import { wavToMp3, loopToMp3 } from './bounce'
 import { startInbox } from './inbox'
 import { writeExports } from './exporter'
 import { cleanupList, trashProjects } from './cleanup'
+import { listPlugins, scanPlugins } from './plugins'
+import { findPluginFiles } from './plugin-files'
+import { removePluginFiles } from './plugin-remove'
+import { getFinding, listFindings, runHealthChecks } from './plugin-health'
+import { applyFix, listDisabled, previewFix, realFixDeps, restoreDisabled } from './plugin-fix'
 import { VideoExporter, coverData, pickCover, vizFeatures } from './video'
 import { YtAuth } from './ytauth'
 import { YtResearch } from './ytresearch'
@@ -227,6 +232,45 @@ function registerIpc(): void {
     win?.webContents.send('sounds:changed')
     return r
   })
+  // ---- Plugin manager ----
+  const pluginHome = () => app.getPath('home')
+  const pluginExtraRoots = () => [join(pluginHome(), 'Documents'), ...store.getSettings().soundFolders]
+  h('plugins:list', () => listPlugins(store.db))
+  h('plugins:scan', () => scanPlugins(store.db, pluginHome()))
+  h('plugins:files', (_, id: number) => {
+    const p = listPlugins(store.db).find((x) => x.id === id)
+    return p ? findPluginFiles(p, pluginHome(), store.getSettings().soundFolders) : []
+  })
+  h('plugins:remove', async (_, id: number, paths: string[]) => {
+    const p = listPlugins(store.db).find((x) => x.id === id)
+    if (!p || !Array.isArray(paths)) return { removed: 0, bytes: 0, skipped: [], failed: ['Unknown plugin'] }
+    // The window is not trusted to name files: only paths the finder itself proposes for this plugin can be removed.
+    const proposed = new Set((await findPluginFiles(p, pluginHome(), store.getSettings().soundFolders)).map((f) => f.path))
+    const asked = paths.filter((x): x is string => typeof x === 'string')
+    const r = await removePluginFiles(store.db, p, asked.filter((x) => proposed.has(x)), pluginHome(), pluginExtraRoots())
+    r.skipped.push(...asked.filter((x) => !proposed.has(x)))
+    return r
+  })
+  h('plugins:health', () => runHealthChecks(store.db, pluginHome()))
+  h('plugins:findings', () => listFindings(store.db))
+  h('plugins:fixPreview', (_, id: number) => { const f = getFinding(store.db, id); return f ? previewFix(f) : 'That finding is gone. Run the health check again.' })
+  h('plugins:fixApply', async (_, id: number) => {
+    const f = getFinding(store.db, id)
+    if (!f) return { error: 'That finding is gone. Run the health check again.' }
+    try {
+      await applyFix(store.db, realFixDeps(), f, pluginHome())
+      await scanPlugins(store.db, pluginHome())
+      await runHealthChecks(store.db, pluginHome())
+      return {}
+    } catch (e) { return { error: e instanceof Error ? e.message : String(e) } }
+  })
+  h('plugins:disabled', () => listDisabled(store.db))
+  h('plugins:restore', async (_, ids: number[]) => {
+    const r = await restoreDisabled(store.db, realFixDeps(), (Array.isArray(ids) ? ids : []).filter((n) => Number.isInteger(n)))
+    await scanPlugins(store.db, pluginHome())
+    return r
+  })
+  h('plugins:reveal', (_, path: string) => { if (typeof path === 'string' && path.startsWith('/')) shell.showItemInFolder(path) })
   h('projects:open', (_, id: number) => { const p = (store.db.prepare('SELECT path FROM flp_projects WHERE id=?').get(id) as { path: string } | undefined)?.path; if (p) return shell.openPath(p) })
   h('projects:reveal', (_, id: number) => { const p = (store.db.prepare('SELECT path FROM flp_projects WHERE id=?').get(id) as { path: string } | undefined)?.path; if (p) shell.showItemInFolder(p) })
   h('sounds:tag', (_, ids: number[], add: string[], remove: string[]) => sounds.tag(ids, add, remove))

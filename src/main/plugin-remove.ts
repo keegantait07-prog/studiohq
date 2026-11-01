@@ -117,6 +117,7 @@ export async function removeWith(
     db.prepare('INSERT INTO plugin_actions (at, kind, plugin_name, original_path, new_path, note) VALUES (?, ?, ?, ?, ?, ?)')
       .run(Date.now(), 'remove', plugin.name, path, '', admin ? 'removed with admin rights' : 'moved to the Trash')
   }
+  if (declined) res.declined = true
   return res
 }
 

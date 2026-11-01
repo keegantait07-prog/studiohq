@@ -159,23 +159,47 @@ export async function applyFix(db: Database.Database, deps: FixDeps, f: HealthFi
       if (r.removed === 0) throw new Error(`Refused or failed: ${[...r.skipped, ...r.failed].join('; ') || f.path}`)
       return
     }
-    case 'clear-fl-entry': {
-      if (deps.flRunning()) throw new Error('Close FL Studio first: it rewrites its plugin list when it quits and would undo this.')
-      const text = readFileSync(flDbPath, 'utf8')
-      // A finding names either one FL section or a plugin file; a file can be listed in several sections (effects, generators).
-      const sections = f.path.startsWith('/') ? [...new Set(parseFlPluginDb(text).filter((e) => e.path === f.path).map((e) => e.section))] : [f.path]
-      if (!sections.length) throw new Error(`FL's plugin list has no entry for ${f.path}`)
-      const next = sections.reduce((t, s) => removeIniSection(t, s), text)
-      const backups = join(supportDir(home), 'FL Backups')
-      mkdirSync(backups, { recursive: true })
-      const backup = join(backups, `Plugins.ini ${new Date().toISOString().replace(/[:.]/g, '-')}.bak`)
-      writeFileSync(backup, text)
-      const tmp = `${flDbPath}.studiohq-tmp`
-      try { writeFileSync(tmp, next); renameSync(tmp, flDbPath) } catch (e) { rmSync(tmp, { force: true }); throw e }
-      log(db, 'clear-fl-entry', f.name, flDbPath, backup, `removed ${sections.map((s) => `[${s}]`).join(' ')}`)
-      return
-    }
+    case 'clear-fl-entry':
+      return clearFlEntries(db, deps, [f], home, flDbPath)
     default:
       throw new Error('This finding has no automatic fix.')
   }
+}
+
+/** One backup and one write for any number of FL entries. A finding names either one FL section or a plugin file; a file can be listed in several sections (effects, generators). */
+async function clearFlEntries(db: Database.Database, deps: FixDeps, fs: HealthFinding[], home: string, flDbPath: string): Promise<void> {
+  if (deps.flRunning()) throw new Error('Close FL Studio first: it rewrites its plugin list when it quits and would undo this.')
+  const text = readFileSync(flDbPath, 'utf8')
+  const entries = parseFlPluginDb(text)
+  const sections = new Set<string>()
+  for (const f of fs) {
+    if (f.path.startsWith('/')) entries.filter((e) => e.path === f.path).forEach((e) => sections.add(e.section))
+    else sections.add(f.path)
+  }
+  if (!sections.size) throw new Error(`FL's plugin list has no entry for ${fs.map((f) => f.name).join(', ')}`)
+  const next = [...sections].reduce((t, s) => removeIniSection(t, s), text)
+  const backups = join(supportDir(home), 'FL Backups')
+  mkdirSync(backups, { recursive: true })
+  const backup = join(backups, `Plugins.ini ${new Date().toISOString().replace(/[:.]/g, '-')}.bak`)
+  writeFileSync(backup, text)
+  const tmp = `${flDbPath}.studiohq-tmp`
+  try { writeFileSync(tmp, next); renameSync(tmp, flDbPath) } catch (e) { rmSync(tmp, { force: true }); throw e }
+  log(db, 'clear-fl-entry', fs.length === 1 ? fs[0].name : `${fs.length} plugins`, flDbPath, backup, `removed ${[...sections].map((s) => `[${s}]`).join(' ')}`)
+}
+
+/** Apply many fixes. A failure is reported by name and does not stop the rest, except a cancelled password prompt, which stops the batch. */
+export async function applyFixes(db: Database.Database, deps: FixDeps, fs: HealthFinding[], home: string, flDbPath: string = defaultFlDb(home)): Promise<{ applied: number; failed: string[] }> {
+  const out = { applied: 0, failed: [] as string[] }
+  const fl = fs.filter((f) => f.fix === 'clear-fl-entry')
+  if (fl.length) {
+    try { await clearFlEntries(db, deps, fl, home, flDbPath); out.applied += fl.length } catch (e) { out.failed.push(`FL's plugin list: ${e instanceof Error ? e.message : String(e)}`) }
+  }
+  for (const f of fs.filter((x) => x.fix !== 'clear-fl-entry')) {
+    try { await applyFix(db, deps, f, home, flDbPath); out.applied++ } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      out.failed.push(`${f.name}: ${msg}`)
+      if (/cancel|-128/i.test(msg)) { out.failed.push('Stopped: the password prompt was cancelled.'); break }
+    }
+  }
+  return out
 }

@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'vitest'
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { adminExecArgs, applyFix, disablePlugin, listDisabled, localMove, previewFix, removeIniSection, restoreDisabled, type FixDeps } from './plugin-fix'
+import { adminExecArgs, applyFix, applyFixes, disablePlugin, listDisabled, localMove, previewFix, removeIniSection, restoreDisabled, type FixDeps } from './plugin-fix'
 import { removeWith } from './plugin-remove'
 import { openDb } from './db'
 import type { FixKind, HealthFinding } from '../shared/types'
@@ -132,6 +132,39 @@ describe('clear-fl-entry', () => {
       await expect(applyFix(db, deps(), f(), home, file)).rejects.toThrow()
       expect(readFileSync(file, 'utf8')).toBe(ini)
     } finally { chmodSync(dbDir, 0o755) }
+  })
+})
+
+describe('applyFixes (many at once)', () => {
+  test('clearing many FL entries is one backup and one write', async () => {
+    const dir = join(tmp, 'fl-many'); rmSync(dir, { recursive: true, force: true }); mkdirSync(dir, { recursive: true })
+    const file = join(dir, '.Plugins.ini')
+    writeFileSync(file, ['A', 'B', 'C'].map((n) => `[Effects/VST/${n}]\nps_file_filename_0=/p/${n}.vst\n`).join('\n') + '\n[Effects/VST/Keep]\nps_file_filename_0=/p/Keep.vst\n')
+    const fs = ['A', 'B', 'C'].map((n) => finding({ pluginId: null, kind: 'stale-fl-db', fix: 'clear-fl-entry', path: `/p/${n}.vst`, name: n }))
+    const before = existsSync(join(home, 'Library/Application Support/Studio HQ/FL Backups')) ? readdirSync(join(home, 'Library/Application Support/Studio HQ/FL Backups')).length : 0
+    const r = await applyFixes(db, deps(), fs, home, file)
+    expect(r).toEqual({ applied: 3, failed: [] })
+    const out = readFileSync(file, 'utf8')
+    expect(out).toContain('[Effects/VST/Keep]')
+    for (const n of ['A', 'B', 'C']) expect(out).not.toContain(`/p/${n}.vst`)
+    expect(readdirSync(join(home, 'Library/Application Support/Studio HQ/FL Backups')).length).toBe(before + 1)
+  })
+  test('one failure does not stop the rest and is reported by name', async () => {
+    const a = mkBundle('ManyA.vst3'); const b = mkBundle('ManyB.vst3')
+    const d = { ...deps(), exec: async (_c: string, args: string[]) => { if (args.includes(a)) throw new Error('nope') } }
+    const r = await applyFixes(db, d, [finding({ name: 'A', kind: 'quarantine', fix: 'unquarantine', path: a }), finding({ name: 'B', kind: 'quarantine', fix: 'unquarantine', path: b })], home)
+    expect(r.applied).toBe(1)
+    expect(r.failed).toHaveLength(1)
+    expect(r.failed[0]).toContain('A')
+  })
+  test('cancelling the password prompt stops the batch instead of asking again for every plugin', async () => {
+    const ps = ['C1', 'C2', 'C3'].map((n) => mkBundle(`${n}.vst3`))
+    let calls = 0
+    const d = { ...deps(), exec: async () => { calls++; throw new Error('User canceled. (-128)') } }
+    const r = await applyFixes(db, d, ps.map((p, i) => finding({ name: `C${i}`, kind: 'signature', fix: 'resign', path: p })), home)
+    expect(calls).toBe(1)
+    expect(r.applied).toBe(0)
+    expect(r.failed.join(' ')).toMatch(/cancel/i)
   })
 })
 

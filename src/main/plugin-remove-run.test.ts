@@ -87,6 +87,7 @@ describe('removeWith robustness', () => {
     const r = await removeWith(db, d, plugin, [a, b], home, [])
     expect(calls.admin).toHaveLength(1)
     expect(r.skipped.sort()).toEqual([a, b].sort())
+    expect(r.declined).toBe(true)
   })
   test('a path that is already gone (its folder was trashed earlier in the same batch) is not a failure', async () => {
     const gone = join(home, 'Library/Application Support/Xfer/Serum/never-there.fxp')

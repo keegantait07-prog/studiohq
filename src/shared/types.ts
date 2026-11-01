@@ -142,7 +142,8 @@ export interface PluginInfo { id: number; name: string; vendor: string; bundles:
 export interface PluginFile { path: string; size: number; confidence: Confidence; location: string }
 /** pluginId is null for problems with no installed plugin behind them (e.g. a stale entry in FL's own plugin list). path is the one file/bundle a fix acts on, when it is not the whole plugin. */
 export interface HealthFinding { id: number; pluginId: number | null; name: string; path: string; kind: HealthKind; severity: 'warn' | 'bad'; detail: string; certainty: 'confirmed' | 'likely'; fix: FixKind | null }
-export interface RemoveResult { removed: number; bytes: number; skipped: string[]; failed: string[] }
+export interface RemoveManyResult { plugins: number; removed: number; bytes: number; skipped: string[]; failed: string[]; declined: boolean }
+export interface RemoveResult { removed: number; bytes: number; skipped: string[]; failed: string[]; declined?: boolean }
 export interface SoundList { dirs: string[]; items: SoundRow[]; projects: ProjectSection[]; roots: string[] }
 export interface SoundStatus { phase: 'scanning' | 'reading' | 'hashing' | 'idle'; done: number; total: number }
 export interface DupGroup { hash: string; size: number; files: { id: number; path: string; mtime: number; fav: boolean }[] }
@@ -337,6 +338,8 @@ export interface Api {
   pluginsFindings(): Promise<HealthFinding[]>
   pluginsFixPreview(findingId: number): Promise<string>
   pluginsFixApply(findingId: number): Promise<{ error?: string }>
+  pluginsFixApplyMany(findingIds: number[]): Promise<{ applied: number; failed: string[] }>
+  pluginsRemoveMany(items: { id: number; paths: string[] }[]): Promise<RemoveManyResult>
   pluginsDisabled(): Promise<{ actionId: number; name: string; originalPath: string; at: number }[]>
   pluginsRestore(actionIds: number[]): Promise<{ restored: number; failed: string[] }>
   pluginReveal(path: string): Promise<void>

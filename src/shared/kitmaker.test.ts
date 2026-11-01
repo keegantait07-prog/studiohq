@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { KIT_SLOTS, autoFill, candidates, clearAuto, cleanTag, emptyPicks, planKit, sampleName, slotOf, type Picks, type SlotId } from './kitmaker'
+import { KIT_SLOTS, autoFill, candidates, isEdm, clearAuto, cleanTag, emptyPicks, planKit, sampleName, slotOf, type Picks, type SlotId } from './kitmaker'
 import type { SoundRow } from './types'
 
 const row = (id: number, n: string, k: SoundRow['k'], o: Partial<SoundRow> = {}): SoundRow => ({ id, n, d: 0, e: 'wav', u: 0.5, k, f: false, b: null, y: null, t: [], s: 1000 + id, m: null, ...o })
@@ -71,5 +71,24 @@ describe('planKit', () => {
     const rows = new Map([row(1, 'a', 'kick'), row(2, 'b', 'kick'), row(3, 'c', 'snare')].map((r) => [r.id, r] as const))
     const p: Picks = { ...emptyPicks(), kicks: [{ id: 1, auto: false }, { id: 2, auto: true }], snares: [{ id: 3, auto: false }] }
     expect(planKit(p, rows, 'me').map((f) => `${f.folder}/${f.name}`)).toEqual(['Kicks/Kick 01 @me.wav', 'Kicks/Kick 02 @me.wav', 'Snares/Snare 01 @me.wav'])
+  })
+})
+
+describe('pools', () => {
+  const dirs = ['/k/! KITS/Trap/Kicks', '/k/! EDM/Vengeance EDM Essentials Vol.3/Kicks', '/k/! MY KITS/Kit/Kicks', '/k/! SFX/medium']
+  const items = [row(1, 'Kick A', 'kick', { d: 0 }), row(2, 'Kick B', 'kick', { d: 1 }), row(3, 'Kick 01 @me', 'kick', { d: 2 })]
+  test('isEdm matches folders named for EDM only', () => {
+    expect(isEdm('/x/! EDM/Pack')).toBe(true)
+    expect(isEdm('/x/Vengeance EDM Essentials')).toBe(true)
+    expect(isEdm('/x/Medium/Kicks')).toBe(false)
+    expect(isEdm('/x/Redmond')).toBe(false)
+  })
+  test('the main pool leaves EDM out, the EDM pool is only EDM, both has everything', () => {
+    expect(candidates(items, dirs, 'main').kicks.map((r) => r.id)).toEqual([1, 3])
+    expect(candidates(items, dirs, 'edm').kicks.map((r) => r.id)).toEqual([2])
+    expect(candidates(items, dirs, 'both').kicks.map((r) => r.id)).toEqual([1, 2, 3])
+  })
+  test('excluded folders (your exported kits) are dropped', () => {
+    expect(candidates(items, dirs, 'main', ['/k/! MY KITS']).kicks.map((r) => r.id)).toEqual([1])
   })
 })

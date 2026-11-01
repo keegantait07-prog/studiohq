@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { SoundList, SoundRow } from '@shared/types'
-import { KIT_SLOTS, soundKey, autoFill, candidates, clearAuto, cleanName, emptyPicks, planKit, type Picks, type SlotId } from '@shared/kitmaker'
+import { KIT_SLOTS, soundKey, autoFill, candidates, clearAuto, cleanName, emptyPicks, isEdm, planKit, type Picks, type Pool, type SlotId } from '@shared/kitmaker'
 import { emptyHistory, newKit, record, redo, sanitize, undo, uniqueName, upsert, usageByKey, type History, type SavedKit } from '@shared/kitdrafts'
 
 const STORE_KEY = 'shq.kitmaker.kits'
+const POOL_KEY = 'shq.kitmaker.pool'
 const LEGACY_KEY = 'shq.kitmaker.draft'
 interface Store { kits: SavedKit[]; active: string }
 
@@ -39,6 +40,8 @@ export function KitMaker({ data, onPauseMain, toast }: { data: SoundList | null;
   const [playing, setPlaying] = useState<number | null>(null)
   const [mode, setMode] = useState<'browse' | 'kit'>('browse')
   const [skipUsed, setSkipUsed] = useState(false)
+  const [pool, setPoolState] = useState<Pool>(() => { try { const v = localStorage.getItem(POOL_KEY); return v === 'edm' || v === 'both' ? v : 'main' } catch { return 'main' } })
+  const setPool = (p: Pool) => { setPoolState(p); try { localStorage.setItem(POOL_KEY, p) } catch { /* private mode */ } }
   const [savedAt, setSavedAt] = useState<number | null>(null)
   const audio = useRef<HTMLAudioElement | null>(null)
   const picksRef = useRef(picks)
@@ -99,7 +102,14 @@ export function KitMaker({ data, onPauseMain, toast }: { data: SoundList | null;
     load(next)
   }
 
-  const cands = useMemo(() => candidates(data?.items ?? [], data?.dirs ?? []), [data])
+  // the kits already exported are copies of library sounds: leave them out so they do not show up twice
+  const cands = useMemo(() => candidates(data?.items ?? [], data?.dirs ?? [], pool, outDir ? [outDir] : []), [data, pool, outDir])
+  const poolCounts = useMemo(() => {
+    const n = { main: 0, edm: 0 }
+    const all = candidates(data?.items ?? [], data?.dirs ?? [], 'both', outDir ? [outDir] : [])
+    for (const s of KIT_SLOTS) for (const r of all[s.id]) n[isEdm(data!.dirs[r.d]) ? 'edm' : 'main']++
+    return n
+  }, [data, outDir])
   const byId = useMemo(() => new Map((data?.items ?? []).map((s) => [s.id, s])), [data])
   // picks whose file has since left the library are dropped from the count and the export
   const live = useMemo(() => Object.fromEntries(KIT_SLOTS.map((s) => [s.id, picks[s.id].filter((p) => byId.has(p.id))])) as unknown as Picks, [picks, byId])
@@ -194,7 +204,11 @@ export function KitMaker({ data, onPauseMain, toast }: { data: SoundList | null;
             <button className={mode === 'browse' ? 'on' : ''} onClick={() => setMode('browse')}>Browse library</button>
             <button className={mode === 'kit' ? 'on' : ''} onClick={() => setMode('kit')}>In this kit ({total})</button>
           </div>
-          {mode === 'browse' && <><input placeholder={`Search ${cands[slot].length.toLocaleString()} ${KIT_SLOTS.find((s) => s.id === slot)!.folder.toLowerCase()} in your library…`} value={q} onChange={(e) => setQ(e.target.value)} />
+          {mode === 'browse' && <><div className="seg km-mode" title="EDM sample packs are kept out of the main pool. Switch to EDM to use them.">
+            <button className={pool === 'main' ? 'on' : ''} onClick={() => setPool('main')}>Main {poolCounts.main.toLocaleString()}</button>
+            <button className={pool === 'edm' ? 'on' : ''} onClick={() => setPool('edm')}>EDM {poolCounts.edm.toLocaleString()}</button>
+            <button className={pool === 'both' ? 'on' : ''} onClick={() => setPool('both')}>Both</button>
+          </div><input placeholder={`Search ${cands[slot].length.toLocaleString()} ${KIT_SLOTS.find((s) => s.id === slot)!.folder.toLowerCase()} in your library…`} value={q} onChange={(e) => setQ(e.target.value)} />
           <label className="km-target">Auto-fill target
             <input type="number" min={0} max={200} value={targets[slot]} onChange={(e) => setTargets((t) => ({ ...t, [slot]: Math.max(0, Math.min(200, Number(e.target.value) || 0)) }))} />
           </label>
@@ -215,7 +229,7 @@ export function KitMaker({ data, onPauseMain, toast }: { data: SoundList | null;
                   return (
                     <div key={f.id} className="km-row on">
                       <button className="km-play" onClick={() => play(f.id)} aria-label="Preview">{playing === f.id ? '❚❚' : '▶'}</button>
-                      <span className="sname" title={f.name}>{f.name}{used && <em className="km-used" title={`Also in: ${used.join(', ')}`}>also in {used.length === 1 ? used[0] : `${used.length} kits`}</em>}</span>
+                      <span className="sname" title={f.name}>{f.name}{isEdm(data!.dirs[r.d]) && <em className="km-used km-edm">EDM</em>}{used && <em className="km-used" title={`Also in: ${used.join(', ')}`}>also in {used.length === 1 ? used[0] : `${used.length} kits`}</em>}</span>
                       <span className="dim sfolder" title={r.n}>from “{r.n}”{pk?.auto ? ' · auto' : ''}</span>
                       <span className="mono dim r">{fmtLen(r.u)}</span>
                       <button onClick={() => change((p) => ({ ...p, [s.id]: p[s.id].filter((x) => x.id !== f.id) }))}>Remove</button>

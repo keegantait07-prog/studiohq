@@ -42,13 +42,22 @@ export function slotOf(s: Pick<SoundRow, 'k' | 'n' | 'e'>, dir = ''): SlotId | n
 /** Identity of a sample across kits: the same file reused in several kits has the same name and size. */
 export const soundKey = (s: Pick<SoundRow, 'n' | 's'>): string => `${s.n.toLowerCase()}|${s.s}`
 
-/** Candidate sounds per slot; files with the same name and size (the same sample reused across kits) appear once. */
-export function candidates(items: SoundRow[], dirs: string[] = []): Record<SlotId, SoundRow[]> {
+export type Pool = 'main' | 'edm' | 'both'
+
+/** EDM sample packs live apart from the drum kits: any folder in the path named for EDM. */
+export const isEdm = (dir: string): boolean => /(^|[^a-z])edm([^a-z]|$)/i.test(dir)
+
+/** Candidate sounds per slot; files with the same name and size (the same sample reused across kits) appear once.
+ *  `pool` keeps EDM packs out of the main pool; `exclude` drops folders such as the kits you already exported. */
+export function candidates(items: SoundRow[], dirs: string[] = [], pool: Pool = 'both', exclude: string[] = []): Record<SlotId, SoundRow[]> {
   const out = Object.fromEntries(KIT_SLOTS.map((s) => [s.id, [] as SoundRow[]])) as unknown as Record<SlotId, SoundRow[]>
   const seen = new Set<string>()
   for (const s of items) {
-    const slot = slotOf(s, dirs[s.d])
+    const dir = dirs[s.d] ?? ''
+    const slot = slotOf(s, dir)
     if (!slot) continue
+    if (pool !== 'both' && isEdm(dir) !== (pool === 'edm')) continue
+    if (exclude.some((x) => x && (dir === x || dir.startsWith(x + '/')))) continue
     const key = `${slot}|${soundKey(s)}`
     if (seen.has(key)) continue
     seen.add(key)

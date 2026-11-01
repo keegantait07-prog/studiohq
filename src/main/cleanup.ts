@@ -10,7 +10,7 @@ import type { CleanupItem, CleanupResult } from '../shared/types'
 type Row = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
 /** The system Trash. If macOS refuses the app directly, ask Finder to do it (it prompts once for permission to control Finder). */
-async function toTrash(path: string): Promise<void> {
+export async function toTrash(path: string): Promise<void> {
   try { await shell.trashItem(path); return } catch (first) {
     await new Promise<void>((resolve, reject) => {
       execFile('osascript', ['-e', `tell application "Finder" to delete (POSIX file ${JSON.stringify(path)} as alias)`], { timeout: 60000 }, (err, _out, stderr) => {

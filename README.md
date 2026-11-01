@@ -46,6 +46,15 @@ Every FL Studio project in your project folders appears in the **Vault** as a be
 - A project with no audio can't be played, pitched, sold, posted or sent for feedback yet. Everything else (status, tags, notes, *Open in FL*) works.
 - FL 26.1 changed how projects are stored: Studio HQ still finds those projects' samples, but can't read their MIDI yet.
 
+## Loop Vault
+
+Open it from the sidebar (under Beat Vault) or with **⌘8**. It is for the loops you make and send to other producers, and it works the same way as the Beat Vault:
+
+- **Own folders.** Loops come from **Settings → Loop folders** (default `~/Desktop/! LOOPS`), kept apart from your beats. Subfolders become genre tags (`! RAGE` → rage), the same as beat folders, and ideas/scraps folders follow the same setting.
+- **Same table, same tools.** BPM and key from the filename or the audio, waveform, tags, versions grouped by name, status (idea → wip → finished → sent → sold), notes, FL project link, audition mode, A/B, saved searches in the sidebar and the same search syntax (`dark, 140+ bpm, unsent`). Search and status filters, saved searches and the selection are kept separately for beats and loops.
+- **Sending.** **Send this loop…** in the detail panel logs it in the Pitch CRM like a beat and marks it **sent**. Sales, splits, videos and feedback links stay beat-only.
+- ⌘K finds loops too, and the Beat Vault never lists them.
+
 ## What M1 does
 
 - **Folder watching.** Every audio file (mp3, wav, flac, m4a, aif, ogg) in your beat folders is imported, and new bounces appear once they finish writing. Renamed or moved files are re-matched by size and date, so your tags and status survive. `Backup/` folders and folders named "ideas"/"scraps" are skipped (toggle in Settings).

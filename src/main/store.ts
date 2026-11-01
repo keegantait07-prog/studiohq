@@ -8,10 +8,11 @@ import type { AnalyzeResult } from './analyze.worker'
 import { parseName, genreFromFolder } from './filename'
 import { normalizeKey } from '../shared/key'
 import { scanProjects, matchProject, type ProjectFile } from './projects'
-import { TAG_KINDS, type Beat, type BeatDetail, type BeatPatch, type ScanStatus, type Settings, type Status, type TagKind } from '../shared/types'
+import { TAG_KINDS, type Beat, type BeatDetail, type BeatPatch, type ScanStatus, type Settings, type Status, type TagKind, type VaultKind } from '../shared/types'
 
 const DEFAULTS: Settings = {
   watchFolders: [`${homedir()}/Desktop/! BEATS`],
+  loopFolders: [`${homedir()}/Desktop/! LOOPS`],
   projectFolders: [`${homedir()}/Documents/Image-Line/FL Studio/Projects`],
   includeIdeas: false,
   ownHandles: ['smalls', 'prodbysmalls'],
@@ -91,11 +92,12 @@ export class Store {
       tags: tags ?? { vibe: [], genre: [], artist: [] }, createdAt: r.created_at
     }
   }
-  listBeats(): Beat[] {
+  listBeats(kind: VaultKind = 'beat'): Beat[] {
     const tags = this.tagMap()
-    const rows = this.db.prepare(`SELECT id,path,filename,title,folder,ext,size,mtime,duration,bpm,bpm_source,bpm_confidence,key,key_source,status,notes,credits,group_id,version_label,project_path,project_confidence,missing,analyzed_at,thumb,cover_path,preview_path,created_at FROM beats b WHERE missing=0 AND NOT (ext='flp' AND EXISTS (SELECT 1 FROM beats a WHERE a.project_path=b.path AND a.ext!='flp' AND a.missing=0)) ORDER BY mtime DESC`).all() as Row[]
+    const rows = this.db.prepare(`SELECT id,path,filename,title,folder,ext,size,mtime,duration,bpm,bpm_source,bpm_confidence,key,key_source,status,notes,credits,group_id,version_label,project_path,project_confidence,missing,analyzed_at,thumb,cover_path,preview_path,created_at FROM beats b WHERE kind=? AND missing=0 AND NOT (ext='flp' AND EXISTS (SELECT 1 FROM beats a WHERE a.project_path=b.path AND a.ext!='flp' AND a.missing=0)) ORDER BY mtime DESC`).all(kind) as Row[]
     return rows.map((r) => this.toBeat(r, tags.get(r.id)))
   }
+  listLoops(): Beat[] { return this.listBeats('loop') }
   getBeat(id: number): BeatDetail | null {
     const r = this.db.prepare(`SELECT * FROM beats WHERE id=?`).get(id) as Row | undefined
     if (!r) return null
@@ -103,9 +105,9 @@ export class Store {
     const versions = (this.db.prepare(`SELECT * FROM beats WHERE group_id=? AND missing=0 ORDER BY mtime DESC`).all(r.group_id) as Row[]).map((v) => this.toBeat(v, tags.get(v.id)))
     return { ...this.toBeat(r, tags.get(id)), peaks: r.peaks ? JSON.parse(r.peaks) : [], versions }
   }
-  allTags(): Record<TagKind, string[]> {
+  allTags(vault: VaultKind = 'beat'): Record<TagKind, string[]> {
     const out: Record<TagKind, string[]> = { vibe: [], genre: [], artist: [] }
-    for (const t of this.db.prepare(`SELECT kind, value, COUNT(*) c FROM tags GROUP BY kind, value ORDER BY c DESC`).all() as Row[]) out[t.kind as TagKind].push(t.value)
+    for (const t of this.db.prepare(`SELECT t.kind, t.value, COUNT(*) c FROM tags t JOIN beats b ON b.id=t.beat_id WHERE b.kind=? GROUP BY t.kind, t.value ORDER BY c DESC`).all(vault) as Row[]) out[t.kind as TagKind].push(t.value)
     return out
   }
   pathOf(id: number): string | null {
@@ -181,7 +183,7 @@ export class Store {
     return Number(this.db.prepare(`INSERT INTO groups(key,name) VALUES(?,?)`).run(key, name).lastInsertRowid)
   }
 
-  upsertFile(path: string, size: number, mtime: number, root: string): void {
+  upsertFile(path: string, size: number, mtime: number, root: string, vault: VaultKind = 'beat'): void {
     const ex = this.db.prepare(`SELECT id,size,mtime,analyzed_at,missing FROM beats WHERE path=?`).get(path) as Row | undefined
     if (ex) {
       if (ex.size === size && Math.abs(ex.mtime - mtime) < 1) {
@@ -195,7 +197,7 @@ export class Store {
       return
     }
     // moved/renamed file? same size + mtime as a row that went missing
-    const moved = this.db.prepare(`SELECT id,analyzed_at FROM beats WHERE missing=1 AND size=? AND mtime=?`).get(size, mtime) as Row | undefined
+    const moved = this.db.prepare(`SELECT id,analyzed_at FROM beats WHERE missing=1 AND kind=? AND size=? AND mtime=?`).get(vault, size, mtime) as Row | undefined
     if (moved) {
       this.db.prepare(`UPDATE beats SET path=?, filename=?, folder=?, missing=0 WHERE id=?`).run(path, basename(path), dirname(path), moved.id)
       this.touch(moved.id)
@@ -206,21 +208,22 @@ export class Store {
     const rel = relative(root, path)
     const top = rel.includes(sep) ? rel.split(sep)[0] : ''
     const hints = parseName(path, top, this.getSettings().ownHandles)
-    const gk = hints.groupKey || path
+    // loops get their own groups, so a loop and a beat with the same name never merge into one set of versions
+    const gk = (vault === 'loop' ? 'loop:' : '') + (hints.groupKey || path)
     const gid = this.groupFor(gk, hints.title)
     const ideas = /idea|scrap/i.test(top)
     const folderGenre = genreFromFolder(top)
     const proj = matchProject(hints.title, this.projects)
     const id = Number(
       this.db.prepare(
-        `INSERT INTO beats(path,filename,title,folder,ext,size,mtime,bpm,bpm_source,bpm_confidence,key,key_source,status,credits,group_id,version_label,project_path,project_confidence,created_at)
-         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+        `INSERT INTO beats(path,filename,title,folder,ext,size,mtime,bpm,bpm_source,bpm_confidence,key,key_source,status,credits,group_id,version_label,project_path,project_confidence,created_at,kind)
+         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
       ).run(
         path, basename(path), hints.title, dirname(path), extname(path).slice(1).toLowerCase(), size, mtime,
         hints.bpm, hints.bpm ? 'filename' : null, hints.bpm ? 'high' : null,
         hints.key, hints.key ? 'filename' : null,
         (ideas ? 'idea' : 'finished') satisfies Status, hints.credits.join(' '), gid, hints.versionLabel,
-        proj?.path ?? null, proj?.score ?? null, Date.now()
+        proj?.path ?? null, proj?.score ?? null, Date.now(), vault
       ).lastInsertRowid
     )
     const ins = this.db.prepare(`INSERT OR IGNORE INTO tags(beat_id,kind,value) VALUES(?,?,?)`)
@@ -299,8 +302,8 @@ export class Store {
     this.db.prepare(`UPDATE beats SET missing=1 WHERE id=?`).run(r.id)
     this.touch(r.id)
   }
-  markUnseenMissing(roots: string[], seen: Set<string>): void {
-    const rows = this.db.prepare(`SELECT id,path FROM beats WHERE missing=0 AND ext!='flp'`).all() as Row[]
+  markUnseenMissing(roots: string[], seen: Set<string>, vault: VaultKind = 'beat'): void {
+    const rows = this.db.prepare(`SELECT id,path FROM beats WHERE missing=0 AND ext!='flp' AND kind=?`).all(vault) as Row[]
     const upd = this.db.prepare(`UPDATE beats SET missing=1 WHERE id=?`)
     let n = 0
     this.db.transaction(() => {

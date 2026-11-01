@@ -54,8 +54,12 @@ export interface BeatPatch {
   projectPath?: string | null
 }
 
+/** The two vaults: finished beats, and the loops you send to other producers. */
+export type VaultKind = 'beat' | 'loop'
+
 export interface Settings {
   watchFolders: string[]
+  loopFolders: string[]
   projectFolders: string[]
   includeIdeas: boolean
   ownHandles: string[]
@@ -287,17 +291,18 @@ export type AssistantPush =
 
 export interface Api {
   listBeats(): Promise<Beat[]>
+  listLoops(): Promise<Beat[]>
   getBeat(id: number): Promise<BeatDetail | null>
   updateBeat(id: number, patch: BeatPatch): Promise<void>
   setTags(id: number, tags: Record<TagKind, string[]>): Promise<void>
-  allTags(): Promise<Record<TagKind, string[]>>
+  allTags(kind?: VaultKind): Promise<Record<TagKind, string[]>>
   reanalyze(id: number): Promise<void>
   reveal(id: number): Promise<void>
   openProject(id: number): Promise<void>
   linkProject(id: number): Promise<void>
   getSettings(): Promise<Settings>
-  addFolder(kind: 'watchFolders' | 'projectFolders' | 'soundFolders'): Promise<void>
-  removeFolder(kind: 'watchFolders' | 'projectFolders' | 'soundFolders', path: string): Promise<void>
+  addFolder(kind: 'watchFolders' | 'loopFolders' | 'projectFolders' | 'soundFolders'): Promise<void>
+  removeFolder(kind: 'watchFolders' | 'loopFolders' | 'projectFolders' | 'soundFolders', path: string): Promise<void>
   setSetting(patch: Partial<Pick<Settings, 'includeIdeas' | 'ownHandles' | 'producerName' | 'followupDays' | 'notify' | 'storeUrl' | 'contactEmail' | 'hashtags' | 'goalBeats' | 'goalPitches' | 'goalPosts' | 'autoTrackFL' | 'includeMidiPacks' | 'projectBeatDays' | 'ytSeedChannels' | 'ytImageFolder' | 'ytClientId' | 'claudePath'>>): Promise<void>
   backup(): Promise<string>
   exportCsv(): Promise<string | null>
@@ -402,7 +407,7 @@ export interface Api {
   sitePublish(): Promise<string>
   onSiteProgress(cb: (step: string) => void): () => void
   onCrmChanged(cb: () => void): () => void
-  onNavigate(cb: (view: 'dashboard' | 'vault' | 'crm' | 'sales' | 'content' | 'sounds' | 'feedback') => void): () => void
+  onNavigate(cb: (view: 'dashboard' | 'vault' | 'loops' | 'crm' | 'sales' | 'content' | 'sounds' | 'feedback') => void): () => void
   onBeatsChanged(cb: (ids: number[]) => void): () => void
   onScanStatus(cb: (s: ScanStatus) => void): () => void
   assistantThreads(): Promise<ThreadSummary[]>

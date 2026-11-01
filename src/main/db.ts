@@ -252,6 +252,9 @@ export function openDb(dir: string): Database.Database {
   const bcols = db.prepare('PRAGMA table_info(beats)').all() as { name: string }[]
   if (!bcols.some((c) => c.name === 'cover_path')) db.exec('ALTER TABLE beats ADD COLUMN cover_path TEXT')
   if (!bcols.some((c) => c.name === 'preview_path')) db.exec('ALTER TABLE beats ADD COLUMN preview_path TEXT')
+  // loops share the beats table (same columns, same analysis); 'kind' keeps the two vaults apart
+  if (!bcols.some((c) => c.name === 'kind')) db.exec("ALTER TABLE beats ADD COLUMN kind TEXT NOT NULL DEFAULT 'beat'")
+  db.exec('CREATE INDEX IF NOT EXISTS beats_kind ON beats(kind)')
   const pcols = db.prepare('PRAGMA table_info(packs)').all() as { name: string }[]
   if (!pcols.some((c) => c.name === 'kind')) db.exec("ALTER TABLE packs ADD COLUMN kind TEXT NOT NULL DEFAULT 'pitch'")
   const gcols = db.prepare('PRAGMA table_info(groups)').all() as { name: string }[]

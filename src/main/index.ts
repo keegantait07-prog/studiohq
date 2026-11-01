@@ -33,7 +33,9 @@ import type { Post, VideoOptions } from '../shared/types'
 import { splitSheetHtml, writePdf } from './splitsheet'
 import type { LogSaleInput, License, Sale, SplitRow } from '../shared/types'
 import type { SitePatch } from '../shared/types'
-import type { BeatPatch, Settings, TagKind, LogPitchInput, PackRequest, Template, Contact, PitchStatus } from '../shared/types'
+import type { BeatPatch, Settings, TagKind, LogPitchInput, PackRequest, Template, Contact, PitchStatus, VaultKind } from '../shared/types'
+
+type FolderKind = 'watchFolders' | 'loopFolders' | 'projectFolders' | 'soundFolders'
 
 app.setName('Studio HQ')
 app.setPath('userData', join(app.getPath('appData'), 'Studio HQ'))
@@ -45,6 +47,7 @@ protocol.registerSchemesAsPrivileged([
 let win: BrowserWindow | null = null
 let store: Store
 let watcher: Watcher
+let loopWatcher: Watcher
 let crm: Crm
 let packs: Packs
 let catalog: Catalog
@@ -115,6 +118,7 @@ function writeBridgeConfig(): void {
   } catch { /* the plugin falls back to ~/Desktop/! BEATS */ }
 }
 
+function restartWatchers(): Promise<unknown> { return Promise.all([watcher.restart(), loopWatcher.restart()]) }
 function sendCrm(): void { win?.webContents.send('crm:changed') }
 /** Re-reads your FL project folders: new projects appear in the Vault as beats. Fast, so it runs on focus and on a timer. */
 async function reindexProjects(): Promise<{ added: number; total: number }> {
@@ -171,10 +175,11 @@ function checkFollowups(): void {
 function registerIpc(): void {
   const h = ipcMain.handle.bind(ipcMain)
   h('beats:list', () => store.listBeats())
+  h('loops:list', () => store.listLoops())
   h('beats:get', (_, id: number) => store.getBeat(id))
   h('beats:update', (_, id: number, patch: BeatPatch) => store.updateBeat(id, patch))
   h('beats:setTags', (_, id: number, tags: Record<TagKind, string[]>) => store.setTags(id, tags))
-  h('beats:allTags', () => store.allTags())
+  h('beats:allTags', (_, kind?: VaultKind) => store.allTags(kind === 'loop' ? 'loop' : 'beat'))
   h('beats:reanalyze', (_, id: number) => store.reanalyze(id))
   h('beats:reveal', (_, id: number) => { const p = store.pathOf(id); if (p) shell.showItemInFolder(p) })
   h('beats:openProject', async (_, id: number) => {
@@ -189,25 +194,25 @@ function registerIpc(): void {
     if (!r.canceled && r.filePaths[0]) store.updateBeat(id, { projectPath: r.filePaths[0] })
   })
   h('settings:get', () => store.getSettings())
-  h('settings:addFolder', async (_, kind: 'watchFolders' | 'projectFolders' | 'soundFolders') => {
+  h('settings:addFolder', async (_, kind: FolderKind) => {
     const r = await dialog.showOpenDialog(win!, { properties: ['openDirectory', 'createDirectory'] })
     if (r.canceled || !r.filePaths[0]) return
     const s = store.getSettings()
     if (!s[kind].includes(r.filePaths[0])) s[kind].push(r.filePaths[0])
     store.saveSettings(s)
     writeBridgeConfig()
-    await watcher.restart()
+    await restartWatchers()
   })
-  h('settings:removeFolder', async (_, kind: 'watchFolders' | 'projectFolders' | 'soundFolders', path: string) => {
+  h('settings:removeFolder', async (_, kind: FolderKind, path: string) => {
     const s = store.getSettings()
     s[kind] = s[kind].filter((f) => f !== path)
     store.saveSettings(s)
     writeBridgeConfig()
-    await watcher.restart()
+    await restartWatchers()
   })
   h('settings:set', async (_, patch: Partial<Settings>) => {
     store.saveSettings({ ...store.getSettings(), ...patch })
-    if ('includeIdeas' in patch || 'ownHandles' in patch) await watcher.restart()
+    if ('includeIdeas' in patch || 'ownHandles' in patch) await restartWatchers()
     else sendCrm()
   })
 
@@ -393,6 +398,7 @@ app.whenReady().then(async () => {
   const send = (ch: string, ...a: unknown[]) => win?.webContents.send(ch, ...a)
   store = new Store(db, (ids) => send('beats:changed', ids), (s) => send('scan:status', s))
   watcher = new Watcher(store)
+  loopWatcher = new Watcher(store, 'loop')
   crm = new Crm(db, () => store.getSettings().followupDays, () => store.bumpAll())
   sales = new Sales(db)
   content = new Content(db)
@@ -450,6 +456,7 @@ app.whenReady().then(async () => {
     store.saveFromPlugin(d); win?.webContents.send('beats:changed', [-1])
   })
   watcher.restart()
+  loopWatcher.restart()
   setTimeout(() => { scanLibrary().catch((e) => console.error('library scan failed', e)) }, 3000)
   setInterval(() => { reindexProjects().catch((e) => console.error('reindex failed', e)) }, 3 * 60 * 1000)
   setTimeout(() => { if (feedback.hasPublished()) syncFeedback(true) }, 9000)
@@ -464,6 +471,7 @@ app.on('window-all-closed', () => app.quit())
 let quitting = false
 app.on('before-quit', (e) => {
   void watcher?.close()
+  void loopWatcher?.close()
   if (quitting || !assistant) return
   // Let the assistant stop its CLI run and MCP server, then quit again.
   e.preventDefault()

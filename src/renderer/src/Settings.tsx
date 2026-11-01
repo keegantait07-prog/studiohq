@@ -17,7 +17,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
   useEffect(() => { load().then(); window.api.getSettings().then((x) => setName(x.producerName)); window.api.dataPath().then(setDataPath); window.api.netlifyStatus().then(setNl) }, [])
   if (!s) return null
 
-  const list = (kind: 'watchFolders' | 'projectFolders' | 'soundFolders', title: string, help: string) => (
+  const list = (kind: 'watchFolders' | 'loopFolders' | 'projectFolders' | 'soundFolders', title: string, help: string) => (
     <section>
       <h3>{title}</h3>
       <p className="help">{help}</p>
@@ -33,6 +33,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
       <div className="modal" onMouseDown={(e) => e.stopPropagation()}>
         <header><h2>Settings</h2><button onClick={onClose}>Done</button></header>
         {list('watchFolders', 'Beat folders', 'Every audio file in these folders is imported automatically, and new bounces appear as soon as they finish writing.')}
+        {list('loopFolders', 'Loop folders', 'Loops you make to send to other producers. They get their own Loop Vault, organised the same way as your beats, and a folder named “ideas” or “scraps” follows the setting below too.')}
         <section>
           <label className="check">
             <input type="checkbox" checked={s.includeIdeas} onChange={async (e) => { await window.api.setSetting({ includeIdeas: e.target.checked }); load() }} />

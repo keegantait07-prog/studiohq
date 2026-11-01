@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { STATUSES, TAG_KINDS, type Beat, type BeatDetail, type Pitch, type Post, type ProjectSection, type Sale, type SplitGroup, type Status, type TagKind } from '@shared/types'
+import { STATUSES, TAG_KINDS, type Beat, type BeatDetail, type Pitch, type Post, type ProjectSection, type Sale, type SplitGroup, type Status, type TagKind, type VaultKind } from '@shared/types'
 import { displayKey, camelot } from '@shared/key'
 import { artUrl, artPng } from './genart'
 import { keyColor } from './keyColor'
@@ -8,8 +8,9 @@ import { errMsg, fmtDay, money } from './salesUtils'
 import { SiteCard } from './SiteCard'
 
 const KIND_LABEL: Record<TagKind, string> = { vibe: 'Vibe', genre: 'Genre', artist: 'Type beat artist' }
+const LOOP_KIND_LABEL: Record<TagKind, string> = { vibe: 'Vibe', genre: 'Genre', artist: 'Sounds like (artist)' }
 
-function TagEditor({ kind, values, suggestions, onChange }: { kind: TagKind; values: string[]; suggestions: string[]; onChange: (v: string[]) => void }) {
+function TagEditor({ kind, label, values, suggestions, onChange }: { kind: TagKind; label: string; values: string[]; suggestions: string[]; onChange: (v: string[]) => void }) {
   const [draft, setDraft] = useState('')
   const add = () => {
     const v = draft.trim().toLowerCase()
@@ -18,7 +19,7 @@ function TagEditor({ kind, values, suggestions, onChange }: { kind: TagKind; val
   }
   return (
     <div className="field">
-      <label>{KIND_LABEL[kind]}</label>
+      <label>{label}</label>
       <div className="chips">
         {values.map((v) => (
           <span key={v} className={`chip ${kind}`}>
@@ -42,6 +43,8 @@ function TagEditor({ kind, values, suggestions, onChange }: { kind: TagKind; val
 
 interface Props {
   beat: BeatDetail
+  /** which vault this is: loops have no sales, splits or videos */
+  kind: VaultKind
   allTags: Record<TagKind, string[]>
   onSelect: (id: number) => void
   onPlay: (id: number) => void
@@ -63,7 +66,7 @@ interface Props {
   onProjectSounds: (id: number) => void
 }
 
-export function Detail({ beat, allTags, onSelect, onPlay, refresh, pitchedTo, onPitch, onOpenContact, sales, splitGroup, onLogSale, onEditSplits, onSheet, onError, posts, onContent, onFeedback, compatible, projectSection, onProjectSounds }: Props) {
+export function Detail({ beat, kind, allTags, onSelect, onPlay, refresh, pitchedTo, onPitch, onOpenContact, sales, splitGroup, onLogSale, onEditSplits, onSheet, onError, posts, onContent, onFeedback, compatible, projectSection, onProjectSounds }: Props) {
   const [title, setTitle] = useState(beat.title)
   const [bpm, setBpm] = useState(fmtBpm(beat.bpm).replace('–', ''))
   const [key, setKey] = useState(displayKey(beat.key))
@@ -119,7 +122,7 @@ export function Detail({ beat, allTags, onSelect, onPlay, refresh, pitchedTo, on
       <div className="meta-line">{fmtDur(beat.duration)} · {beat.ext.toUpperCase()} · {(beat.size / 1e6).toFixed(1)} MB{!beat.analyzed && ' · analyzing…'}</div>
 
       {TAG_KINDS.map((k) => (
-        <TagEditor key={k} kind={k} values={beat.tags[k]} suggestions={allTags[k]} onChange={async (v) => { await window.api.setTags(beat.id, { ...beat.tags, [k]: v }); refresh() }} />
+        <TagEditor key={k} kind={k} label={(kind === 'loop' ? LOOP_KIND_LABEL : KIND_LABEL)[k]} values={beat.tags[k]} suggestions={allTags[k]} onChange={async (v) => { await window.api.setTags(beat.id, { ...beat.tags, [k]: v }); refresh() }} />
       ))}
 
       {beat.credits && <div className="field"><label>Credits (from filename)</label><div className="credits">{beat.credits}</div></div>}
@@ -180,20 +183,21 @@ export function Detail({ beat, allTags, onSelect, onPlay, refresh, pitchedTo, on
         </div>
       </div>
 
-      <SiteCard beat={beat} />
+      {kind === 'beat' && <SiteCard beat={beat} />}
 
       {beat.ext !== 'flp' && (<>
       <div className="field">
-        <label>Pitched to ({pitchedTo.length})</label>
+        <label>{kind === 'loop' ? 'Sent to' : 'Pitched to'} ({pitchedTo.length})</label>
         {pitchedTo.map(({ pitch, contact, response }) => (
           <div key={pitch.id} className="ver" style={{ gridTemplateColumns: '1fr auto auto' }} onClick={() => onOpenContact(pitch.contactId)}>
             <span>{contact}</span><span className="dim">{new Date(pitch.sentAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
             <span className={`pst ps-${pitch.status}`}>{response === 'liked' ? '♥ ' : response === 'passed' ? '✕ ' : ''}{pitch.status}</span>
           </div>
         ))}
-        <button className="wide" onClick={onPitch} disabled={beat.status === 'sold'}>{beat.status === 'sold' ? 'Sold. Can’t pitch' : 'Pitch this beat…'}</button>
+        <button className="wide" onClick={onPitch} disabled={beat.status === 'sold'}>{beat.status === 'sold' ? 'Sold. Can’t pitch' : kind === 'loop' ? 'Send this loop…' : 'Pitch this beat…'}</button>
       </div>
 
+      {kind === 'beat' && (<>
       <div className="field">
         <label>Sales ({sales.length})</label>
         {sales.map((x) => (
@@ -223,6 +227,7 @@ export function Detail({ beat, allTags, onSelect, onPlay, refresh, pitchedTo, on
         <button className="wide" onClick={onContent}>Make video, titles & tags…</button>
         <button className="wide" style={{ marginTop: 6 }} onClick={onFeedback}>Get timestamped feedback…</button>
       </div>
+      </>)}
       </>)}
 
       <div className="actions">

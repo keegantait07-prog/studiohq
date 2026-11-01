@@ -36,7 +36,7 @@ export class Content {
     let names: string[]
     try { names = readdirSync(dir) } catch { return }
     const known = new Set((this.db.prepare('SELECT path FROM videos').all() as Row[]).map((r) => r.path))
-    const beats = this.db.prepare('SELECT id, title FROM beats WHERE missing=0').all() as Row[]
+    const beats = this.db.prepare("SELECT id, title FROM beats WHERE missing=0 AND kind='beat'").all() as Row[]
     for (const n of names) {
       const t = youtubeFileTitle(n)
       const path = join(dir, n)

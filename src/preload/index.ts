@@ -9,10 +9,11 @@ const sub = <T>(ch: string, cb: (v: T) => void) => {
 
 const api: Api = {
   listBeats: () => ipcRenderer.invoke('beats:list'),
+  listLoops: () => ipcRenderer.invoke('loops:list'),
   getBeat: (id) => ipcRenderer.invoke('beats:get', id),
   updateBeat: (id, p) => ipcRenderer.invoke('beats:update', id, p),
   setTags: (id, t) => ipcRenderer.invoke('beats:setTags', id, t),
-  allTags: () => ipcRenderer.invoke('beats:allTags'),
+  allTags: (kind) => ipcRenderer.invoke('beats:allTags', kind),
   reanalyze: (id) => ipcRenderer.invoke('beats:reanalyze', id),
   reveal: (id) => ipcRenderer.invoke('beats:reveal', id),
   openProject: (id) => ipcRenderer.invoke('beats:openProject', id),

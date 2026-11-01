@@ -1,32 +1,62 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { SoundList, SoundRow } from '@shared/types'
 import { KIT_SLOTS, autoFill, candidates, clearAuto, cleanName, emptyPicks, planKit, type Picks, type SlotId } from '@shared/kitmaker'
+import { emptyHistory, newKit, record, redo, sanitize, undo, uniqueName, upsert, type History, type SavedKit } from '@shared/kitdrafts'
 
-const DRAFT_KEY = 'shq.kitmaker.draft'
-interface Draft { name: string; tag: string; outDir: string; picks: Picks; targets: Record<SlotId, number> }
-const defaultTargets = () => Object.fromEntries(KIT_SLOTS.map((s) => [s.id, s.target])) as Record<SlotId, number>
+const STORE_KEY = 'shq.kitmaker.kits'
+const LEGACY_KEY = 'shq.kitmaker.draft'
+interface Store { kits: SavedKit[]; active: string }
 
-function loadDraft(): Partial<Draft> {
-  try { return JSON.parse(localStorage.getItem(DRAFT_KEY) ?? '{}') } catch { return {} }
+function loadStore(): Store {
+  try {
+    const raw = JSON.parse(localStorage.getItem(STORE_KEY) ?? 'null') as Partial<Store> | null
+    const kits = (raw?.kits ?? []).map((k) => sanitize(k))
+    if (kits.length) return { kits, active: kits.some((k) => k.id === raw?.active) ? raw!.active! : kits[0].id }
+    const legacy = localStorage.getItem(LEGACY_KEY)
+    if (legacy) { const k = sanitize(JSON.parse(legacy)); return { kits: [k], active: k.id } }
+  } catch { /* unreadable storage: start fresh */ }
+  const k = newKit('My Drum Kit')
+  return { kits: [k], active: k.id }
 }
 
 const fmtLen = (u: number | null) => (u == null ? '' : u < 10 ? `${u.toFixed(2)}s` : `${u.toFixed(1)}s`)
+const count = (p: Picks) => KIT_SLOTS.reduce((n, s) => n + p[s.id].length, 0)
 
 export function KitMaker({ data, onPauseMain, toast }: { data: SoundList | null; onPauseMain: () => void; toast: (m: string) => void }) {
-  const saved = useMemo(loadDraft, [])
-  const [name, setName] = useState(saved.name ?? 'My Drum Kit')
-  const [tag, setTag] = useState(saved.tag ?? '')
-  const [outDir, setOutDir] = useState(saved.outDir ?? '')
-  const [picks, setPicks] = useState<Picks>({ ...emptyPicks(), ...(saved.picks ?? {}) })
-  const [targets, setTargets] = useState<Record<SlotId, number>>({ ...defaultTargets(), ...(saved.targets ?? {}) })
+  const init = useMemo(loadStore, [])
+  const [kits, setKits] = useState<SavedKit[]>(init.kits)
+  const [activeId, setActiveId] = useState(init.active)
+  const first = init.kits.find((k) => k.id === init.active)!
+  const [name, setName] = useState(first.name)
+  const [tag, setTag] = useState(first.tag)
+  const [outDir, setOutDir] = useState(first.outDir)
+  const [picks, setPicks] = useState<Picks>(first.picks)
+  const [targets, setTargets] = useState<Record<SlotId, number>>(first.targets)
+  const [hist, setHist] = useState<History<Picks>>(emptyHistory())
   const [slot, setSlot] = useState<SlotId>('kicks')
   const [q, setQ] = useState('')
   const [busy, setBusy] = useState(false)
   const [playing, setPlaying] = useState<number | null>(null)
+  const [savedAt, setSavedAt] = useState<number | null>(null)
   const audio = useRef<HTMLAudioElement | null>(null)
+  const picksRef = useRef(picks)
+  picksRef.current = picks
+
+  const load = (k: SavedKit) => { setActiveId(k.id); setName(k.name); setTag(k.tag); setOutDir(k.outDir); setPicks(k.picks); setTargets(k.targets); setHist(emptyHistory()); setQ('') }
+
+  // every change is saved straight into the open kit
+  useEffect(() => {
+    const now = Date.now()
+    const me: SavedKit = { id: activeId, name, tag, outDir, picks, targets, updated: now }
+    setKits((ks) => {
+      const next = upsert(ks, me)
+      try { localStorage.setItem(STORE_KEY, JSON.stringify({ kits: next, active: activeId })) } catch { /* private mode */ }
+      return next
+    })
+    setSavedAt(now)
+  }, [activeId, name, tag, outDir, picks, targets])
 
   useEffect(() => { if (!outDir) window.api.kitDefaults().then((d) => setOutDir(d.outDir)) }, [outDir])
-  useEffect(() => { try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ name, tag, outDir, picks, targets })) } catch { /* private mode */ } }, [name, tag, outDir, picks, targets])
   useEffect(() => {
     const a = new Audio()
     audio.current = a
@@ -34,6 +64,38 @@ export function KitMaker({ data, onPauseMain, toast }: { data: SoundList | null;
     a.addEventListener('pause', () => setPlaying(null))
     return () => { a.pause(); a.src = '' }
   }, [])
+
+  /** All edits to the picks go through here, so each one can be undone. */
+  const change = (fn: (p: Picks) => Picks): number => {
+    const p = picksRef.current
+    const n = fn(p)
+    if (n === p) return 0
+    setHist((h) => record(h, p))
+    setPicks(n)
+    return count(n) - count(p)
+  }
+  const doUndo = useCallback(() => { const r = undo(hist, picksRef.current); if (r) { setHist(r.h); setPicks(r.value) } }, [hist])
+  const doRedo = useCallback(() => { const r = redo(hist, picksRef.current); if (r) { setHist(r.h); setPicks(r.value) } }, [hist])
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'z' || t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') return
+      e.preventDefault()
+      if (e.shiftKey) doRedo(); else doUndo()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [doUndo, doRedo])
+
+  const switchKit = (id: string) => { const k = kits.find((x) => x.id === id); if (k && id !== activeId) load(k) }
+  const createKit = () => { const k = newKit(uniqueName(kits, 'New Kit'), tag, outDir); setKits((ks) => upsert(ks, k)); load(k) }
+  const deleteKit = () => {
+    if (!confirm(`Delete the kit “${name}”? Its picks are lost. (Kits you already exported are not touched.)`)) return
+    const rest = kits.filter((k) => k.id !== activeId)
+    const next = rest[0] ?? newKit('My Drum Kit', tag, outDir)
+    setKits(rest.length ? rest : [next])
+    load(next)
+  }
 
   const cands = useMemo(() => candidates(data?.items ?? [], data?.dirs ?? []), [data])
   const byId = useMemo(() => new Map((data?.items ?? []).map((s) => [s.id, s])), [data])
@@ -57,13 +119,14 @@ export function KitMaker({ data, onPauseMain, toast }: { data: SoundList | null;
     a.play().then(() => setPlaying(id)).catch(() => {})
   }, [onPauseMain, playing])
 
-  const toggle = (s: SoundRow) => setPicks((p) => {
+  const toggle = (s: SoundRow) => change((p) => {
     const cur = p[slot]
     return { ...p, [slot]: cur.some((x) => x.id === s.id) ? cur.filter((x) => x.id !== s.id) : [...cur, { id: s.id, auto: false }] }
   })
-  const fill = () => setPicks((p) => autoFill(p, cands, targets))
-  const reroll = () => setPicks((p) => autoFill(clearAuto(p), cands, targets))
-  const clear = () => { if (!total || confirm('Clear every pick in this kit?')) setPicks(emptyPicks()) }
+  const fill = () => { const n = change((p) => autoFill(p, cands, targets)); toast(n ? `Added ${n} sounds. Undo with ⌘Z or the Undo button.` : 'Every folder is already at its target.') }
+  const autoCount = KIT_SLOTS.reduce((n, s) => n + live[s.id].filter((p) => p.auto).length, 0)
+  const reroll = () => { change((p) => autoFill(clearAuto(p), cands, targets)); toast('Re-rolled the auto-picked sounds. Undo with ⌘Z.') }
+  const clear = () => { change(() => emptyPicks()); toast('Cleared the kit. Undo with ⌘Z.') }
 
   const pickFolder = async () => { const d = await window.api.kitPickFolder(); if (d) setOutDir(d) }
   const exportKit = async () => {
@@ -83,12 +146,26 @@ export function KitMaker({ data, onPauseMain, toast }: { data: SoundList | null;
     <section className="sales pl2 km">
       <div className="sales-head">
         <h2>Kit Maker</h2>
-        <span className="dim">{total} sounds in “{cleanName(name) || 'My Drum Kit'}”</span>
+        <span className="dim">{total} sounds</span>
         <div className="grow" />
-        <button onClick={fill} title="Fill empty spots in every folder up to its target with random sounds">Auto-fill</button>
-        <button onClick={reroll} title="Replace the auto-picked sounds with new ones. Your own picks stay.">Re-roll</button>
+        <button onClick={doUndo} disabled={!hist.past.length} title="Undo the last change (⌘Z)">Undo</button>
+        <button onClick={doRedo} disabled={!hist.future.length} title="Redo (⇧⌘Z)">Redo</button>
+        <span className="km-sep" />
+        <button onClick={fill} title="Fill every folder up to its target with random sounds. You can undo it.">Auto-fill</button>
+        <button onClick={reroll} disabled={!autoCount} title="Swap the auto-picked sounds for new ones. Sounds you added yourself stay.">Re-roll auto-picks</button>
         <button onClick={clear} disabled={!total}>Clear</button>
         <button className="primary" onClick={exportKit} disabled={busy || !total}>{busy ? 'Saving…' : 'Export kit'}</button>
+      </div>
+
+      <div className="km-kitbar">
+        <label>Kit
+          <select value={activeId} onChange={(e) => switchKit(e.target.value)}>
+            {[...kits].sort((a, b) => b.updated - a.updated).map((k) => <option key={k.id} value={k.id}>{k.id === activeId ? name : k.name} · {count(k.id === activeId ? picks : k.picks)} sounds</option>)}
+          </select>
+        </label>
+        <button onClick={createKit}>+ New kit</button>
+        <button onClick={deleteKit} title="Delete this saved kit">Delete</button>
+        <span className="dim km-saved">{savedAt ? '✓ Saved automatically. Pick this kit from the list to come back to it.' : ''}</span>
       </div>
 
       <div className="pl-wrap">

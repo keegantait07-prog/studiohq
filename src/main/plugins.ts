@@ -1,7 +1,8 @@
 // Inventory of installed audio plugins (VST2, VST3, AU, AAX): find the bundles, read their Info.plist, merge formats of the same plugin.
 import type Database from 'better-sqlite3'
 import { execFile } from 'child_process'
-import { lstatSync, readdirSync } from 'fs'
+import { readdirSync, type Dirent } from 'fs'
+import { lstat, readdir } from 'fs/promises'
 import { basename, extname, join } from 'path'
 import type { PluginBundle, PluginFormat, PluginInfo } from '../shared/types'
 import { pluginRoots } from './plugin-remove'
@@ -16,16 +17,29 @@ function run(cmd: string, args: string[]): Promise<string> {
   })
 }
 
-/** Total bytes under a path. Symlinks are counted as links, never followed. */
-export function dirSize(path: string): number {
+/** Total bytes under a path. Symlinks are counted as links, never followed. Async, so a huge vendor folder never freezes the app. */
+export async function dirSize(path: string): Promise<number> {
   let st
-  try { st = lstatSync(path) } catch { return 0 }
+  try { st = await lstat(path) } catch { return 0 }
   if (!st.isDirectory()) return st.size
-  let total = 0
   let names: string[]
-  try { names = readdirSync(path) } catch { return 0 }
-  for (const n of names) total += dirSize(join(path, n))
+  try { names = await readdir(path) } catch { return 0 }
+  let total = 0
+  for (const n of names) total += await dirSize(join(path, n))
   return total
+}
+
+/** Plugin bundles under a root, including those in vendor folders (u-he/Diva.vst) up to three folders down. Links are never followed. */
+function findBundles(dir: string, depth = 0): string[] {
+  let entries: Dirent[]
+  try { entries = readdirSync(dir, { withFileTypes: true }) } catch { return [] }
+  const out: string[] = []
+  for (const e of entries) {
+    const p = join(dir, e.name)
+    if (FORMATS[extname(e.name).toLowerCase()]) out.push(p)
+    else if (e.isDirectory() && depth < 3) out.push(...findBundles(p, depth + 1))
+  }
+  return out
 }
 
 export function parseBundleMeta(plist: Record<string, unknown>, path: string): { name: string; vendor: string; bundleId: string; version: string } | null {
@@ -62,18 +76,18 @@ async function readBundle(path: string): Promise<Named | null> {
     let archs: string[] = []
     const exe = typeof plist.CFBundleExecutable === 'string' ? plist.CFBundleExecutable : ''
     if (exe) { try { archs = (await run('lipo', ['-archs', join(path, 'Contents', 'MacOS', exe)])).trim().split(/\s+/).filter(Boolean) } catch { /* not a Mach-O */ } }
-    return { path, format, size: dirSize(path), archs, bundleId: meta.bundleId, version: meta.version, name: meta.name, vendor: meta.vendor }
+    return { path, format, size: await dirSize(path), archs, bundleId: meta.bundleId, version: meta.version, name: meta.name, vendor: meta.vendor }
   } catch { return null } // unreadable or corrupt bundle: skip it, keep scanning
 }
 
 export async function scanPlugins(db: Database.Database, home: string, roots: string[] = pluginRoots(home)): Promise<PluginInfo[]> {
   const found: Named[] = []
+  const seen = new Set<string>()
   for (const root of roots) {
-    let names: string[]
-    try { names = readdirSync(root) } catch { continue }
-    for (const n of names) {
-      if (!FORMATS[extname(n).toLowerCase()]) continue
-      const b = await readBundle(join(root, n))
+    for (const path of findBundles(root)) {
+      if (seen.has(path)) continue
+      seen.add(path)
+      const b = await readBundle(path)
       if (b) found.push(b)
     }
   }

@@ -2,7 +2,8 @@ import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { groupBundles, listPlugins, parseBundleMeta, scanPlugins } from './plugins'
+import { dirSize, groupBundles, listPlugins, parseBundleMeta, scanPlugins } from './plugins'
+import { symlinkSync } from 'fs'
 import { openDb } from './db'
 
 const plist = (id: string, name: string, exe = name) => `<?xml version="1.0" encoding="UTF-8"?>
@@ -62,6 +63,27 @@ describe('groupBundles', () => {
   })
   test('keeps different plugins, and same-named plugins from different vendors, apart', () => {
     expect(groupBundles([b('/a', 'vst3', 'Delay', 'acme'), b('/b', 'vst3', 'Delay', 'zed'), b('/c', 'vst3', 'Massive', 'ni')])).toHaveLength(3)
+  })
+})
+
+describe('dirSize', () => {
+  test('adds up everything inside a folder without blocking, and is 0 for a missing path', async () => {
+    expect(await dirSize(join(roots[0], 'Serum.vst3'))).toBeGreaterThan(0)
+    expect(await dirSize(join(tmp, 'nope'))).toBe(0)
+  })
+})
+
+describe('scanPlugins in vendor subfolders', () => {
+  test('finds bundles inside vendor folders up to three levels deep, and never follows links out', async () => {
+    const root = join(tmp, 'Nested'); mkdirSync(root, { recursive: true })
+    bundle(join(root, 'u-he'), 'Diva.vst', 'com.u-he.Diva', 'Diva')
+    bundle(join(root, 'A/B/C'), 'Deep.vst3', 'com.acme.Deep', 'Deep')
+    bundle(join(root, 'A/B/C/D/E'), 'TooDeep.vst3', 'com.acme.TooDeep', 'TooDeep')
+    symlinkSync('/usr', join(root, 'EscapeLink'))
+    const db = openDb(join(tmp, 'db3'))
+    const found = await scanPlugins(db, home, [root])
+    expect(found.map((p) => p.name).sort()).toEqual(['Deep', 'Diva'])
+    db.close()
   })
 })
 

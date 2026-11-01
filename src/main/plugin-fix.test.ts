@@ -45,6 +45,12 @@ describe('disable and restore', () => {
     expect(readFileSync(join(p, 'Contents/data.bin'), 'utf8')).toBe('ROUNDTRIP')
     expect(listDisabled(db).some((x) => x.originalPath === p)).toBe(false)
   })
+  test('the Disabled folder is created by the user process, never by an elevated command', async () => {
+    const p = mkBundle('Owner.vst3')
+    const d = { ...deps(), move: async () => {}, needsAdmin: () => true }
+    await disablePlugin(db, d, { name: 'Owner', bundles: [{ path: p, format: 'vst3' }] }, home)
+    expect(existsSync(join(home, 'Library/Application Support/Studio HQ/Disabled Plugins/VST3'))).toBe(true)
+  })
   test('restore refuses to overwrite something that now exists at the original location', async () => {
     const p = mkBundle('Clash.vst3', 'OLD')
     await disablePlugin(db, deps(), { name: 'Clash', bundles: [{ path: p, format: 'vst3' }] }, home)

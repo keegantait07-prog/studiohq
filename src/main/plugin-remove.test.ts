@@ -28,6 +28,10 @@ describe('isRemovable', () => {
   test.each(['/System/Library/x', '/usr/bin/x', '/Applications/Safari.app/../Safari.app'])('refuses %s', (p) => {
     expect(isRemovable(p, home)).toBe(false)
   })
+  test('refuses Apple apps and Apple support folders', () => {
+    for (const p of ['/Applications/GarageBand.app', '/Applications/Logic Pro X.app', '/Applications/Logic Pro.app', '/Library/Application Support/Apple/Foo',
+      '/Library/Preferences/com.apple.foo.plist', join(home, 'Library/Application Support/Apple/x'), '/Applications/Final Cut Pro.app']) expect(isRemovable(p, home)).toBe(false)
+  })
   test('refuses the roots themselves', () => {
     expect(isRemovable(join(home, 'Library/Audio/Plug-Ins/VST3'), home)).toBe(false)
     expect(isRemovable(join(home, 'Library/Application Support'), home)).toBe(false)

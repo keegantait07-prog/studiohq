@@ -7,7 +7,7 @@ const fileName = (p: string) => p.slice(p.lastIndexOf('/') + 1)
 const dirName = (p: string) => short(p.slice(0, p.lastIndexOf('/')) || '/')
 const FMT: Record<string, string> = { vst2: 'VST', vst3: 'VST3', au: 'AU', aax: 'AAX' }
 const KIND: Record<HealthKind, string> = {
-  crash: 'Crashes FL Studio', 'fl-error': 'FL flagged it as failing', arch: 'Wrong chip', quarantine: 'Blocked by macOS', signature: 'Signature problem', 'broken-bundle': 'Broken install',
+  crash: 'Crashes FL Studio', 'fl-error': "Unusual result in FL's plugin list", arch: 'Wrong chip', quarantine: 'Blocked by macOS', signature: 'Signature problem', 'broken-bundle': 'Broken install',
   duplicate: 'Duplicate copies', 'stale-fl-db': 'FL’s plugin list is out of date', 'missing-content': 'Missing content'
 }
 const CONF: Record<Confidence, string> = { exact: 'installed by it', likely: 'likely', maybe: 'maybe' }
@@ -34,6 +34,7 @@ export function Plugins({ toast }: { toast: (m: string) => void }) {
   const [confirm, setConfirm] = useState(false)
   const [msg, setMsg] = useState('')
   const [fixing, setFixing] = useState<{ id: number; preview: string } | null>(null)
+  const [rev, setRev] = useState(0) // bumps after a rescan so the open plugin's file list is read again
 
   const reload = useCallback(async () => {
     const [p, f, d] = await Promise.all([window.api.pluginsList(), window.api.pluginsFindings(), window.api.pluginsDisabled()])
@@ -43,11 +44,12 @@ export function Plugins({ toast }: { toast: (m: string) => void }) {
 
   const scan = useCallback(async () => {
     setBusy('Looking for plugins…')
-    try { setPlugins(await window.api.pluginsScan()); setFindings(await window.api.pluginsFindings()) } catch (e) { setMsg(e instanceof Error ? e.message : 'Scan failed') }
+    try { setPlugins(await window.api.pluginsScan()); setFindings(await window.api.pluginsFindings()); setRev((r) => r + 1) } catch (e) { setMsg(e instanceof Error ? e.message : 'Scan failed') }
     setBusy('')
   }, [])
 
   useEffect(() => { reload().then((p) => { if (!p.length) scan() }) }, [reload, scan])
+  useEffect(() => { setFixing(null) }, [findings]) // a preview belongs to the findings it was made from
 
   const cur = plugins?.find((p) => p.id === sel) ?? null
   useEffect(() => {
@@ -60,7 +62,7 @@ export function Plugins({ toast }: { toast: (m: string) => void }) {
       setMarks(new Set(f.filter((x) => x.confidence !== 'maybe').map((x) => x.path)))
     })
     return () => { live = false }
-  }, [sel])
+  }, [sel, rev])
 
   const shown = useMemo(() => {
     const s = q.trim().toLowerCase()
@@ -102,16 +104,23 @@ export function Plugins({ toast }: { toast: (m: string) => void }) {
   const applyFix = async () => {
     if (!fixing) return
     setBusy('Applying fix…')
-    const r = await window.api.pluginsFixApply(fixing.id)
+    try {
+      const r = await window.api.pluginsFixApply(fixing.id)
+      if (r.error) setMsg(r.error); else toast('Fixed. Restart FL Studio and rescan its plugin list if it was open.')
+      await reload()
+    } catch (e) { setMsg(e instanceof Error ? e.message : 'The fix did not run.') }
     setBusy(''); setFixing(null)
-    if (r.error) setMsg(r.error); else toast('Fixed. Restart FL Studio and rescan its plugin list if it was open.')
-    await reload()
   }
 
   const restore = async (d: Disabled) => {
-    const r = await window.api.pluginsRestore([d.actionId])
-    if (r.failed.length) setMsg(r.failed[0]); else toast(`${d.name} restored`)
-    await reload()
+    if (busy) return
+    setBusy('Restoring…')
+    try {
+      const r = await window.api.pluginsRestore([d.actionId])
+      if (r.failed.length) setMsg(r.failed[0]); else toast(`${d.name} restored`)
+      await reload(); setRev((n) => n + 1)
+    } catch (e) { setMsg(e instanceof Error ? e.message : 'Could not restore it.') }
+    setBusy('')
   }
 
   const healthBadge = (p: PluginInfo) => p.health === 'bad' ? <em className="cb pl-bad">problem</em> : p.health === 'warn' ? <em className="cb pl-warn">check</em> : null
@@ -229,7 +238,7 @@ export function Plugins({ toast }: { toast: (m: string) => void }) {
                       <button className="primary" onClick={applyFix} disabled={!!busy}>Apply fix</button>
                     </div>
                   ) : f.fix ? (
-                    <button onClick={async () => setFixing({ id: f.id, preview: await window.api.pluginsFixPreview(f.id) })}>Fix…</button>
+                    <button disabled={!!busy} onClick={async () => setFixing({ id: f.id, preview: await window.api.pluginsFixPreview(f.id) })}>Fix…</button>
                   ) : null}
                 </div>
               ))}
@@ -243,7 +252,7 @@ export function Plugins({ toast }: { toast: (m: string) => void }) {
           {!disabled.length ? <div className="empty" style={{ padding: '50px 28px' }}><p>Nothing is disabled. When a fix turns a plugin off it waits here, and Restore puts it back exactly where it was.</p></div> : (
             disabled.map((d) => (
               <div key={d.actionId} className="pl-find">
-                <div className="pl-find-head"><b>{d.name}</b><span className="dim" title={d.originalPath}>{short(d.originalPath)}</span><span className="grow" /><button onClick={() => restore(d)}>Restore</button></div>
+                <div className="pl-find-head"><b>{d.name}</b><span className="dim" title={d.originalPath}>{short(d.originalPath)}</span><span className="grow" /><button onClick={() => restore(d)} disabled={!!busy}>Restore</button></div>
               </div>
             ))
           )}

@@ -13,7 +13,7 @@ export interface CrashReport { app: string; crashedFrames: string[]; images: str
 export interface FlEntry { section: string; name: string; path: string; flag: string }
 export interface HealthDeps { appsDir?: string; diagDirs?: string[]; flDbPath?: string; codesign?: boolean }
 
-const isFl = (app: string) => /^fl[\s_-]?(studio|64)?/i.test(app) || /image-?line/i.test(app)
+const isFl = (app: string) => /^(fl studio|fl64|osxfl)/i.test(app)
 
 function run(cmd: string, args: string[], timeout = 20000): Promise<{ ok: boolean; out: string; err: string }> {
   return new Promise((resolve) => execFile(cmd, args, { timeout, maxBuffer: 8 * 1024 * 1024 }, (e, out, err) => resolve({ ok: !e, out: String(out), err: String(err) })))
@@ -120,7 +120,8 @@ export async function checkBundle(b: PluginBundle, opts: { codesign?: boolean } 
 // ---- FL's own plugin list ----
 
 /** FL keeps its plugin list in "Plugin database/Installed/.Plugins.ini": one [section] per plugin, with the file path and a scan flag for VST/VST3.
- *  Flag 1 = scanned fine. Flag 2 shows up on exactly the plugins that fail to scan (e.g. both bundles that were missing their executable), so it is used as "FL itself says this failed". */
+ *  Flag 1 = scanned fine. Flag 2 is undocumented. On one real machine it appeared on 11 plugins including both that were missing their executable,
+ *  so it is reported as an unusual result worth a look, never as a verdict. */
 export function parseFlPluginDb(text: string): FlEntry[] {
   const out: FlEntry[] = []
   let section = ''
@@ -156,14 +157,15 @@ export function compareFlDatabase(entries: FlEntry[], plugins: PluginInfo[], exi
     const owner = plugins.find((p) => p.bundles.some((b) => b.path === path))
     const name = owner?.name ?? list[0].name
     if (!exists(path)) {
+      if (path.startsWith('/Volumes/') && !exists(join('/Volumes', path.split('/')[2]))) continue // that drive is not connected right now
       out.push({
         pluginId: null, name, path, kind: 'stale-fl-db', severity: 'warn', certainty: 'confirmed', fix: 'clear-fl-entry',
         detail: `FL's plugin list still has "${name}", but ${path} no longer exists. That is what produces a "plugin not found" error.`
       })
     } else if (list.some((e) => e.flag === '2')) {
       out.push({
-        pluginId: owner?.id ?? null, name, path, kind: 'fl-error', severity: 'bad', certainty: 'likely', fix: 'clear-fl-entry',
-        detail: `FL Studio's own plugin list marks "${name}" as failed. That matches plugins that show an error or crash when you open them. Resetting FL's entry makes it re-scan the plugin; if it fails again, disable the plugin.`
+        pluginId: owner?.id ?? null, name, path, kind: 'fl-error', severity: 'warn', certainty: 'likely', fix: 'clear-fl-entry',
+        detail: `FL recorded an unusual scan result for "${name}" in its plugin list (flag 2). We have seen it on plugins that failed to scan, but FL doesn't document it. Resetting FL's entry makes FL re-scan the plugin; if the problem comes back, disable the plugin.`
       })
     }
   }
@@ -222,18 +224,28 @@ export async function runHealthChecks(db: Database.Database, home: string, deps:
     try { names = readdirSync(dir) } catch { continue }
     for (const n of names) if (/^fl.*\.ips$/i.test(n)) { try { reports.push({ file: join(dir, n), mtime: statSync(join(dir, n)).mtimeMs }) } catch { /* gone */ } }
   }
-  for (const { file, mtime } of reports.sort((a, b) => b.mtime - a.mtime).slice(0, 20)) {
+  // One finding per plugin, however many crash reports mention it.
+  const seen = new Map<number, { confirmed: number; likely: number; latest: number }>()
+  const recent = reports.sort((a, b) => b.mtime - a.mtime).slice(0, 20)
+  for (const { file, mtime } of recent) {
     let text = ''
     try { text = readFileSync(file, 'utf8') } catch { continue }
     const report = parseCrashReport(text)
     if (!report) continue
     for (const a of attributeCrash(report, plugins)) {
-      const p = plugins.find((x) => x.id === a.pluginId)!
-      drafts.push({
-        pluginId: p.id, name: p.name, path: '', kind: 'crash', severity: 'bad', certainty: a.certainty, fix: 'disable',
-        detail: `FL Studio crashed on ${new Date(mtime).toLocaleString()} ${a.certainty === 'confirmed' ? 'while running this plugin' : 'with this plugin loaded'}.`
-      })
+      const s = seen.get(a.pluginId) ?? { confirmed: 0, likely: 0, latest: 0 }
+      s[a.certainty === 'confirmed' ? 'confirmed' : 'likely']++
+      s.latest = Math.max(s.latest, mtime)
+      seen.set(a.pluginId, s)
     }
+  }
+  for (const [id, s] of seen) {
+    const p = plugins.find((x) => x.id === id)!
+    const when = new Date(s.latest).toLocaleString()
+    const n = (k: number) => `${k} FL Studio crash report${k === 1 ? '' : 's'}`
+    drafts.push(s.confirmed > 0
+      ? { pluginId: id, name: p.name, path: '', kind: 'crash', severity: 'bad', certainty: 'confirmed', fix: 'disable', detail: `FL Studio crashed while running this plugin (${n(s.confirmed)}; latest ${when}).` }
+      : { pluginId: id, name: p.name, path: '', kind: 'crash', severity: 'warn', certainty: 'likely', fix: 'disable', detail: `This plugin was loaded in ${n(s.likely)} (latest ${when}). FL loads many plugins at once, so it may not be the cause.` })
   }
 
   drafts.push(...findDuplicates(plugins))

@@ -32,6 +32,12 @@ describe('crash reports', () => {
     const r = parseCrashReport(ips('ffmpeg', [`${SERUM}/Contents/MacOS/Serum`]))!
     expect(attributeCrash(r, [plugin(1, 'Serum', [bundle(SERUM)])])).toEqual([])
   })
+  test('apps that merely start with "fl" are not FL Studio', () => {
+    const r = parseCrashReport(ips('Flycut', [`${SERUM}/Contents/MacOS/Serum`]))!
+    expect(attributeCrash(r, [plugin(1, 'Serum', [bundle(SERUM)])])).toEqual([])
+    const r2 = parseCrashReport(ips('FL64', [`${SERUM}/Contents/MacOS/Serum`]))!
+    expect(attributeCrash(r2, [plugin(1, 'Serum', [bundle(SERUM)])])).toHaveLength(1)
+  })
   test('malformed text gives null', () => {
     expect(parseCrashReport('not a crash report')).toBeNull()
     expect(parseCrashReport('{"a":1}\n{broken')).toBeNull()
@@ -98,6 +104,13 @@ describe('FL plugin database', () => {
   })
 })
 
+describe('FL list entries on drives that are not mounted', () => {
+  test('a path on an unmounted volume is not reported as gone', () => {
+    const e = [{ section: 'Effects/VST/X', name: 'X', path: '/Volumes/NoSuchDrive/Plugins/X.vst', flag: '1' }]
+    expect(compareFlDatabase(e, [], () => false)).toEqual([])
+  })
+})
+
 describe('FL error flag', () => {
   const ini = ['Effects', 'Generators'].map((k) => `[${k}/VST/Bad]\nps_name=Bad\nps_file_filename_0=/Library/Audio/Plug-Ins/VST/Bad.vst\nps_file_scanflags_0=2\n`).join('\n') +
     '\n[Effects/VST/Fine]\nps_name=Fine\nps_file_filename_0=/Library/Audio/Plug-Ins/VST/Fine.vst\nps_file_scanflags_0=1\n'
@@ -105,7 +118,7 @@ describe('FL error flag', () => {
     const p = plugin(7, 'Bad', [bundle('/Library/Audio/Plug-Ins/VST/Bad.vst', { format: 'vst2' })])
     const f = compareFlDatabase(parseFlPluginDb(ini), [p], () => true).filter((x) => x.kind === 'fl-error')
     expect(f).toHaveLength(1)
-    expect(f[0]).toMatchObject({ pluginId: 7, fix: 'clear-fl-entry', path: '/Library/Audio/Plug-Ins/VST/Bad.vst', severity: 'bad', certainty: 'likely' })
+    expect(f[0]).toMatchObject({ pluginId: 7, fix: 'clear-fl-entry', path: '/Library/Audio/Plug-Ins/VST/Bad.vst', severity: 'warn', certainty: 'likely' })
   })
   test('plugins FL scanned fine are not flagged', () => {
     expect(compareFlDatabase(parseFlPluginDb(ini), [plugin(8, 'Fine', [bundle('/Library/Audio/Plug-Ins/VST/Fine.vst', { format: 'vst2' })])], () => true).some((x) => x.pluginId === 8)).toBe(false)
@@ -156,6 +169,41 @@ describe('runHealthChecks', () => {
     const db = openDb(join(tmp, 'db'))
     const r = await runHealthChecks(db, join(tmp, 'home'), { appsDir: join(tmp, 'Applications') })
     expect(r).toEqual([])
+    db.close()
+    rmSync(tmp, { recursive: true, force: true })
+  })
+})
+
+describe('crash findings over several reports', () => {
+  test('one finding per plugin with a count; a plugin that was only loaded is a warning, not a verdict', async () => {
+    const tmp = realpathSync(mkdtempSync(join(tmpdir(), 'plug-crash-')))
+    const db = openDb(join(tmp, 'db'))
+    const diag = join(tmp, 'Diag'); mkdirSync(diag)
+    const bundlePath = join(tmp, 'Library/Audio/Plug-Ins/VST3/Loaded.vst3')
+    db.prepare("INSERT INTO plugins (id, key, name, vendor, total_size, scanned_at) VALUES (1, 'x|loaded', 'Loaded', 'x', 1, 1)").run()
+    db.prepare("INSERT INTO plugin_bundles (plugin_id, path, format, size, archs, bundle_id, version) VALUES (1, ?, 'vst3', 1, 'arm64', 'com.x.Loaded', '1')").run(bundlePath)
+    for (const n of ['FL Studio-1.ips', 'FL Studio-2.ips']) writeFileSync(join(diag, n), ips('FL Studio 2026', ['/usr/lib/dyld'], [`${bundlePath}/Contents/MacOS/Loaded`]))
+    const r = await runHealthChecks(db, join(tmp, 'home'), { appsDir: join(tmp, 'Applications'), diagDirs: [diag], codesign: false })
+    const crash = r.filter((f) => f.kind === 'crash')
+    expect(crash).toHaveLength(1)
+    expect(crash[0].severity).toBe('warn')
+    expect(crash[0].certainty).toBe('likely')
+    expect(crash[0].detail).toMatch(/2/)
+    db.close()
+    rmSync(tmp, { recursive: true, force: true })
+  })
+})
+
+describe('finding ids', () => {
+  test('ids are never reused across runs, so a stale preview cannot point at a different finding', async () => {
+    const tmp = realpathSync(mkdtempSync(join(tmpdir(), 'plug-ids-')))
+    const db = openDb(join(tmp, 'db'))
+    const flDb = join(tmp, '.Plugins.ini')
+    writeFileSync(flDb, '[Effects/VST/Gone]\nps_name=Gone\nps_file_filename_0=/nowhere/Gone.vst\n')
+    const d = { appsDir: join(tmp, 'Applications'), flDbPath: flDb }
+    const first = await runHealthChecks(db, join(tmp, 'home'), d)
+    const second = await runHealthChecks(db, join(tmp, 'home'), d)
+    expect(second[0].id).toBeGreaterThan(first[0].id)
     db.close()
     rmSync(tmp, { recursive: true, force: true })
   })

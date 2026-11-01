@@ -79,6 +79,25 @@ describe('removeWith', () => {
   })
 })
 
+describe('removeWith robustness', () => {
+  test('declining the admin prompt once does not prompt again for the remaining protected paths', async () => {
+    const a = join(home, 'Library/Application Support/Xfer/Serum')
+    const b = join(home, 'Library/Application Support/Xfer/Serum "Beta" é')
+    const { d, calls } = deps({ needsAdmin: () => true, adminTrash: async (p: string) => { calls.admin.push(p); throw new Error('User canceled. (-128)') } })
+    const r = await removeWith(db, d, plugin, [a, b], home, [])
+    expect(calls.admin).toHaveLength(1)
+    expect(r.skipped.sort()).toEqual([a, b].sort())
+  })
+  test('a path that is already gone (its folder was trashed earlier in the same batch) is not a failure', async () => {
+    const gone = join(home, 'Library/Application Support/Xfer/Serum/never-there.fxp')
+    const { d, calls } = deps()
+    const r = await removeWith(db, d, plugin, [gone], home, [])
+    expect(calls.trash).toEqual([])
+    expect(r.failed).toEqual([])
+    expect(r.removed).toBe(0)
+  })
+})
+
 describe('admin trash helpers', () => {
   test('paths with spaces, quotes and unicode reach osascript as untouched arguments', () => {
     const src = '/Library/Audio/Plug-Ins/VST3/Soundtoys 5 "Beta" é.vst3'

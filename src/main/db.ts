@@ -275,7 +275,7 @@ export function openDb(dir: string): Database.Database {
       location TEXT NOT NULL DEFAULT ''
     );
     CREATE TABLE IF NOT EXISTS plugin_findings (
-      id INTEGER PRIMARY KEY,
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
       plugin_id INTEGER REFERENCES plugins(id) ON DELETE CASCADE,
       name TEXT NOT NULL DEFAULT '',
       path TEXT NOT NULL DEFAULT '',

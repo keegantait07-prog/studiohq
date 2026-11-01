@@ -60,8 +60,7 @@ export function realFixDeps(): FixDeps {
   return {
     move: async (src, dest, admin) => {
       if (!admin) return localMove(src, dest)
-      await execReal('mkdir', ['-p', dirname(dest)], true)
-      await execReal('/bin/mv', [src, dest], true)
+      await execReal('/bin/mv', [src, dest], true) // only the move is elevated; folders under your home are made by the app itself
     },
     exec: execReal,
     needsAdmin: (p) => (existsSync(p) ? !writable(p) || parentNeedsAdmin(p) : parentNeedsAdmin(p)),
@@ -82,6 +81,7 @@ export async function disablePlugin(
 ): Promise<void> {
   for (const b of plugin.bundles) {
     const dir = join(disabledDir(home), FORMAT_DIR[b.format])
+    mkdirSync(dir, { recursive: true }) // as you, so a later disable or restore never hits a root-owned folder
     let dest = join(dir, basename(b.path))
     if (existsSync(dest)) dest = join(dir, `${basename(b.path, extname(b.path))} ${Date.now()}${extname(b.path)}`)
     await deps.move(b.path, dest, deps.needsAdmin(b.path))

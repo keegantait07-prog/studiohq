@@ -2,7 +2,7 @@
 // symlinks that leave those locations are refused, and everything goes to the macOS Trash (recoverable).
 import type Database from 'better-sqlite3'
 import { execFile } from 'child_process'
-import { accessSync, constants, existsSync, realpathSync } from 'fs'
+import { accessSync, constants, existsSync, lstatSync, realpathSync } from 'fs'
 import { basename, dirname, extname, isAbsolute, join, relative, sep } from 'path'
 import type { RemoveResult } from '../shared/types'
 import { dirSize } from './plugins'
@@ -44,10 +44,14 @@ function resolveLoose(p: string): string {
   }
 }
 
+// Apple's own apps and support folders are never ours to remove, even inside /Applications or /Library.
+const APPLE_APP = /^(GarageBand|Logic Pro( X)?|MainStage( \d+)?|Final Cut Pro|Motion|Compressor|iMovie|Safari|Xcode|Keynote|Pages|Numbers)\.app$/i
+const isApple = (segment: string) => /^com\.apple\./i.test(segment) || segment.toLowerCase() === 'apple' || APPLE_APP.test(segment)
+
 export function isRemovable(path: string, home: string, extraRoots: string[] = []): boolean {
   if (!isAbsolute(path) || path.split(sep).includes('..')) return false
   const target = resolveLoose(path)
-  if (basename(target).startsWith('com.apple.')) return false
+  if (target.split(sep).some(isApple)) return false
   const roots = [...pluginRoots(home), ...supportRoots(home), ...extraRoots]
   return roots.some((r) => {
     const rel = relative(real(r), target)
@@ -93,15 +97,18 @@ export async function removeWith(
   db: Database.Database, deps: RemoveDeps, plugin: { id: number; name: string }, paths: string[], home: string, extraRoots: string[]
 ): Promise<RemoveResult> {
   const res: RemoveResult = { removed: 0, bytes: 0, skipped: [], failed: [] }
+  let declined = false
   for (const path of paths) {
     if (!isRemovable(path, home, extraRoots)) { res.skipped.push(path); continue }
+    try { lstatSync(path) } catch { continue } // already gone, e.g. it was inside a folder trashed a moment ago
     const admin = deps.needsAdmin(path)
-    const size = dirSize(path)
+    if (admin && declined) { res.skipped.push(path); continue } // said no to the password prompt: do not ask again for each file
+    const size = await dirSize(path)
     try {
       await (admin ? deps.adminTrash(path) : deps.toTrash(path))
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
-      if (admin) res.skipped.push(path) // the admin prompt was declined or failed
+      if (admin) { res.skipped.push(path); if (/cancel|-128/i.test(msg)) declined = true } // the admin prompt was declined or failed
       else res.failed.push(`${path}: ${msg}`)
       continue
     }

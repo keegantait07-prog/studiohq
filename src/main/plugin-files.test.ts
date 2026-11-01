@@ -32,6 +32,24 @@ describe('matchConfidence', () => {
     expect(matchConfidence({ name: 'Analog Lab V', vendor: 'arturia', bundleIds: [] }, 'Analog Lab V')).toBe('likely')
     expect(matchConfidence({ name: 'Massive X', vendor: 'ni', bundleIds: [] }, 'Massive X Presets')).toBe('likely')
   })
+  test('the sibling plugins of a suite are not each other (Ozone 9 vs Ozone 9 Equalizer, bx_masterdesk vs bx_masterdesk Pro)', () => {
+    const ozone = { name: 'Ozone 9', vendor: 'izotope', bundleIds: ['com.izotope.Ozone9'] }
+    expect(matchConfidence(ozone, 'com.native-instruments.iZotope-Ozone 9 Equalizer.plist')).not.toBe('likely')
+    const bx = { name: 'bx_masterdesk', vendor: 'plugin-alliance', bundleIds: [] }
+    expect(matchConfidence(bx, 'bx_masterdesk Pro')).not.toBe('likely')
+    expect(matchConfidence(bx, 'bx_masterdesk')).toBe('likely')
+    expect(matchConfidence({ name: 'bx_boom', vendor: 'plugin-alliance', bundleIds: [] }, 'bx_boom V3')).not.toBe('likely')
+  })
+  test('words that merely sit next to the plugin name in another product do not match', () => {
+    expect(matchConfidence({ name: 'De Esser', vendor: 'izotope', bundleIds: [] }, 'Nectar 4 DeEsser.plist')).not.toBe('likely')
+    expect(matchConfidence({ name: 'Tape', vendor: 'ujam', bundleIds: [] }, 'com.u-he.Satin Tape.plist')).not.toBe('likely')
+    expect(matchConfidence({ name: 'Echo', vendor: 'soundtoys', bundleIds: [] }, 'com.soundtoys.EchoBoy.plist')).not.toBe('likely')
+    expect(matchConfidence({ name: 'Studio', vendor: 'acme', bundleIds: [] }, 'FL Studio')).not.toBe('likely')
+    expect(matchConfidence({ name: 'Live', vendor: 'acme', bundleIds: [] }, 'Ableton Live Suite.app')).not.toBe('likely')
+  })
+  test('a two-part bundle id does not match every file of that vendor', () => {
+    expect(matchConfidence({ name: 'Foo', vendor: 'acme', bundleIds: ['com.acme'] }, 'com.acme.Other.plist')).not.toBe('likely')
+  })
   test('vendor-only match is maybe', () => {
     expect(matchConfidence(serum, 'Xfer')).toBe('maybe')
     expect(matchConfidence(serum, 'xferrecords')).toBe('maybe')
@@ -101,6 +119,8 @@ describe('findPluginFiles', () => {
     mkdirSync(join(lib, 'Application Support/Xfer/Serum'), { recursive: true })
     mkdirSync(join(lib, 'Application Support/Xfer/Endless'), { recursive: true })
     writeFileSync(join(lib, 'Application Support/Xfer/Serum/a.fxp'), 'xx')
+    mkdirSync(join(lib, 'Caches/ZZ/Serum'), { recursive: true })
+    writeFileSync(join(lib, 'Caches/ZZ/Serum/a.fxp'), 'x')
     mkdirSync(join(lib, 'Preferences'), { recursive: true })
     writeFileSync(join(lib, 'Preferences/com.xferrecords.Serum.plist'), 'x')
     mkdirSync(join(lib, 'Caches/Delay'), { recursive: true })
@@ -133,7 +153,7 @@ describe('findPluginFiles', () => {
     expect(files.some((f) => f.path.includes('Caches/Delay'))).toBe(false)
   })
   test('receipt files are exact, but other plugins bundles from a shared installer are left out', async () => {
-    const mine = join(home, 'Library/Application Support/Xfer/Serum/a.fxp')
+    const mine = join(home, 'Library/Caches/ZZ/Serum/a.fxp')
     const otherBundle = join(home, 'Library/Audio/Plug-Ins/VST3/Other.vst3')
     const files = await findPluginFiles(plugin(serum, join(home, 'Library/Audio/Plug-Ins/VST3/Serum.vst3')), home, [], {
       receipts: async () => [mine, otherBundle], systemRoots: []
@@ -151,6 +171,17 @@ describe('findPluginFiles', () => {
     writeFileSync(join(home, 'Library/Preferences/com.xferrecords.Other.plist'), 'x')
     const files = await findPluginFiles(plugin(serum, join(home, 'Library/Audio/Plug-Ins/VST3/Serum.vst3')), home, [], none)
     expect(files.some((f) => f.path.endsWith('Other.plist'))).toBe(false)
+  })
+  test('a folder that matched by name already covers its receipt files, so they are not listed twice', async () => {
+    const child = join(home, 'Library/Application Support/Xfer/Serum/a.fxp')
+    const files = await findPluginFiles(plugin(serum, join(home, 'Library/Audio/Plug-Ins/VST3/Serum.vst3')), home, [], { receipts: async () => [child], systemRoots: [] })
+    expect(files.some((f) => f.path === child)).toBe(false)
+    expect(files.some((f) => f.path.endsWith('Xfer/Serum'))).toBe(true)
+  })
+  test('receipt items inside Documents are capped at maybe', async () => {
+    const doc = join(home, 'Documents/Serum')
+    const files = await findPluginFiles(plugin(serum, join(home, 'Library/Audio/Plug-Ins/VST3/Serum.vst3')), home, [], { receipts: async () => [doc], systemRoots: [] })
+    expect(files.find((f) => f.path === doc)?.confidence).toBe('maybe')
   })
   test('nested matches collapse into the outermost folder', async () => {
     const files = await findPluginFiles(plugin(serum, join(home, 'Library/Audio/Plug-Ins/VST3/Serum.vst3')), home, [], none)

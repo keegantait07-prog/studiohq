@@ -11,34 +11,42 @@ import { isRemovable, pluginRoots } from './plugin-remove'
 export interface PluginIdent { name: string; vendor: string; bundleIds: string[] }
 export interface FindDeps { receipts?: (p: PluginIdent) => Promise<string[]>; systemRoots?: string[] }
 
-const GENERIC = new Set(['pro', 'free', 'delay', 'reverb', 'comp', 'compressor', 'eq', 'synth', 'lite', 'one', 'plus', 'chorus', 'limiter', 'filter', 'drive', 'bass', 'drums'])
+const GENERIC = new Set(['pro', 'free', 'delay', 'reverb', 'comp', 'compressor', 'eq', 'synth', 'lite', 'one', 'plus', 'chorus', 'limiter', 'filter', 'drive', 'bass', 'drums',
+  'echo', 'gate', 'tape', 'studio', 'live', 'piano', 'keys', 'strings', 'guitar', 'amp', 'vocal', 'vocals', 'master', 'mixer', 'mix', 'verb', 'phaser', 'flanger', 'tremolo', 'saturator', 'distortion', 'widener', 'imager', 'sampler', 'drum'])
 const RANK: Record<Confidence, number> = { exact: 3, likely: 2, maybe: 1 }
 
 const tokens = (s: string) => s.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-/** A name that continues with a version-like token ("Massive X", "Serum 2", "Ozone 9") is a sibling product, not this one. */
-const SEQUEL = /^(\d+|[a-z]|ii|iii|iv|vi|vii|viii|ix|xi|xii)$/
+// What may follow the product name in a file or folder that belongs to it ("Serum Presets", "Serum.plist"). Anything else ("Massive X",
+// "Ozone 9 Equalizer", "bx_boom V3") is a different product that happens to start with the same words.
+const SUFFIX_OK = new Set(['plist', 'savedstate', 'state', 'fxp', 'fxb', 'fst', 'ini', 'json', 'xml', 'txt', 'dat', 'db', 'log', 'logs', 'cache', 'caches', 'bak', 'settings', 'prefs',
+  'preferences', 'presets', 'preset', 'data', 'library', 'libraries', 'content', 'support', 'app', 'vst', 'vst3', 'component', 'au', 'aax', 'aaxplugin', 'license', 'licence', 'licenses',
+  'user', 'samples', 'sounds', 'wavetables', 'installer', 'uninstaller', 'resources', 'engine', 'standalone', 'help', 'manual', 'docs', 'extension', 'x64', 'arm64', 'universal', 'intel'])
+// What may come before it: the bundle-id prefix and the vendor's own name.
+const PREFIX_OK = new Set(['com', 'org', 'net', 'io', 'audio', 'the', 'vst', 'vst3', 'au', 'aax', 'plugin', 'plugins', 'app'])
 
-function hasSeq(hay: string[], needle: string[]): boolean {
+const vendorToken = (t: string, vt: string[]) => vt.some((v) => v === t || (t.length >= 4 && v.startsWith(t)) || (v.length >= 4 && t.startsWith(v)))
+
+function productMatch(hay: string[], needle: string[], vt: string[]): boolean {
   if (!needle.length) return false
   for (let i = 0; i + needle.length <= hay.length; i++) {
-    if (needle.every((t, j) => hay[i + j] === t)) {
-      const next = hay[i + needle.length]
-      if (next === undefined || !SEQUEL.test(next)) return true
-    }
+    if (!needle.every((t, j) => hay[i + j] === t)) continue
+    const next = hay[i + needle.length]
+    if (hay.slice(0, i).every((t) => PREFIX_OK.has(t) || vendorToken(t, vt)) && (next === undefined || SUFFIX_OK.has(next))) return true
   }
   return false
 }
 
 export function matchConfidence(p: PluginIdent, candidateName: string): Confidence | null {
   for (const id of p.bundleIds) {
-    if (id && new RegExp(`${escapeRe(id)}($|\\.)`, 'i').test(candidateName)) return 'likely'
+    // A bundle id shorter than com.vendor.product would match every file of the vendor.
+    if (id.split('.').length >= 3 && new RegExp(`${escapeRe(id)}($|\\.)`, 'i').test(candidateName)) return 'likely'
   }
   const ct = tokens(candidateName)
   const pt = tokens(p.name)
   const vt = tokens(p.vendor)
-  const productHit = hasSeq(ct, pt)
+  const productHit = productMatch(ct, pt, vt)
   const vendorHit = vt.length > 0 && vt.every((t) => ct.some((c) => c === t || (c.length >= 4 && t.startsWith(c)) || (t.length >= 4 && c.startsWith(t))))
   const generic = pt.length > 0 && (pt.every((t) => GENERIC.has(t)) || pt.join('').length <= 3)
   if (generic) return productHit && vendorHit ? 'likely' : vendorHit ? 'maybe' : null
@@ -67,7 +75,7 @@ export function collapseCovered(entries: string[]): string[] {
     if (ok) {
       try {
         if (lstatSync(p).isDirectory()) ok = readdirSync(p).every((n) => covered(join(p, n)))
-      } catch { ok = true } // already gone
+      } catch (e) { ok = (e as NodeJS.ErrnoException).code === 'ENOENT' } // gone is fine; a folder we cannot read is not known to be covered
     }
     memo.set(p, ok)
     return ok
@@ -132,12 +140,13 @@ export async function findPluginFiles(plugin: PluginInfo, home: string, extraRoo
   const roots = pluginRoots(home)
   const mine = (p: string) => own.some((o) => p === o || p.startsWith(o + sep))
   const theirs = (p: string) => !mine(p) && roots.some((r) => p.startsWith(r + sep))
+  const userData = [join(home, 'Documents'), ...extraRoots] // your own folders: never more than a maybe
   const receipts = await (deps.receipts ?? realReceipts)(ident)
   // An installer also drops content shared with the vendor's other products (e.g. "Shared Content"). Only items that mention this
   // plugin count as its own; the rest are listed, unchecked.
   for (const p of collapseCovered(receipts.filter((r) => !theirs(r) && !mine(r)))) {
     const own = p.split(sep).some((seg) => matchConfidence(ident, seg) === 'likely')
-    add(p, own ? 'exact' : 'maybe', own ? 'Installer receipt' : 'Installer receipt (may be shared)')
+    add(p, own ? 'exact' : 'maybe', own ? 'Installer receipt' : 'Installer receipt (may be shared)', userData.some((r) => p === r || p.startsWith(r + sep)) ? 'maybe' : null)
   }
 
   for (const root of searchRoots(home, extraRoots, systemRoots)) {
@@ -159,11 +168,15 @@ export async function findPluginFiles(plugin: PluginInfo, home: string, extraRoo
   const sorted = [...found.entries()].filter(([p]) => isRemovable(p, home, allowed)).sort((a, b) => a[0].length - b[0].length)
   const kept: [string, { confidence: Confidence; location: string }][] = []
   for (const e of sorted) {
-    const parent = kept.find(([k]) => e[0].startsWith(k + sep))
-    if (parent && !(e[1].confidence === 'exact' && parent[1].confidence !== 'exact')) continue
+    const i = kept.findIndex(([k]) => e[0].startsWith(k + sep))
+    if (i < 0) { kept.push(e); continue }
+    // A likely/exact folder is trashed whole, so it already covers everything in it. A "maybe" parent only matched on the vendor name,
+    // so its stronger children are what we keep.
+    if (RANK[kept[i][1].confidence] >= 2 || RANK[kept[i][1].confidence] >= RANK[e[1].confidence]) continue
+    kept.splice(i, 1)
     kept.push(e)
   }
-  return kept
-    .map(([path, v]) => ({ path, size: dirSize(path), confidence: v.confidence, location: v.location }) as PluginFile)
-    .sort((a, b) => b.size - a.size || basename(a.path).localeCompare(basename(b.path)))
+  const out: PluginFile[] = []
+  for (const [path, v] of kept) out.push({ path, size: await dirSize(path), confidence: v.confidence, location: v.location })
+  return out.sort((a, b) => b.size - a.size || basename(a.path).localeCompare(basename(b.path)))
 }

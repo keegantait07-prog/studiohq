@@ -39,6 +39,9 @@ export function slotOf(s: Pick<SoundRow, 'k' | 'n' | 'e'>, dir = ''): SlotId | n
   }
 }
 
+/** Identity of a sample across kits: the same file reused in several kits has the same name and size. */
+export const soundKey = (s: Pick<SoundRow, 'n' | 's'>): string => `${s.n.toLowerCase()}|${s.s}`
+
 /** Candidate sounds per slot; files with the same name and size (the same sample reused across kits) appear once. */
 export function candidates(items: SoundRow[], dirs: string[] = []): Record<SlotId, SoundRow[]> {
   const out = Object.fromEntries(KIT_SLOTS.map((s) => [s.id, [] as SoundRow[]])) as unknown as Record<SlotId, SoundRow[]>
@@ -46,7 +49,7 @@ export function candidates(items: SoundRow[], dirs: string[] = []): Record<SlotI
   for (const s of items) {
     const slot = slotOf(s, dirs[s.d])
     if (!slot) continue
-    const key = `${slot}|${s.n.toLowerCase()}|${s.s}`
+    const key = `${slot}|${soundKey(s)}`
     if (seen.has(key)) continue
     seen.add(key)
     out[slot].push(s)

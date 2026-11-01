@@ -1,4 +1,5 @@
-import { KIT_SLOTS, emptyPicks, type Picks, type SlotId } from './kitmaker'
+import { KIT_SLOTS, emptyPicks, soundKey, type Picks, type SlotId } from './kitmaker'
+import type { SoundRow } from './types'
 
 export interface SavedKit { id: string; name: string; tag: string; outDir: string; picks: Picks; targets: Record<SlotId, number>; updated: number }
 
@@ -36,4 +37,22 @@ export function undo<T>(h: History<T>, cur: T): { h: History<T>; value: T } | nu
 export function redo<T>(h: History<T>, cur: T): { h: History<T>; value: T } | null {
   if (!h.future.length) return null
   return { value: h.future[0], h: { past: [...h.past, cur], future: h.future.slice(1) } }
+}
+
+/** Which of the other saved kits already use each sample (matched by name and size, so a copy of the same file counts). */
+export function usageByKey(kits: SavedKit[], activeId: string, rows: Map<number, SoundRow>): Map<string, string[]> {
+  const out = new Map<string, string[]>()
+  for (const k of kits) {
+    if (k.id === activeId) continue
+    const seen = new Set<string>()
+    for (const slot of KIT_SLOTS) for (const p of k.picks[slot.id] ?? []) {
+      const r = rows.get(p.id)
+      if (!r) continue
+      const key = soundKey(r)
+      if (seen.has(key)) continue
+      seen.add(key)
+      out.set(key, [...(out.get(key) ?? []), k.name])
+    }
+  }
+  return out
 }

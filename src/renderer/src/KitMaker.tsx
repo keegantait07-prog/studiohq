@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { SoundList, SoundRow } from '@shared/types'
-import { KIT_SLOTS, autoFill, candidates, clearAuto, cleanName, emptyPicks, planKit, type Picks, type SlotId } from '@shared/kitmaker'
-import { emptyHistory, newKit, record, redo, sanitize, undo, uniqueName, upsert, type History, type SavedKit } from '@shared/kitdrafts'
+import { KIT_SLOTS, soundKey, autoFill, candidates, clearAuto, cleanName, emptyPicks, planKit, type Picks, type SlotId } from '@shared/kitmaker'
+import { emptyHistory, newKit, record, redo, sanitize, undo, uniqueName, upsert, usageByKey, type History, type SavedKit } from '@shared/kitdrafts'
 
 const STORE_KEY = 'shq.kitmaker.kits'
 const LEGACY_KEY = 'shq.kitmaker.draft'
@@ -37,6 +37,8 @@ export function KitMaker({ data, onPauseMain, toast }: { data: SoundList | null;
   const [q, setQ] = useState('')
   const [busy, setBusy] = useState(false)
   const [playing, setPlaying] = useState<number | null>(null)
+  const [mode, setMode] = useState<'browse' | 'kit'>('browse')
+  const [skipUsed, setSkipUsed] = useState(false)
   const [savedAt, setSavedAt] = useState<number | null>(null)
   const audio = useRef<HTMLAudioElement | null>(null)
   const picksRef = useRef(picks)
@@ -104,11 +106,13 @@ export function KitMaker({ data, onPauseMain, toast }: { data: SoundList | null;
   const total = KIT_SLOTS.reduce((n, s) => n + live[s.id].length, 0)
   const picked = useMemo(() => new Set(live[slot].map((p) => p.id)), [live, slot])
 
+  const usage = useMemo(() => usageByKey(kits, activeId, byId), [kits, activeId, byId])
+  const fresh = useMemo(() => Object.fromEntries(KIT_SLOTS.map((s) => [s.id, cands[s.id].filter((c) => !usage.has(soundKey(c)))])) as typeof cands, [cands, usage])
   const list = useMemo(() => {
     const t = q.trim().toLowerCase()
-    const all = cands[slot]
+    const all = skipUsed ? fresh[slot] : cands[slot]
     return (t ? all.filter((s) => s.n.toLowerCase().includes(t) || (data?.dirs[s.d] ?? '').toLowerCase().includes(t)) : all).slice(0, 400)
-  }, [cands, slot, q, data])
+  }, [cands, fresh, skipUsed, slot, q, data])
 
   const play = useCallback((id: number) => {
     const a = audio.current!
@@ -123,9 +127,9 @@ export function KitMaker({ data, onPauseMain, toast }: { data: SoundList | null;
     const cur = p[slot]
     return { ...p, [slot]: cur.some((x) => x.id === s.id) ? cur.filter((x) => x.id !== s.id) : [...cur, { id: s.id, auto: false }] }
   })
-  const fill = () => { const n = change((p) => autoFill(p, cands, targets)); toast(n ? `Added ${n} sounds. Undo with ⌘Z or the Undo button.` : 'Every folder is already at its target.') }
+  const fill = () => { const n = change((p) => autoFill(p, skipUsed ? fresh : cands, targets)); toast(n ? `Added ${n} sounds. Undo with ⌘Z or the Undo button.` : 'Every folder is already at its target.') }
   const autoCount = KIT_SLOTS.reduce((n, s) => n + live[s.id].filter((p) => p.auto).length, 0)
-  const reroll = () => { change((p) => autoFill(clearAuto(p), cands, targets)); toast('Re-rolled the auto-picked sounds. Undo with ⌘Z.') }
+  const reroll = () => { change((p) => autoFill(clearAuto(p), skipUsed ? fresh : cands, targets)); toast('Re-rolled the auto-picked sounds. Undo with ⌘Z.') }
   const clear = () => { change(() => emptyPicks()); toast('Cleared the kit. Undo with ⌘Z.') }
 
   const pickFolder = async () => { const d = await window.api.kitPickFolder(); if (d) setOutDir(d) }
@@ -139,6 +143,7 @@ export function KitMaker({ data, onPauseMain, toast }: { data: SoundList | null;
     } catch (e) { toast(`Export failed: ${(e as Error).message}`) } finally { setBusy(false) }
   }
 
+  const plan = useMemo(() => planKit(live, byId, tag), [live, byId, tag])
   const preview = useMemo(() => planKit(live, byId, tag).filter((f) => f.slot === slot).slice(0, 3).map((f) => f.name), [live, byId, tag, slot])
   const missingTag = !tag.trim()
 
@@ -185,12 +190,42 @@ export function KitMaker({ data, onPauseMain, toast }: { data: SoundList | null;
         </div>
 
         <div className="km-tools">
-          <input placeholder={`Search ${cands[slot].length.toLocaleString()} ${KIT_SLOTS.find((s) => s.id === slot)!.folder.toLowerCase()} in your library…`} value={q} onChange={(e) => setQ(e.target.value)} />
+          <div className="seg km-mode">
+            <button className={mode === 'browse' ? 'on' : ''} onClick={() => setMode('browse')}>Browse library</button>
+            <button className={mode === 'kit' ? 'on' : ''} onClick={() => setMode('kit')}>In this kit ({total})</button>
+          </div>
+          {mode === 'browse' && <><input placeholder={`Search ${cands[slot].length.toLocaleString()} ${KIT_SLOTS.find((s) => s.id === slot)!.folder.toLowerCase()} in your library…`} value={q} onChange={(e) => setQ(e.target.value)} />
           <label className="km-target">Auto-fill target
             <input type="number" min={0} max={200} value={targets[slot]} onChange={(e) => setTargets((t) => ({ ...t, [slot]: Math.max(0, Math.min(200, Number(e.target.value) || 0)) }))} />
           </label>
-          {preview.length > 0 && <span className="dim km-prev">Exports as {preview.join(' · ')}{live[slot].length > 3 ? ' …' : ''}</span>}
+          <label className="km-target" title="Hide sounds you already used in your other saved kits, and keep Auto-fill from picking them"><input type="checkbox" checked={skipUsed} onChange={(e) => setSkipUsed(e.target.checked)} style={{ width: 'auto' }} />Skip sounds from other kits</label>
+          {preview.length > 0 && <span className="dim km-prev">Exports as {preview.join(' · ')}{live[slot].length > 3 ? ' …' : ''}</span>}</>}
         </div>
+
+        {mode === 'kit' ? (
+          <div className="km-list">
+            {!total && <div className="empty">Nothing in this kit yet. Switch to Browse library and add sounds, or hit Auto-fill.</div>}
+            {KIT_SLOTS.filter((s) => live[s.id].length).map((s) => (
+              <div key={s.id}>
+                <div className="km-group"><b>{s.folder}</b><span className="dim">{live[s.id].length}</span><span className="grow" /><button className="ghost" onClick={() => { setSlot(s.id); setMode('browse') }}>Add more</button></div>
+                {plan.filter((f) => f.slot === s.id).map((f) => {
+                  const r = byId.get(f.id)!
+                  const pk = live[s.id].find((p) => p.id === f.id)
+                  const used = usage.get(soundKey(r))
+                  return (
+                    <div key={f.id} className="km-row on">
+                      <button className="km-play" onClick={() => play(f.id)} aria-label="Preview">{playing === f.id ? '❚❚' : '▶'}</button>
+                      <span className="sname" title={f.name}>{f.name}{used && <em className="km-used" title={`Also in: ${used.join(', ')}`}>also in {used.length === 1 ? used[0] : `${used.length} kits`}</em>}</span>
+                      <span className="dim sfolder" title={r.n}>from “{r.n}”{pk?.auto ? ' · auto' : ''}</span>
+                      <span className="mono dim r">{fmtLen(r.u)}</span>
+                      <button onClick={() => change((p) => ({ ...p, [s.id]: p[s.id].filter((x) => x.id !== f.id) }))}>Remove</button>
+                    </div>
+                  )
+                })}
+              </div>
+            ))}
+          </div>
+        ) : (
 
         <div className="km-list">
           {!data && <div className="empty">Loading your library…</div>}
@@ -201,7 +236,7 @@ export function KitMaker({ data, onPauseMain, toast }: { data: SoundList | null;
             return (
               <div key={s.id} className={`km-row ${on ? 'on' : ''}`}>
                 <button className="km-play" onClick={() => play(s.id)} aria-label="Preview">{playing === s.id ? '❚❚' : '▶'}</button>
-                <span className="sname" title={s.n}>{s.n}</span>
+                <span className="sname" title={s.n}>{s.n}{usage.has(soundKey(s)) && <em className="km-used" title={`Also in: ${usage.get(soundKey(s))!.join(', ')}`}>also in {usage.get(soundKey(s))!.length === 1 ? usage.get(soundKey(s))![0] : `${usage.get(soundKey(s))!.length} kits`}</em>}</span>
                 <span className="dim sfolder" title={data!.dirs[s.d]}>{data!.dirs[s.d].split('/').slice(-2).join(' / ')}</span>
                 <span className="mono dim r">{fmtLen(s.u)}</span>
                 <button className={on ? 'primary' : ''} onClick={() => toggle(s)}>{on ? (auto ? 'Auto ✓' : 'Added ✓') : 'Add'}</button>
@@ -210,6 +245,7 @@ export function KitMaker({ data, onPauseMain, toast }: { data: SoundList | null;
           })}
           {data && cands[slot].length > list.length && !q && <div className="empty dim">Showing the first {list.length}. Search to narrow it down.</div>}
         </div>
+        )}
       </div>
     </section>
   )

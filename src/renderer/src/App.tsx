@@ -1,4 +1,4 @@
-import { lazy, useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react'
+import { lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, Fragment, type CSSProperties } from 'react'
 import { STATUSES, type Beat, type BeatDetail, type ContentData, type CrmData, type FeedbackData, type SoundList, type SoundStatus, type StudioSession, type SalesData, type Sale, type ScanStatus, type Settings as AppSettings, type Status, type TagKind, type NetlifyStatus, type VaultKind } from '@shared/types'
 import { clickable } from './a11y'
 import { ViewGuard } from './ViewGuard'
@@ -8,6 +8,7 @@ import { parseQuery } from './query'
 import { keysCompatible, bpmCompatible } from '@shared/key'
 import { usePlayer, usePlayerTime, type PlayerClock } from './player'
 import { Thumb, Waveform } from './Waveform'
+import { useLevelDriver } from './motion'
 import { artUrl } from './genart'
 const SonicMap = lazy(() => import('./SonicMap').then((m) => ({ default: m.SonicMap })))
 import { Cleanup } from './Cleanup'
@@ -50,6 +51,8 @@ function rank(b: Beat): number {
 }
 
 /** The "0:12 / 3:04" readout. It alone re-renders as the playhead moves. */
+const NO_PEAKS: number[] = []
+
 function PlayerReadout({ player, fallbackDuration }: { player: PlayerClock & { duration: number }; fallbackDuration: number | null }) {
   const time = usePlayerTime(player)
   return <div className="sub mono">{fmtDur(time)} / {fmtDur(player.duration || fallbackDuration || null)}</div>
@@ -161,6 +164,27 @@ export function App() {
   const search = useRef<HTMLInputElement>(null)
   const player = usePlayer()
   useEffect(() => { document.documentElement.toggleAttribute('data-playing', player.playing) }, [player.playing])
+  useLevelDriver({ playing: player.playing, duration: player.duration, peaks: playingDetail?.peaks ?? NO_PEAKS, getTime: player.getTime, subscribe: player.subscribe })
+
+  // One amber tick that slides to whichever sidebar item is active (the Console theme shows it; the others hide it).
+  const tickRef = useRef<HTMLSpanElement>(null)
+  useLayoutEffect(() => {
+    const tick = tickRef.current
+    const side = tick?.parentElement
+    if (!tick || !side) return
+    const place = (): void => {
+      const on = side.querySelector<HTMLElement>('.nav.on')
+      if (!on) { tick.style.opacity = '0'; return }
+      tick.style.opacity = '1'
+      tick.style.height = `${on.offsetHeight}px`
+      tick.style.transform = `translateY(${on.offsetTop}px)`
+    }
+    place()
+    const ro = new ResizeObserver(place)
+    ro.observe(side)
+    const raf = requestAnimationFrame(() => tick.classList.add('ready')) // transitions only after the first placement, so it does not fly in from the top
+    return () => { ro.disconnect(); cancelAnimationFrame(raf) }
+  }, [view, collections.length, loopCollections.length, theme])
 
   const reload = useCallback(async () => {
     setBeats(await window.api.listBeats())
@@ -392,6 +416,7 @@ export function App() {
       <Defs />
       <div className="titlebar" />
       <nav className="side">
+        <span className="nav-tick" ref={tickRef} aria-hidden />
         <div className="brand"><BrandMark /><span>Studio HQ</span></div>
         <a className={`nav ${view === 'dashboard' ? 'on' : ''}`} {...clickable(() => setView('dashboard'))}><em className="nl"><Icon name="dashboard" />Dashboard</em></a>
         <a className={`nav ${view === 'vault' ? 'on' : ''}`} {...clickable(() => setView('vault'))}><em className="nl"><Icon name="vault" />Beat Vault</em> <span>{beats.length}</span></a>
@@ -511,12 +536,13 @@ export function App() {
                 {!isShut(sec.key) && sec.rows.map(({ beat: b, count }) => {
               const sel = b.id === selectedId || (collapse && selectedIdx >= 0 && rows[selectedIdx]?.beat.id === b.id)
               const isPlaying = player.id === b.id && player.playing
+              const isNow = player.id === b.id
               return (
-                <div key={b.id} data-row={b.id} className={`row ${sel ? 'sel' : ''}`} {...clickable(() => setSelectedId(b.id))} onDoubleClick={() => playBeat(b.id)}>
-                  <button className={`play ${isPlaying ? 'on' : ''} ${b.ext === 'flp' && !b.hasPreview ? 'off' : ''}`} onClick={(e) => { e.stopPropagation(); if (b.ext === 'flp' && !b.hasPreview) return toast('FL project with no preview yet. Play it once with Studio HQ Bridge on the Master and close it.'); player.id === b.id ? player.toggle() : playBeat(b.id) }} aria-label="play">{isPlaying ? '❚❚' : b.ext === 'flp' && !b.hasPreview ? '–' : '▶'}</button>
+                <div key={b.id} data-row={b.id} className={`row ${sel ? 'sel' : ''} ${isNow ? 'now' : ''}`} {...clickable(() => setSelectedId(b.id))} onDoubleClick={() => playBeat(b.id)}>
+                  <button className={`play ${isPlaying ? 'on' : ''} ${b.ext === 'flp' && !b.hasPreview ? 'off' : ''}`} onClick={(e) => { e.stopPropagation(); if (b.ext === 'flp' && !b.hasPreview) return toast('FL project with no preview yet. Play it once with Studio HQ Bridge on the Master and close it.'); player.id === b.id ? player.toggle() : playBeat(b.id) }} aria-label={isPlaying ? 'pause' : 'play'}>{isPlaying ? <span className="eq" aria-hidden><i /><i /><i /></span> : b.ext === 'flp' && !b.hasPreview ? '–' : '▶'}</button>
                   <div className="name">
                     <img className="arttile" alt="" src={artUrl({ seed: `g${b.groupId}`, peaks: b.thumb, key: b.key, bpm: b.bpm })} />
-                    {b.ext === 'flp' ? <span className="projthumb" title={b.hasPreview ? 'FL Studio project, preview loop' : 'FL Studio project, no audio yet'}>{b.hasPreview ? 'FL loop' : 'FL project'}</span> : <Thumb data={b.thumb} />}
+                    {b.ext === 'flp' ? <span className="projthumb" title={b.hasPreview ? 'FL Studio project, preview loop' : 'FL Studio project, no audio yet'}>{b.hasPreview ? 'FL loop' : 'FL project'}</span> : <span className="thumbwrap"><Thumb data={b.thumb} />{isNow && <Thumb data={b.thumb} className="fill" />}</span>}
                     <div className="nt">
                       <div className="t">{b.title}{count > 1 && <em className="ver-badge">{count} versions</em>}{!collapse && b.versionLabel && <em className="ver-badge">{b.versionLabel}</em>}</div>
                       {b.credits && <div className="sub">{b.credits}</div>}
@@ -560,6 +586,9 @@ export function App() {
         <div className="now">
           <div className="t">{playingDetail?.title ?? 'Nothing playing'}</div>
           <PlayerReadout player={player} fallbackDuration={playingDetail?.duration ?? null} />
+        </div>
+        <div className="ladder" aria-hidden>
+          {(['l', 'r'] as const).map((side) => <div key={side} className={side}>{Array.from({ length: 12 }, (_, n) => <i key={n} style={{ '--i': n } as CSSProperties} />)}</div>)}
         </div>
         <div className="xmeta" aria-label="Tempo and key of the playing beat">
           <div><b>{playingDetail?.bpm ?? '–'}</b><span>bpm</span></div>
@@ -609,7 +638,7 @@ export function App() {
       {splitsDlg && (
         <SplitsDialog groupId={splitsDlg.groupId} title={splitsDlg.title} producerName={appSettings?.producerName ?? ''} onClose={() => setSplitsDlg(null)} onDone={(m) => { setSplitsDlg(null); toast(m); reloadSales() }} />
       )}
-      {toastMsg && <div className="toast" role="status" aria-live="polite" onClick={() => setToastMsg('')}>{toastMsg}</div>}
+      {toastMsg && <div key={toastMsg} className="toast" role="status" aria-live="polite" onClick={() => setToastMsg('')}>{toastMsg}</div>}
       {pitchDlg && crm && (
         <PitchDialog
           beats={audioList} crm={crm} myName={appSettings?.producerName ?? ''} hasToken={!!netlify?.hasToken} contactId={pitchDlg.contactId} beatIds={pitchDlg.beatIds}

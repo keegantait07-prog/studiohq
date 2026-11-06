@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { Beat, ContentData, CrmData, FeedbackData, SalesData, Settings, Status, StudioSession } from '@shared/types'
 import { isDue, daysSince } from './crmUtils'
 import { useNow } from './useNow'
 import { activity, beatsMadeSince, dayKey, DAY, fmtClock, fmtHM, isActive, sessionMs, startOfDay, streaks, weekStart } from './dashUtils'
 import { money, net } from './salesUtils'
 import { HEALTH } from './query'
+import { prefersReducedMotion } from './motion'
 
 type View = 'vault' | 'crm' | 'sales' | 'content' | 'sounds' | 'feedback'
 interface Props {
@@ -23,6 +24,29 @@ interface Props {
   onMakeVideo: (id: number) => void
   onSetStatus: (id: number, s: Status) => void
   reloadSessions: () => void
+}
+
+/** The dashboard's one orchestrated entrance happens once per app session, never again when you come back to it. */
+let introPlayed = false
+
+/** Counts up to its value once, on the first mount only; afterwards it just shows the number. */
+function CountUp({ to, run, format = String }: { to: number; run: boolean; format?: (n: number) => string }) {
+  const [v, setV] = useState(run ? 0 : to)
+  const started = useRef(false)
+  useEffect(() => {
+    if (!run || started.current) { setV(to); return }
+    started.current = true
+    let raf = 0
+    const t0 = performance.now()
+    const step = (now: number): void => {
+      const k = Math.min(1, (now - t0) / 700)
+      setV(to * (1 - Math.pow(1 - k, 4)))
+      if (k < 1) raf = requestAnimationFrame(step)
+    }
+    raf = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(raf)
+  }, [to, run])
+  return <>{format(Math.round(v))}</>
 }
 
 function Goal({ label, value, goal, onGoal }: { label: string; value: number; goal: number; onGoal: (n: number) => void }) {
@@ -63,6 +87,7 @@ function CatalogHealth({ beats, onQuery }: { beats: Beat[]; onQuery: (q: string)
 export function Dashboard(p: Props) {
   const { beats, crm, content, sales, feedback, sessions, settings } = p
   const now = useNow(1000)
+  const [intro] = useState(() => { const first = !introPlayed; introPlayed = true; return first && !prefersReducedMotion() })
   const wk = weekStart(now)
   const today0 = startOfDay(now)
   const act = useMemo(() => activity(beats, sessions, now), [beats, sessions, now])
@@ -94,13 +119,13 @@ export function Dashboard(p: Props) {
   const weeks = Array.from({ length: 15 }, (_, w) => Array.from({ length: 7 }, (_, d) => wk - (14 - w) * 7 * DAY + d * DAY))
 
   return (
-    <section className="dash">
+    <section className={`dash ${intro ? 'intro' : ''}`}>
       <div className="dash-head">
         <div><h2>{hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening'}{name ? `, ${name}` : ''}</h2><div className="dim">{new Date(now).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</div></div>
         <div className="tiles">
-          <div className="stat"><b>{money(Math.round(revenue))}</b><span>earned this month</span></div>
-          <div className="stat"><b>{awaiting}</b><span>pitches awaiting a reply</span></div>
-          <div className="stat"><b>{unsold}</b><span>beats available</span></div>
+          <div className="stat"><b><CountUp to={Math.round(revenue)} run={intro} format={money} /></b><span>earned this month</span></div>
+          <div className="stat"><b><CountUp to={awaiting} run={intro} /></b><span>pitches awaiting a reply</span></div>
+          <div className="stat"><b><CountUp to={unsold} run={intro} /></b><span>beats available</span></div>
         </div>
       </div>
 
@@ -108,7 +133,7 @@ export function Dashboard(p: Props) {
         <CatalogHealth beats={p.beats} onQuery={p.onQuery} />
         <div className="panel timer">
           <h3>Studio session</h3>
-          <div className={`clock ${open ? 'run' : ''}`}>{fmtClock(open ? now - open.startedAt : 0)}</div>
+          <div className={`clock ${open ? 'run' : ''}`}>{fmtClock(open ? now - open.startedAt : 0).split(':').flatMap((part, n) => (n ? [<span key={n} className="colon">:</span>, part] : [part]))}</div>
           <div className="timer-row">
             {open ? <button className="primary" onClick={async () => { await window.api.stopSession(); p.reloadSessions() }}>Stop session</button> : <button className="primary" onClick={async () => { await window.api.startSession(); p.reloadSessions() }}>Start session</button>}
             <span className="dim">{open?.auto ? 'Started automatically with FL Studio' : open ? 'Running' : 'Not running'}</span>
@@ -119,9 +144,9 @@ export function Dashboard(p: Props) {
 
         <div className="panel">
           <h3>Beat-making streak</h3>
-          <div className="streak"><b>{current}</b><span>day{current === 1 ? '' : 's'}</span><em className="dim">best {best}</em></div>
+          <div className="streak"><b><CountUp to={current} run={intro} /></b><span>day{current === 1 ? '' : 's'}</span><em className="dim">best {best}</em></div>
           <div className="heat">
-            {weeks.map((w, i) => <div key={i} className="hcol">{w.map((t) => { const d = act.get(dayKey(t)); const n = d ? d.bounces + (isActive({ bounces: 0, ms: d.ms }) ? 1 : 0) : 0; return <i key={t} title={`${new Date(t).toLocaleDateString()}: ${d?.bounces ?? 0} bounce${d?.bounces === 1 ? '' : 's'}, ${fmtHM(d?.ms ?? 0)}`} className={`hc ${t > now ? 'future' : n >= 3 ? 'l3' : n === 2 ? 'l2' : n === 1 ? 'l1' : ''} ${t === today0 ? 'today' : ''}`} /> })}</div>)}
+            {weeks.map((w, i) => <div key={i} className="hcol">{w.map((t, r) => { const d = act.get(dayKey(t)); const n = d ? d.bounces + (isActive({ bounces: 0, ms: d.ms }) ? 1 : 0) : 0; return <i key={t} title={`${new Date(t).toLocaleDateString()}: ${d?.bounces ?? 0} bounce${d?.bounces === 1 ? '' : 's'}, ${fmtHM(d?.ms ?? 0)}`} className={`hc ${t > now ? 'future' : n >= 3 ? 'l3' : n === 2 ? 'l2' : n === 1 ? 'l1' : ''} ${t === today0 ? 'today' : ''}`} style={intro ? ({ '--d': i + r } as CSSProperties) : undefined} /> })}</div>)}
           </div>
           <div className="help">A day counts when you bounce a beat or log 15+ minutes in the studio.</div>
         </div>

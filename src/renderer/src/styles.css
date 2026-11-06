@@ -1041,3 +1041,74 @@ select.grp { width: auto; margin-left: 4px; padding: 2px 6px; }
 [data-theme='console'] .dgrid { gap: 0 36px; }
 [data-theme='console'] .dgrid > .panel { background-color: transparent; border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: 14px 0 22px; }
 [data-theme='console'] .dgrid .panel h3 { font-size: 12px; font-weight: 600; color: var(--dim); margin-bottom: 12px; }
+
+
+/* ===================================================================================================
+   Console motion. The desk breathes with the music: a meter beside the tempo readout, three fader caps in the logo, equaliser
+   bars and a filling waveform on the playing row, one amber tick that slides down the sidebar. Everything you do constantly
+   (hover, keyboard, list selection) stays instant. Only transform and opacity animate. The variables --lvl, --lvl-a/b/c and
+   --prog come from motion.ts, written onto the sidebar, transport and playing row. Reduced motion turns all of it off.
+   =================================================================================================== */
+
+/* generic pieces: every theme gets a quiet version, so no theme is left with a broken element */
+.nav-tick { display: none; }
+.thumbwrap { position: relative; display: block; width: 66px; height: 20px; flex: none; }
+.thumb.fill { display: none; }
+.eq { display: inline-flex; gap: 2px; align-items: flex-end; height: 11px; }
+.eq i { display: block; width: 2px; height: 100%; background: currentColor; transform-origin: bottom; transform: scaleY(calc(.2 + var(--lvl, 0) * .8)); transition: transform 70ms linear; }
+.eq i:nth-child(2) { transform: scaleY(calc(.2 + var(--lvl-a, 0) * .8)); }
+.eq i:nth-child(3) { transform: scaleY(calc(.2 + var(--lvl-b, 0) * .8)); }
+.ladder { display: flex; gap: 3px; flex: none; height: 46px; }
+.ladder > div { display: flex; flex-direction: column-reverse; justify-content: space-between; width: 10px; }
+.ladder .l { --L: var(--lvl, 0); } .ladder .r { --L: var(--lvl-a, 0); }
+.ladder i { display: block; height: 2px; background: var(--finished); opacity: clamp(.14, calc(var(--L) * 12 - var(--i)), 1); transition: opacity 60ms linear; }
+.ladder i:nth-child(n+9) { background: var(--accent); } .ladder i:nth-child(n+11) { background: var(--ember); }
+
+@keyframes shq-cfade { from { opacity: 0; } }
+@keyframes hc-in { from { opacity: 0; transform: scale(.4); } }
+@keyframes ov-in { from { opacity: 0; } }
+@keyframes modal-in { from { opacity: 0; transform: scale(.97); } }
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, 8px); } }
+@keyframes toast-drain { to { transform: scaleX(0); } }
+@keyframes colon-blink { 50% { opacity: .2; } }
+
+[data-theme='console'] { --enter: shq-cfade 120ms ease-out backwards; --wf-playhead: 1; }
+
+/* logo: three fader caps that follow the level through different time windows */
+[data-theme='console'] .bm-console .cap { transition: transform 90ms linear; }
+[data-theme='console'] .bm-console .c1 { transform: translateY(calc(var(--lvl-a, 0) * -8px)); }
+[data-theme='console'] .bm-console .c2 { transform: translateY(calc(var(--lvl-b, 0) * 8px)); }
+[data-theme='console'] .bm-console .c3 { transform: translateY(calc(var(--lvl-c, 0) * -7px)); }
+
+/* sidebar: one tick that slides to the active item */
+[data-theme='console'] .side { position: relative; }
+[data-theme='console'] .nav-tick { display: block; position: absolute; left: 0; top: 0; width: 2px; background: var(--accent); pointer-events: none; opacity: 0; }
+[data-theme='console'] .nav-tick.ready { transition: transform 220ms var(--ease), height 220ms var(--ease), opacity 120ms ease-out; }
+[data-theme='console'] .nav.on { box-shadow: none; }
+
+/* the playing row: equaliser bars in the key, and the little waveform fills with the playhead */
+[data-theme='console'] .thumb:not(.fill) { position: absolute; inset: 0; width: 100%; height: 100%; }
+[data-theme='console'] .thumb.fill { display: block; position: absolute; inset: 0; width: 100%; height: 100%; fill: var(--accent); clip-path: inset(0 calc((1 - var(--prog, 0)) * 100%) 0 0); }
+[data-theme='console'] .row.now .thumb:not(.fill) { fill: var(--wf); }
+[data-theme='console'] .row.now .play:not(.on) { color: var(--accent-text); }
+
+/* dashboard: the one orchestrated entrance, once per session */
+[data-theme='console'] .dash.intro .hc { animation: hc-in 380ms var(--ease) backwards; animation-delay: calc(var(--d, 0) * 24ms + 200ms); }
+[data-theme='console'] .clock.run .colon { animation: colon-blink 1s steps(1, end) infinite; }
+
+/* dialogs scale in from 97%; the command palette is opened by keyboard all day, so it does not animate */
+[data-theme='console'] .overlay:has(> .modal) { animation: ov-in 140ms ease-out; }
+[data-theme='console'] .overlay > .modal { animation: modal-in 180ms var(--ease); transform-origin: 50% 0; }
+
+/* toasts slide up and carry a hairline that drains over their 4.5 seconds */
+[data-theme='console'] .toast { overflow: hidden; animation: toast-in 200ms var(--ease); }
+[data-theme='console'] .toast::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--accent); transform-origin: left; animation: toast-drain 4500ms linear forwards; }
+
+/* buttons press in; tabs, close marks, stars and the transport key have their own feel */
+[data-theme='console'] button { transition: background-color .12s, border-color .12s, transform 80ms var(--ease); }
+[data-theme='console'] button:not(.tab):not(.x):not(.star):not(.ghost):not(.swatch):not(.big-play):not(.play):active { transform: scale(.97); }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-theme='console'] *, [data-theme='console'] *::before, [data-theme='console'] *::after { transition: none !important; animation: none !important; }
+  [data-theme='console'] .toast::after { display: none; }
+}

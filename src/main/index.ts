@@ -37,6 +37,7 @@ import { buildTools } from './assistant/tools'
 import type { PublishDraft, YtDraftEdits, YtPublishEdits } from '../shared/ytTypes'
 import type { Post, VideoOptions } from '../shared/types'
 import { splitSheetHtml, writePdf } from './splitsheet'
+import { installFileLog } from './filelog'
 import { isAppUrl, isExternalUrl, isKnownPath } from './safe-path'
 import type { LogSaleInput, License, Sale, SplitRow } from '../shared/types'
 import type { SitePatch } from '../shared/types'
@@ -53,6 +54,7 @@ protocol.registerSchemesAsPrivileged([
 ])
 
 let win: BrowserWindow | null = null
+const timers: ReturnType<typeof setInterval>[] = [] // background intervals, stopped when the app quits
 let store: Store
 let watcher: Watcher
 let loopWatcher: Watcher
@@ -496,6 +498,7 @@ function registerIpc(): void {
 }
 
 app.whenReady().then(async () => {
+  installFileLog(join(app.getPath('userData'), 'logs'))
   protocol.handle('shqa', serveAudio)
   const db = openDb(app.getPath('userData'))
   const send = (ch: string, ...a: unknown[]) => win?.webContents.send(ch, ...a)
@@ -561,18 +564,19 @@ app.whenReady().then(async () => {
   watcher.restart()
   loopWatcher.restart()
   setTimeout(() => { scanLibrary().catch((e) => console.error('library scan failed', e)) }, 3000)
-  setInterval(() => { reindexProjects().catch((e) => console.error('reindex failed', e)) }, 3 * 60 * 1000)
+  timers.push(setInterval(() => { reindexProjects().catch((e) => console.error('reindex failed', e)) }, 3 * 60 * 1000))
   setTimeout(() => { if (feedback.hasPublished()) syncFeedback(true) }, 9000)
-  setInterval(() => { if (feedback.hasPublished()) syncFeedback(true) }, 5 * 60 * 1000)
-  setInterval(async () => { if (store.getSettings().autoTrackFL && (await sessions.autoTrack())) sendFeedback() }, 20000)
+  timers.push(setInterval(() => { if (feedback.hasPublished()) syncFeedback(true) }, 5 * 60 * 1000))
+  timers.push(setInterval(async () => { if (store.getSettings().autoTrackFL && (await sessions.autoTrack())) sendFeedback() }, 20000))
   setTimeout(checkFollowups, 6000)
-  setInterval(checkFollowups, 30 * 60 * 1000)
+  timers.push(setInterval(checkFollowups, 30 * 60 * 1000))
   app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow() })
 })
 
 app.on('window-all-closed', () => app.quit())
 let quitting = false
 app.on('before-quit', (e) => {
+  timers.forEach(clearInterval)
   void watcher?.close()
   void loopWatcher?.close()
   if (quitting || !assistant) return

@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react'
+import { lazy, useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react'
 import { STATUSES, type Beat, type BeatDetail, type ContentData, type CrmData, type FeedbackData, type SoundList, type SoundStatus, type StudioSession, type SalesData, type Sale, type ScanStatus, type Settings as AppSettings, type Status, type TagKind, type NetlifyStatus, type VaultKind } from '@shared/types'
+import { clickable } from './a11y'
+import { ViewGuard } from './ViewGuard'
 import { displayKey } from '@shared/key'
 import { parseQuery } from './query'
 import { keysCompatible, bpmCompatible } from '@shared/key'
 import { usePlayer } from './player'
 import { Thumb, Waveform } from './Waveform'
 import { artUrl } from './genart'
-import { SonicMap } from './SonicMap'
+const SonicMap = lazy(() => import('./SonicMap').then((m) => ({ default: m.SonicMap })))
 import { Cleanup } from './Cleanup'
 import { hotspot, takesOf } from './audition'
 import { keyColor } from './keyColor'
@@ -21,16 +23,16 @@ import { SalesView } from './Sales'
 import { LogSaleDialog } from './LogSaleDialog'
 import { SplitsDialog } from './SplitsDialog'
 import { errMsg } from './salesUtils'
-import { ContentView } from './Content'
+const ContentView = lazy(() => import('./Content').then((m) => ({ default: m.ContentView })))
 import { startOfDay } from './suggest'
-import { SoundLibrary } from './SoundLibrary'
+const SoundLibrary = lazy(() => import('./SoundLibrary').then((m) => ({ default: m.SoundLibrary })))
 import { groupRows, type GroupBy } from '@shared/loopGroups'
-import { KitMaker } from './KitMaker'
-import { Plugins } from './Plugins'
+const KitMaker = lazy(() => import('./KitMaker').then((m) => ({ default: m.KitMaker })))
+const Plugins = lazy(() => import('./Plugins').then((m) => ({ default: m.Plugins })))
 import { FeedbackView } from './FeedbackView'
 import { FeedbackDialog } from './FeedbackDialog'
 import { Dashboard } from './Dashboard'
-import { ThemesView } from './ThemesView'
+const ThemesView = lazy(() => import('./ThemesView').then((m) => ({ default: m.ThemesView })))
 import { BrandMark, Defs, Icon } from './Icons'
 import { THEMES, applyTheme, getTheme } from './themes'
 import { fmtClock } from './dashUtils'
@@ -374,32 +376,32 @@ export function App() {
       <div className="titlebar" />
       <nav className="side">
         <div className="brand"><BrandMark /><span>Studio HQ</span></div>
-        <a className={`nav ${view === 'dashboard' ? 'on' : ''}`} onClick={() => setView('dashboard')}><em className="nl"><Icon name="dashboard" />Dashboard</em></a>
-        <a className={`nav ${view === 'vault' ? 'on' : ''}`} onClick={() => setView('vault')}><em className="nl"><Icon name="vault" />Beat Vault</em> <span>{beats.length}</span></a>
+        <a className={`nav ${view === 'dashboard' ? 'on' : ''}`} {...clickable(() => setView('dashboard'))}><em className="nl"><Icon name="dashboard" />Dashboard</em></a>
+        <a className={`nav ${view === 'vault' ? 'on' : ''}`} {...clickable(() => setView('vault'))}><em className="nl"><Icon name="vault" />Beat Vault</em> <span>{beats.length}</span></a>
         <div className="colls">
           {collections.map((c) => (
-            <a key={c.name} className={`coll ${view === 'vault' && queries.beat === c.q ? 'on' : ''}`} onClick={() => openCollection(c.q)} title={c.q}>
+            <a key={c.name} className={`coll ${view === 'vault' && queries.beat === c.q ? 'on' : ''}`} {...clickable(() => openCollection(c.q))} title={c.q}>
               <span>{c.name}</span><button className="x" aria-label="remove" onClick={(e) => { e.stopPropagation(); setCollections(collections.filter((x) => x !== c)) }}>×</button>
             </a>
           ))}
         </div>
-        <a className={`nav ${view === 'loops' ? 'on' : ''}`} onClick={() => setView('loops')}><em className="nl"><Icon name="loops" />Loop Vault</em> <span>{loops.length}</span></a>
+        <a className={`nav ${view === 'loops' ? 'on' : ''}`} {...clickable(() => setView('loops'))}><em className="nl"><Icon name="loops" />Loop Vault</em> <span>{loops.length}</span></a>
         <div className="colls">
           {loopCollections.map((c) => (
-            <a key={c.name} className={`coll ${view === 'loops' && queries.loop === c.q ? 'on' : ''}`} onClick={() => openLoopCollection(c.q)} title={c.q}>
+            <a key={c.name} className={`coll ${view === 'loops' && queries.loop === c.q ? 'on' : ''}`} {...clickable(() => openLoopCollection(c.q))} title={c.q}>
               <span>{c.name}</span><button className="x" aria-label="remove" onClick={(e) => { e.stopPropagation(); setLoopCollections(loopCollections.filter((x) => x !== c)) }}>×</button>
             </a>
           ))}
         </div>
-        <a className={`nav ${view === 'map' ? 'on' : ''}`} onClick={() => setView('map')}><em className="nl"><Icon name="map" />Sonic Map</em> <span>◎</span></a>
-        <a className={`nav ${view === 'crm' ? 'on' : ''}`} onClick={() => setView('crm')}><em className="nl"><Icon name="crm" />Pitch CRM</em> {dueCount > 0 ? <span className="badge">{dueCount}</span> : <span>{crm?.contacts.length ?? 0}</span>}</a>
-        <a className={`nav ${view === 'sales' ? 'on' : ''}`} onClick={() => setView('sales')}><em className="nl"><Icon name="sales" />Sales & Collabs</em> <span>{salesData.sales.length}</span></a>
-        <a className={`nav ${view === 'content' ? 'on' : ''}`} onClick={() => setView('content')}><em className="nl"><Icon name="content" />Content</em> {overduePosts > 0 ? <span className="badge">{overduePosts}</span> : <span>{content.posts.filter((p) => p.status === 'posted').length}</span>}</a>
-        <a className={`nav ${view === 'sounds' ? 'on' : ''}`} onClick={() => setView('sounds')}><em className="nl"><Icon name="sounds" />Sound Library</em> <span>{sounds ? sounds.items.length.toLocaleString() : ''}</span></a>
-        <a className={`nav ${view === 'kits' ? 'on' : ''}`} onClick={() => setView('kits')}><em className="nl"><Icon name="kits" />Kit Maker</em> <span></span></a>
-        <a className={`nav ${view === 'plugins' ? 'on' : ''}`} onClick={() => setView('plugins')}><em className="nl"><Icon name="plugins" />Plugins</em> <span></span></a>
-        <a className={`nav ${view === 'feedback' ? 'on' : ''}`} onClick={() => setView('feedback')}><em className="nl"><Icon name="feedback" />Feedback</em> {unseenFeedback > 0 ? <span className="badge">{unseenFeedback}</span> : <span>{feedback.links.length}</span>}</a>
-        <a className={`nav ${view === 'themes' ? 'on' : ''}`} onClick={() => setView('themes')}><em className="nl"><Icon name="themes" />Themes</em> <span>{THEMES.find((t) => t.id === theme)?.name}</span></a>
+        <a className={`nav ${view === 'map' ? 'on' : ''}`} {...clickable(() => setView('map'))}><em className="nl"><Icon name="map" />Sonic Map</em> <span>◎</span></a>
+        <a className={`nav ${view === 'crm' ? 'on' : ''}`} {...clickable(() => setView('crm'))}><em className="nl"><Icon name="crm" />Pitch CRM</em> {dueCount > 0 ? <span className="badge">{dueCount}</span> : <span>{crm?.contacts.length ?? 0}</span>}</a>
+        <a className={`nav ${view === 'sales' ? 'on' : ''}`} {...clickable(() => setView('sales'))}><em className="nl"><Icon name="sales" />Sales & Collabs</em> <span>{salesData.sales.length}</span></a>
+        <a className={`nav ${view === 'content' ? 'on' : ''}`} {...clickable(() => setView('content'))}><em className="nl"><Icon name="content" />Content</em> {overduePosts > 0 ? <span className="badge">{overduePosts}</span> : <span>{content.posts.filter((p) => p.status === 'posted').length}</span>}</a>
+        <a className={`nav ${view === 'sounds' ? 'on' : ''}`} {...clickable(() => setView('sounds'))}><em className="nl"><Icon name="sounds" />Sound Library</em> <span>{sounds ? sounds.items.length.toLocaleString() : ''}</span></a>
+        <a className={`nav ${view === 'kits' ? 'on' : ''}`} {...clickable(() => setView('kits'))}><em className="nl"><Icon name="kits" />Kit Maker</em> <span></span></a>
+        <a className={`nav ${view === 'plugins' ? 'on' : ''}`} {...clickable(() => setView('plugins'))}><em className="nl"><Icon name="plugins" />Plugins</em> <span></span></a>
+        <a className={`nav ${view === 'feedback' ? 'on' : ''}`} {...clickable(() => setView('feedback'))}><em className="nl"><Icon name="feedback" />Feedback</em> {unseenFeedback > 0 ? <span className="badge">{unseenFeedback}</span> : <span>{feedback.links.length}</span>}</a>
+        <a className={`nav ${view === 'themes' ? 'on' : ''}`} {...clickable(() => setView('themes'))}><em className="nl"><Icon name="themes" />Themes</em> <span>{THEMES.find((t) => t.id === theme)?.name}</span></a>
         <div className="grow" />
         {openSession && <a className="timerpill" onClick={() => setView('dashboard')} title="Studio session running">● {fmtClock(clock - openSession.startedAt)}</a>}
         <button className={`ghost as-btn ${assistantOpen ? 'on' : ''}`} onClick={() => setAssistantOpen((o) => !o)} title="Ask the assistant to look things up or make changes (⌘J)">
@@ -417,22 +419,22 @@ export function App() {
           onMakeVideo={(id) => { setContentBeat(id); setView('content') }} onSetStatus={setStatus} reloadSessions={reloadSessions}
         />
       ) : view === 'themes' ? (
-        <ThemesView current={theme} onPick={pickTheme} />
+        <ViewGuard name="Themes"><ThemesView current={theme} onPick={pickTheme} /></ViewGuard>
       ) : view === 'map' ? (
-        <SonicMap beats={beats} onQuery={openCollection} onPlay={(id) => { setSelectedId(id); safePlay(id) }} onOpen={(id) => openItem(id)} />
+        <ViewGuard name="Sonic Map"><SonicMap beats={beats} onQuery={openCollection} onPlay={(id) => { setSelectedId(id); safePlay(id) }} onOpen={(id) => openItem(id)} /></ViewGuard>
       ) : view === 'sounds' ? (
-        <SoundLibrary data={sounds} roots={appSettings?.soundFolders ?? []} status={soundStatus} query={soundQuery} onQuery={setSoundQuery} projectSel={soundProject} onProjectSel={setSoundProject} onReload={reloadSounds} onPauseMain={() => { if (player.playing) player.toggle() }} toast={toast} />
+        <ViewGuard name="Sound Library"><SoundLibrary data={sounds} roots={appSettings?.soundFolders ?? []} status={soundStatus} query={soundQuery} onQuery={setSoundQuery} projectSel={soundProject} onProjectSel={setSoundProject} onReload={reloadSounds} onPauseMain={() => { if (player.playing) player.toggle() }} toast={toast} /></ViewGuard>
       ) : view === 'kits' ? (
-        <KitMaker data={sounds} onPauseMain={() => { if (player.playing) player.toggle() }} toast={toast} />
+        <ViewGuard name="Kit Maker"><KitMaker data={sounds} onPauseMain={() => { if (player.playing) player.toggle() }} toast={toast} /></ViewGuard>
       ) : view === 'plugins' ? (
-        <Plugins toast={toast} />
+        <ViewGuard name="Plugins"><Plugins toast={toast} /></ViewGuard>
       ) : view === 'feedback' ? (
         <FeedbackView data={feedback} beats={audioBeats} onNew={() => setFbDlg({})} onPlayAt={(id, at) => safePlay(id, at)} reload={reloadFeedback} toast={toast} />
       ) : view === 'content' ? (
-        <ContentView
+        <ViewGuard name="Content"><ContentView
           beats={audioBeats} sales={salesData.sales} content={content} settings={appSettings} beatId={contentBeat} onSelectBeat={setContentBeat}
           onPlayAt={(id, at) => safePlay(id, at)} reload={reloadContent} reloadBeats={reload} toast={toast} playId={player.id} playing={player.playing} playTime={player.time}
-        />
+        /></ViewGuard>
       ) : view === 'sales' ? (
         <SalesView
           data={salesData} query={salesQuery} onQuery={setSalesQuery} onLog={() => setSaleDlg({})} onEdit={(sale) => setSaleDlg({ edit: sale })}
@@ -485,7 +487,7 @@ export function App() {
             {sections.map((sec) => (
               <Fragment key={sec.key}>
                 {grouped && (
-                  <div className="secrow" onClick={() => toggleSec(sec.key)} title={isShut(sec.key) ? 'Click to open' : 'Click to fold'}>
+                  <div className="secrow" {...clickable(() => toggleSec(sec.key))} title={isShut(sec.key) ? 'Click to open' : 'Click to fold'}>
                     <span className="caret">{isShut(sec.key) ? '▸' : '▾'}</span><b>{sec.label}</b><span className="dim">{sec.rows.length} {isLoop ? (sec.rows.length === 1 ? 'loop' : 'loops') : ''}</span>
                   </div>
                 )}
@@ -493,7 +495,7 @@ export function App() {
               const sel = b.id === selectedId || (collapse && selectedIdx >= 0 && rows[selectedIdx]?.beat.id === b.id)
               const isPlaying = player.id === b.id && player.playing
               return (
-                <div key={b.id} data-row={b.id} className={`row ${sel ? 'sel' : ''}`} onClick={() => setSelectedId(b.id)} onDoubleClick={() => playBeat(b.id)}>
+                <div key={b.id} data-row={b.id} className={`row ${sel ? 'sel' : ''}`} {...clickable(() => setSelectedId(b.id))} onDoubleClick={() => playBeat(b.id)}>
                   <button className={`play ${isPlaying ? 'on' : ''} ${b.ext === 'flp' && !b.hasPreview ? 'off' : ''}`} onClick={(e) => { e.stopPropagation(); if (b.ext === 'flp' && !b.hasPreview) return toast('FL project with no preview yet. Play it once with Studio HQ Bridge on the Master and close it.'); player.id === b.id ? player.toggle() : playBeat(b.id) }} aria-label="play">{isPlaying ? '❚❚' : b.ext === 'flp' && !b.hasPreview ? '–' : '▶'}</button>
                   <div className="name">
                     <img className="arttile" alt="" src={artUrl({ seed: `g${b.groupId}`, peaks: b.thumb, key: b.key, bpm: b.bpm })} />
@@ -586,7 +588,7 @@ export function App() {
       {splitsDlg && (
         <SplitsDialog groupId={splitsDlg.groupId} title={splitsDlg.title} producerName={appSettings?.producerName ?? ''} onClose={() => setSplitsDlg(null)} onDone={(m) => { setSplitsDlg(null); toast(m); reloadSales() }} />
       )}
-      {toastMsg && <div className="toast" onClick={() => setToastMsg('')}>{toastMsg}</div>}
+      {toastMsg && <div className="toast" role="status" aria-live="polite" onClick={() => setToastMsg('')}>{toastMsg}</div>}
       {pitchDlg && crm && (
         <PitchDialog
           beats={audioList} crm={crm} myName={appSettings?.producerName ?? ''} hasToken={!!netlify?.hasToken} contactId={pitchDlg.contactId} beatIds={pitchDlg.beatIds}

@@ -1,5 +1,6 @@
 import type * as React from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { clickable } from './a11y'
 import { SOUND_KINDS, type SoundKind, type SoundList, type SoundRow, type SoundStatus } from '@shared/types'
 import { displayKey } from '@shared/key'
 import { Waveform } from './Waveform'
@@ -236,7 +237,7 @@ export function SoundLibrary({ data, roots: settingsRoots, status, query, onQuer
   const toggle = (p: string) => setOpen((o) => { const n = new Set(o); n.has(p) ? n.delete(p) : n.add(p); return n })
   const renderNode = (n: Node, depth: number): React.ReactNode => (
     <div key={n.path}>
-      <div className={`tnode ${folder === n.path ? 'sel' : ''}`} style={{ paddingLeft: 8 + depth * 14 }} onClick={() => setFolder(folder === n.path ? null : n.path)}>
+      <div className={`tnode ${folder === n.path ? 'sel' : ''}`} style={{ paddingLeft: 8 + depth * 14 }} {...clickable(() => setFolder(folder === n.path ? null : n.path))}>
         <span className="tcaret" onClick={(e) => { e.stopPropagation(); toggle(n.path) }}>{n.kids.size ? (open.has(n.path) ? '▾' : '▸') : ''}</span>
         <span className="tname" title={n.path}>{n.name}</span><span className="tcount">{n.count}</span>
       </div>
@@ -277,7 +278,7 @@ export function SoundLibrary({ data, roots: settingsRoots, status, query, onQuer
           </div>
           {side === 'folders' ? (
             <>
-              <div className={`tnode ${folder === null && !project ? 'sel' : ''}`} onClick={() => { setFolder(null); onProjectSel(null) }}><span className="tcaret" /><span className="tname">All folders</span><span className="tcount">{items.length}</span></div>
+              <div className={`tnode ${folder === null && !project ? 'sel' : ''}`} {...clickable(() => { setFolder(null); onProjectSel(null) })}><span className="tcaret" /><span className="tname">All folders</span><span className="tcount">{items.length}</span></div>
               {tree.map((n) => renderNode(n, 0))}
               {!roots.length && <p className="help" style={{ padding: 8 }}>Add a sounds folder in Settings.</p>}
             </>
@@ -285,7 +286,7 @@ export function SoundLibrary({ data, roots: settingsRoots, status, query, onQuer
             <>
               <input style={{ margin: '0 8px 6px', width: 'calc(100% - 16px)' }} value={projQ} onChange={(e) => setProjQ(e.target.value)} placeholder="Find a project…" />
               {projects.filter((x) => !projQ || x.name.toLowerCase().includes(projQ.toLowerCase())).map((x) => (
-                <div key={x.id} className={`tnode ${projectSel === x.id ? 'sel' : ''}`} style={{ paddingLeft: 10 }} onClick={() => { onProjectSel(projectSel === x.id ? null : x.id); setFolder(null); setPart('all') }} title={x.path}>
+                <div key={x.id} className={`tnode ${projectSel === x.id ? 'sel' : ''}`} style={{ paddingLeft: 10 }} {...clickable(() => { onProjectSel(projectSel === x.id ? null : x.id); setFolder(null); setPart('all') })} title={x.path}>
                   <span className="tname">{x.name}</span><span className="tcount">{x.samples.length}{x.midis.length ? ` + ${x.midis.length}♪` : ''}</span>
                 </div>
               ))}

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { SALE_SOURCES, type Beat, type Contact, type License, type Sale, type SaleSource } from '@shared/types'
+import { clickable } from './a11y'
 import { displayKey } from '@shared/key'
 import { errMsg, fmtDay, fromInputDate, money, toInputDate } from './salesUtils'
 import { fmtBpm } from './format'
@@ -96,7 +97,7 @@ export function LogSaleDialog({ beats, sales, licenses, contacts, beatId: b0, ed
               <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search your beats…" />
               <div className="plist" style={{ height: 'auto', maxHeight: 200, marginTop: 6 }}>
                 {results.map((b) => (
-                  <div key={b.id} className="pitem" style={{ gridTemplateColumns: '1fr auto 10px' }} onClick={() => setBeatId(b.id)}>
+                  <div key={b.id} className="pitem" style={{ gridTemplateColumns: '1fr auto 10px' }} {...clickable(() => setBeatId(b.id))}>
                     <span className="pt">{b.title}</span><span className="mono dim">{fmtBpm(b.bpm)} {displayKey(b.key)}</span><span className={`dot st-${b.status}`} />
                   </div>
                 ))}

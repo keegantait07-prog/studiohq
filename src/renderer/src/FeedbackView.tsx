@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Beat, BeatDetail, FeedbackData, FeedbackLink } from '@shared/types'
+import { clickable } from './a11y'
 import { Waveform } from './Waveform'
 import { copy } from './crmUtils'
 import { fmtDur } from './format'
@@ -59,7 +60,7 @@ export function FeedbackView({ data, beats, onNew, onPlayAt, reload, toast }: Pr
           <div className="cv-list">
             <div className="cv-rows">
               {data.links.map((l) => (
-                <div key={l.id} className={`cv-row ${link?.slug === l.slug ? 'sel' : ''}`} onClick={() => setSlug(l.slug)}>
+                <div key={l.id} className={`cv-row ${link?.slug === l.slug ? 'sel' : ''}`} {...clickable(() => setSlug(l.slug))}>
                   <div className="cn"><b>{l.title}</b>{unseen(l.slug) > 0 && <span className="badge">{unseen(l.slug)}</span>}</div>
                   <div className="sub">{l.beats.map((b) => b.title).join(', ')}</div>
                   <div className="dim small-note">{data.comments.filter((c) => c.slug === l.slug).length} comments · {l.url ? 'published' : 'local only'}</div>

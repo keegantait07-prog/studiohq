@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CONTACT_ROLES, PITCH_STATUSES, type Contact, type ContactRole, type CrmData, type Pitch } from '@shared/types'
+import { clickable } from './a11y'
 import { firstName, renderTemplate } from '@shared/template'
 import { ContactForm } from './ContactForm'
 import { DraftPanel } from './DraftPanel'
@@ -70,7 +71,7 @@ export function Crm({ crm, myName, selected, onSelect, onPitch, onOpenBeat, relo
                 const due = ps.filter((p) => isDue(p)).length
                 const waiting = ps.filter(isAwaiting).length
                 return (
-                  <div key={c.id} className={`crow ${selected === c.id ? 'sel' : ''}`} onClick={() => onSelect(c.id)}>
+                  <div key={c.id} className={`crow ${selected === c.id ? 'sel' : ''}`} {...clickable(() => onSelect(c.id))}>
                     <div className="cn"><b>{c.name}</b><span className="chip">{c.role}</span></div>
                     <div className="sub">
                       {due ? <span className="due-dot">● {due} follow-up due</span> : waiting ? `${waiting} awaiting reply` : ps.length ? `last pitch ${daysSince(ps[0].sentAt)}d ago` : 'no pitches yet'}

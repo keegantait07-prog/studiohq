@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { Beat } from '@shared/types'
+import { clickable } from './a11y'
 import { displayKey } from '@shared/key'
 import { fmtBpm } from './format'
 
@@ -16,7 +17,7 @@ export function BeatPicker({ beats, value, onChange }: { beats: Beat[]; value: n
       <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search your beats…" />
       <div className="plist" style={{ height: 'auto', maxHeight: 200, marginTop: 6 }}>
         {results.map((b) => (
-          <div key={b.id} className="pitem" style={{ gridTemplateColumns: '1fr auto 10px' }} onClick={() => onChange(b.id)}>
+          <div key={b.id} className="pitem" style={{ gridTemplateColumns: '1fr auto 10px' }} {...clickable(() => onChange(b.id))}>
             <span className="pt">{b.title}</span><span className="mono dim">{fmtBpm(b.bpm)} {displayKey(b.key)}</span><span className={`dot st-${b.status}`} />
           </div>
         ))}

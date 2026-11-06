@@ -21,9 +21,11 @@ import '@fontsource/barlow-condensed/latin-700.css'
 import './styles.css'
 import { applyTheme, getTheme } from './themes'
 import { startVizWorker } from './vizWorker'
+import { installDialogA11y } from './a11y'
 
 if (location.hash === '#viz-worker') startVizWorker() // the hidden export window draws frames, no UI
 else {
   applyTheme(getTheme())
+  installDialogA11y()
   createRoot(document.getElementById('root')!).render(<App />)
 }

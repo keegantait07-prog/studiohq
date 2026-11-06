@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { STATUSES, TAG_KINDS, type Beat, type BeatDetail, type Pitch, type Post, type ProjectSection, type Sale, type SplitGroup, type Status, type TagKind, type VaultKind } from '@shared/types'
+import { clickable } from './a11y'
 import { displayKey, camelot } from '@shared/key'
 import { artUrl, artPng } from './genart'
 import { keyColor } from './keyColor'
@@ -155,7 +156,7 @@ export function Detail({ beat, kind, allTags, onSelect, onPlay, refresh, pitched
           <label>Plays well with ({compatible.length})</label>
           <div className="versions">
             {compatible.map((c) => (
-              <div key={c.id} className="ver compat" onClick={() => onSelect(c.id)} onDoubleClick={() => onPlay(c.id)}>
+              <div key={c.id} className="ver compat" {...clickable(() => onSelect(c.id))} onDoubleClick={() => onPlay(c.id)}>
                 <span className="vl">{camelot(c.key)}</span>
                 <span className="vf">{c.title}</span>
                 <span className="vd">{fmtBpm(c.bpm)}</span>
@@ -170,7 +171,7 @@ export function Detail({ beat, kind, allTags, onSelect, onPlay, refresh, pitched
         <label>Versions ({beat.versions.length})</label>
         <div className="versions">
           {beat.versions.map((v) => (
-            <div key={v.id} className={`ver ${v.id === beat.id ? 'cur' : ''}`} onClick={() => onSelect(v.id)} onDoubleClick={() => onPlay(v.id)}>
+            <div key={v.id} className={`ver ${v.id === beat.id ? 'cur' : ''}`} {...clickable(() => onSelect(v.id))} onDoubleClick={() => onPlay(v.id)}>
               <span className="vl">{v.versionLabel || 'main'}</span>
               <span className="vf">{v.filename}</span>
               <span className="vd">{fmtDur(v.duration)}</span>
@@ -189,7 +190,7 @@ export function Detail({ beat, kind, allTags, onSelect, onPlay, refresh, pitched
       <div className="field">
         <label>{kind === 'loop' ? 'Sent to' : 'Pitched to'} ({pitchedTo.length})</label>
         {pitchedTo.map(({ pitch, contact, response }) => (
-          <div key={pitch.id} className="ver" style={{ gridTemplateColumns: '1fr auto auto' }} onClick={() => onOpenContact(pitch.contactId)}>
+          <div key={pitch.id} className="ver" style={{ gridTemplateColumns: '1fr auto auto' }} {...clickable(() => onOpenContact(pitch.contactId))}>
             <span>{contact}</span><span className="dim">{new Date(pitch.sentAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
             <span className={`pst ps-${pitch.status}`}>{response === 'liked' ? '♥ ' : response === 'passed' ? '✕ ' : ''}{pitch.status}</span>
           </div>

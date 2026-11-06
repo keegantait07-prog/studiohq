@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { Beat, Status } from '@shared/types'
+import { clickable } from './a11y'
 import { camelot, keysCompatible, bpmCompatible, displayKey } from '@shared/key'
 import { keyColor } from './keyColor'
 import { artUrl } from './genart'
@@ -107,7 +108,7 @@ export function SonicMap({ beats, onOpen, onPlay, onQuery }: { beats: Beat[]; on
             <label className="maplist-h">Plays well with ({mates.length})</label>
             <div className="maplist">
               {mates.slice(0, 10).map((m) => (
-                <div key={m.b.id} className="ver compat" onClick={() => setSel(m.b.id)} onDoubleClick={() => onPlay(m.b.id)}>
+                <div key={m.b.id} className="ver compat" {...clickable(() => setSel(m.b.id))} onDoubleClick={() => onPlay(m.b.id)}>
                   <span className="vl" style={{ color: keyColor(m.b.key) }}>{camelot(m.b.key)}</span><span className="vf">{m.b.title}</span><span className="vd">{fmtBpm(m.b.bpm)}</span>
                 </div>
               ))}

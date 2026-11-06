@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Confidence, HealthFinding, PluginFile, PluginInfo } from '@shared/types'
+import { clickable } from './a11y'
 import { groupFindings, type FindingGroup } from '@shared/cleanup'
 
 const size = (n: number) => (n >= 1e9 ? (n / 1e9).toFixed(1) + ' GB' : n >= 1e6 ? (n / 1e6).toFixed(n < 1e7 ? 1 : 0) + ' MB' : Math.max(1, Math.round(n / 1e3)) + ' KB')
@@ -223,7 +224,7 @@ export function Plugins({ toast }: { toast: (m: string) => void }) {
                 <div className="pl-rows">
                   {plugins && !shown.length && <p className="help dim" style={{ padding: 20 }}>{plugins.length ? 'Nothing matches.' : 'No plugins found in the standard plugin folders.'}</p>}
                   {shown.map((p, i) => (
-                    <div key={p.id} className={`pl-row ${p.id === sel ? 'sel' : ''} ${picked.has(p.id) ? 'pk' : ''}`} onClick={() => setSel(p.id)}>
+                    <div key={p.id} className={`pl-row ${p.id === sel ? 'sel' : ''} ${picked.has(p.id) ? 'pk' : ''}`} {...clickable(() => setSel(p.id))}>
                       <input type="checkbox" checked={picked.has(p.id)} onChange={() => {}} onClick={(e) => { e.stopPropagation(); pick(p.id, i, e.shiftKey) }} aria-label={`select ${p.name}`} />
                       <span className={`dot ${dot(p)}`} title={dot(p) === 'ok' ? 'No problems found' : 'Something was flagged'} />
                       <div className="cl-name"><b>{p.name}</b><span className="dim">{p.vendor || 'Unknown vendor'}</span></div>
@@ -361,7 +362,7 @@ export function Plugins({ toast }: { toast: (m: string) => void }) {
                   const sub = p.files.filter((f) => p.marks.has(f.path)).reduce((s, f) => s + f.size, 0)
                   return (
                     <div key={p.plugin.id} className="pl-plan">
-                      <div className="pl-plan-head" onClick={() => setDialog({ ...dialog, open: (() => { const n = new Set(dialog.open); if (n.has(p.plugin.id)) n.delete(p.plugin.id); else n.add(p.plugin.id); return n })() })}>
+                      <div className="pl-plan-head" {...clickable(() => setDialog({ ...dialog, open: (() => { const n = new Set(dialog.open); if (n.has(p.plugin.id)) n.delete(p.plugin.id); else n.add(p.plugin.id); return n })() }))}>
                         <span className="pl-caret">{isOpen ? '▾' : '▸'}</span>
                         <b>{p.plugin.name}</b>
                         <span className="dim">{p.marks.size} of {p.files.length} items · {size(sub)}</span>

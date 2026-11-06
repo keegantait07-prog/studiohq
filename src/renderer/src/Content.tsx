@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { PLATFORMS, type Beat, type ContentData, type Post, type Sale, type Settings } from '@shared/types'
+import { clickable } from './a11y'
 import { displayKey } from '@shared/key'
 import { VideoBuilder } from './VideoBuilder'
 import { CopyPanel } from './CopyPanel'
@@ -71,7 +72,7 @@ export function ContentView(p: Props) {
                 const ps = postsOf(b.id).filter((x) => x.status === 'posted')
                 const plats = [...new Set(ps.map((x) => x.platform))]
                 return (
-                  <div key={b.id} className={`cv-row ${p.beatId === b.id ? 'sel' : ''}`} onClick={() => { setEditVideo(null); p.onSelectBeat(b.id) }}>
+                  <div key={b.id} className={`cv-row ${p.beatId === b.id ? 'sel' : ''}`} {...clickable(() => { setEditVideo(null); p.onSelectBeat(b.id) })}>
                     <div className="cn"><b>{b.title}</b><span className="mono dim">{fmtBpm(b.bpm)} {displayKey(b.key)}</span></div>
                     <div className="dots">{plats.length ? plats.map((pl) => <i key={pl} className="sw" style={{ background: platformColor(pl) }} title={`Posted on ${platformLabel(pl)}`} />) : <span className="dim small-note">not posted</span>}</div>
                   </div>

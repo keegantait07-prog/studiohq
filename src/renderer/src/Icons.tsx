@@ -52,6 +52,11 @@ export function BrandMark() {
       <svg className="bm-brass" viewBox="0 0 28 28"><circle cx="14" cy="14" r="13" className="o" /><circle cx="14" cy="14" r="10.4" className="i" /><text x="14" y="19" textAnchor="middle" className="t">S</text></svg>
       <svg className="bm-ballpoint" viewBox="0 0 120 10" preserveAspectRatio="none"><path d="M2 7c18-5 38-5 58-3s38 2 58-2" className="scribble" /></svg>
       <svg className="bm-concrete" viewBox="0 0 22 22"><rect width="22" height="22" className="blk" /><path d="M5 17V9M11 17V5M17 17v-6" className="cut" /></svg>
+      <svg className="bm-dusk" viewBox="0 0 22 20"><path d="M2 12a9 9 0 0 1 18 0z" className="sun" /><path d="M0 15.2h22M3 18h16" className="bar" /></svg>
+      <svg className="bm-sonar" viewBox="0 0 22 22"><circle cx="11" cy="11" r="9.5" className="ring o" /><circle cx="11" cy="11" r="5.2" className="ring" /><path d="M11 11L18 5" className="sweep" /><circle cx="14.6" cy="14.4" r="1.3" className="dot" /></svg>
+      <svg className="bm-amp" viewBox="0 0 22 22"><circle cx="11" cy="11" r="8.6" className="knob" /><path d="M11 11V4.6" className="tick" /></svg>
+      <svg className="bm-sandstone" viewBox="0 0 22 20"><rect x="0" y="1" width="16" height="4.6" rx="2.3" className="layer" /><rect x="4" y="7.7" width="18" height="4.6" rx="2.3" className="layer b" /><rect x="1" y="14.4" width="14" height="4.6" rx="2.3" className="layer c" /></svg>
+      <svg className="bm-chalk" viewBox="0 0 22 20"><path d="M3 10v0M7.5 5v10M12 2v16M16.5 6v8M20 10v0" className="stroke" /></svg>
     </span>
   )
 }

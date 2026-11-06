@@ -416,6 +416,66 @@ button.danger { background: #d83a3a; border-color: #d83a3a; color: #fff; font-we
   --fg-rgb: 13, 13, 12; --shadow-rgb: 40, 40, 35; --scrim: rgba(30, 30, 25, .45);
   --wf: #a9a9a2; --wip: #9a5f00; --finished: #17784f; --sent: #1a5fb8; --sold: #7a33b8; --idea: #5a5a54;
 }
+
+/* Dusk: a synth-wave sunset. Violet-black with hot pink, soft rounded controls. */
+[data-theme='dusk'] {
+  --font: 'Avenir Next', -apple-system, sans-serif;
+  --r-btn: 999px; --r-field: 10px; --r-card: 14px; --r-modal: 16px; --r-nav: 10px;
+  --halo-s: 0 0 16px rgba(var(--accent-rgb), .22); --halo-l: 0 0 0 5px var(--accent-soft), 0 0 24px rgba(var(--accent-rgb), .3);
+  --bg: #14101f; --bg-glow: #221a38; --panel: #1c1729; --panel-hi: #211b30; --panel-lo: #181324; --panel2: #262037; --well: #100c1a;
+  --hov: #241e35; --sel: #2d2542; --raise: #2f2745; --chip: #2a2340; --track: #342c4c; --rowline: #231d33; --line: #302846; --line-soft: #251f38; --line-hi: #433863;
+  --text: #efeaf7; --text-2: #cbc3dc; --dim: #9a90b0;
+  --accent: #ff5fa2; --accent-hi: #ff82b8; --accent-ink: #2a0517; --accent-text: #ff7fb5; --accent-rgb: 255, 95, 162; --ember: #ffa14a;
+  --wf: #43386a; --wip: #e9c04a; --finished: #5ccf9a; --sent: #78b4ff; --sold: #c79cff; --idea: #9a90b0;
+}
+/* Sonar: deep-water instrument panel. Navy-teal with a radar-cyan trace, small radii. */
+[data-theme='sonar'] {
+  --font: Futura, 'Avenir Next', -apple-system, sans-serif;
+  --r-btn: 6px; --r-field: 6px; --r-card: 8px; --r-modal: 10px; --r-nav: 6px;
+  --halo-s: 0 0 14px rgba(var(--accent-rgb), .18); --halo-l: 0 0 0 1px var(--accent);
+  --bg: #09151c; --bg-glow: #0f2631; --panel: #0f1e27; --panel-hi: #12242f; --panel-lo: #0b1920; --panel2: #162b37; --well: #07111a;
+  --hov: #142934; --sel: #19333f; --raise: #1c3a48; --chip: #17303c; --track: #1f3d4b; --rowline: #112530; --line: #1c3745; --line-soft: #132b37; --line-hi: #2b5163;
+  --text: #e3f1f4; --text-2: #b6cfd6; --dim: #7fa0aa;
+  --accent: #2fd4c8; --accent-hi: #5ee6dc; --accent-ink: #03211f; --accent-text: #2fd4c8; --accent-rgb: 47, 212, 200; --ember: #ff7a59;
+  --wf: #24485a; --wip: #e8c24d; --finished: #5ccf8f; --sent: #6fb5ff; --sold: #bf9bf2; --idea: #7fa0aa;
+}
+/* Amp: a tube amp. Warm black tolex, cream lettering, glowing orange pilot light. */
+[data-theme='amp'] {
+  --font: 'Trebuchet MS', 'Avenir Next', -apple-system, sans-serif;
+  --r-btn: 4px; --r-field: 4px; --r-card: 6px; --r-modal: 8px; --r-nav: 4px;
+  --halo-s: 0 0 12px rgba(var(--accent-rgb), .2); --halo-l: 0 0 0 1px var(--accent);
+  --bg: #14100d; --bg-glow: #221a14; --panel: #1d1814; --panel-hi: #221c17; --panel-lo: #17120f; --panel2: #29221c; --well: #100c0a;
+  --hov: #271f19; --sel: #30261e; --raise: #352a21; --chip: #2e251d; --track: #3a2e24; --rowline: #251e18; --line: #34291f; --line-soft: #28201a; --line-hi: #4d3e30;
+  --text: #f1e8da; --text-2: #cfc3b0; --dim: #a29684;
+  --accent: #ff6a3d; --accent-hi: #ff8a63; --accent-ink: #220a02; --accent-text: #ff8a63; --accent-rgb: 255, 106, 61; --ember: #ffb347;
+  --wf: #4d3e30; --wip: #e8b93a; --finished: #6bc48a; --sent: #6fb0e0; --sold: #c995e0; --idea: #a29684;
+}
+/* Sandstone: warm desert paper. Cream and clay, terracotta accent, soft corners. */
+[data-theme='sandstone'] {
+  --color-scheme: light;
+  --font: 'Iowan Old Style', Palatino, 'Avenir Next', -apple-system, serif;
+  --r-btn: 8px; --r-field: 8px; --r-card: 12px; --r-modal: 14px; --r-nav: 8px;
+  --halo-s: none; --halo-l: 0 0 0 1px var(--accent);
+  --bg: #e6dccb; --bg-glow: #f1e9da; --panel: #efe7d8; --panel-hi: #f4eee2; --panel-lo: #e9dfcd; --panel2: #e3d8c5; --well: #f8f3e9;
+  --hov: #e8dec9; --sel: #dccfb8; --raise: #fbf7ef; --chip: #dfd3be; --track: #d3c5ac; --rowline: #dacdb6; --line: #c9baa0; --line-soft: #d3c5ad; --line-hi: #ab9a7e;
+  --text: #2a2118; --text-2: #4a3d2e; --dim: #6c5f50;
+  --accent: #b5532c; --accent-hi: #c9653a; --accent-ink: #ffffff; --accent-text: #9a4220; --accent-rgb: 181, 83, 44; --ember: #c2410c;
+  --fg-rgb: 42, 33, 24; --shadow-rgb: 70, 50, 30; --scrim: rgba(50, 36, 22, .4);
+  --wf: #c4b595; --wip: #8f5b00; --finished: #1f6f46; --sent: #235fa8; --sold: #7a3fb0; --idea: #6c5f50;
+}
+/* Chalk: a clean daylight workspace. Cool white, near-black ink, electric violet. */
+[data-theme='chalk'] {
+  --color-scheme: light;
+  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', Inter, sans-serif;
+  --r-btn: 999px; --r-field: 10px; --r-card: 14px; --r-modal: 16px; --r-nav: 10px;
+  --halo-s: none; --halo-l: 0 0 0 4px var(--accent-soft);
+  --bg: #ecedf1; --bg-glow: #f6f7fa; --panel: #f5f6f8; --panel-hi: #fafbfc; --panel-lo: #eff0f4; --panel2: #e8e9ee; --well: #ffffff;
+  --hov: #e9eaf0; --sel: #e0e0fa; --raise: #ffffff; --chip: #e4e5ec; --track: #d6d8e2; --rowline: #e3e4ea; --line: #d3d5df; --line-soft: #dfe0e8; --line-hi: #b6b9c8;
+  --text: #16171d; --text-2: #3b3d4a; --dim: #626676;
+  --accent: #5b3ff0; --accent-hi: #7259f5; --accent-ink: #ffffff; --accent-text: #4a2fd6; --accent-rgb: 91, 63, 240; --ember: #e0512f;
+  --fg-rgb: 22, 23, 29; --shadow-rgb: 40, 40, 70; --scrim: rgba(24, 24, 40, .38);
+  --wf: #c3c6d6; --wip: #8f5b00; --finished: #1c7a53; --sent: #1d5fb3; --sold: #7a35c0; --idea: #626676;
+}
 :root[data-theme='concrete'] { font-size: 14px; }
 
 /* the Themes view */
@@ -500,7 +560,7 @@ button.ghost em.nl { gap: 8px; }
 .brand { gap: 10px; }
 .bm { display: grid; flex: none; }
 .bm svg { display: none; height: 20px; width: auto; overflow: visible; }
-[data-theme='signal'] .bm-signal, [data-theme='faceplate'] .bm-faceplate, [data-theme='tape'] .bm-tape, [data-theme='brass'] .bm-brass, [data-theme='ballpoint'] .bm-ballpoint, [data-theme='concrete'] .bm-concrete { display: block; }
+[data-theme='signal'] .bm-signal, [data-theme='faceplate'] .bm-faceplate, [data-theme='tape'] .bm-tape, [data-theme='brass'] .bm-brass, [data-theme='ballpoint'] .bm-ballpoint, [data-theme='concrete'] .bm-concrete, [data-theme='dusk'] .bm-dusk, [data-theme='sonar'] .bm-sonar, [data-theme='amp'] .bm-amp, [data-theme='sandstone'] .bm-sandstone, [data-theme='chalk'] .bm-chalk { display: block; }
 .bm-signal rect { fill: var(--accent); transform-box: fill-box; transform-origin: bottom; }
 .bm-faceplate .slot { fill: var(--well); stroke: var(--line-hi); } .bm-faceplate .cap { fill: var(--accent); } .bm-faceplate .mark { stroke: var(--accent-ink); stroke-width: 1.3; }
 .bm-tape { height: 18px; } .bm-tape .ring { fill: none; stroke: var(--text); stroke-width: 1.3; } .bm-tape .hub { fill: var(--accent); } .bm-tape .spk { stroke: var(--text-2); stroke-width: 1.3; } .bm-tape .strip { stroke: var(--dim); stroke-width: 1; }
@@ -508,6 +568,11 @@ button.ghost em.nl { gap: 8px; }
 .bm-brass .o { fill: none; stroke: var(--accent); stroke-width: 1.3; } .bm-brass .i { fill: none; stroke: var(--accent); stroke-width: .6; opacity: .7; } .bm-brass .t { fill: var(--accent); font: 600 13px var(--font-display); }
 .bm-concrete .blk { fill: var(--text); } .bm-concrete .cut { stroke: var(--accent); stroke-width: 3.4; }
 .bm-ballpoint .scribble { fill: none; stroke: var(--accent); stroke-width: 1.8; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.bm-dusk .sun { fill: var(--accent); } .bm-dusk .bar { stroke: var(--accent); stroke-width: 1.4; opacity: .7; }
+.bm-sonar .ring { fill: none; stroke: var(--accent); stroke-width: 1.3; } .bm-sonar .ring.o { opacity: .45; } .bm-sonar .sweep { stroke: var(--accent); stroke-width: 1.6; stroke-linecap: round; } .bm-sonar .dot { fill: var(--accent); }
+.bm-amp .knob { fill: var(--panel2); stroke: var(--accent); stroke-width: 1.4; } .bm-amp .tick { stroke: var(--accent); stroke-width: 1.8; stroke-linecap: round; }
+.bm-sandstone .layer { fill: var(--accent); } .bm-sandstone .layer.b { opacity: .65; } .bm-sandstone .layer.c { opacity: .35; }
+.bm-chalk .stroke { fill: none; stroke: var(--accent); stroke-width: 2.4; stroke-linecap: round; }
 .player::before { display: none; }
 
 /* ---------- Signal: lit meters, scanlines ---------- */

@@ -132,7 +132,6 @@ export function Cleanup({ onClose, onChanged }: { onClose: () => void; onChanged
             {shown.map((it) => (
               <div key={it.id} data-cid={it.id} className={`cl-row ${it.id === sel ? 'sel' : ''} ${marks.has(it.id) ? 'mk' : ''}`} onClick={() => setSel(it.id)}>
                 <input type="checkbox" checked={marks.has(it.id)} onChange={() => toggleMark(it.id)} onClick={(e) => e.stopPropagation()} aria-label="mark for the Trash" />
-                <img className="arttile" alt="" src={artUrl({ seed: it.groupId ? `g${it.groupId}` : `p${it.id}`, peaks: it.thumb, key: it.key, bpm: it.bpm })} />
                 <div className="cl-name"><b>{it.name}</b><span className="dim">{ago(it.mtime)} · {mb(it.size)} · {it.samples} samples · {it.midis} MIDI</span></div>
                 <div className="cl-tags">
                   {it.bounces > 0 ? <em className="cb ok">exported</em> : <em className="cb">no bounce</em>}

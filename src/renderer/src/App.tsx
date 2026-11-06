@@ -10,7 +10,6 @@ import { usePlayer, usePlayerTime, type PlayerClock } from './player'
 import { Thumb, Waveform } from './Waveform'
 import { useLevelDriver } from './motion'
 import { Ambient } from './Ambient'
-import { artUrl } from './genart'
 const Stage = lazy(() => import('./Stage').then((m) => ({ default: m.Stage })))
 const SonicMap = lazy(() => import('./SonicMap').then((m) => ({ default: m.SonicMap })))
 import { Cleanup } from './Cleanup'
@@ -552,7 +551,6 @@ export function App() {
                 <div key={b.id} data-row={b.id} className={`row ${sel ? 'sel' : ''} ${isNow ? 'now' : ''}`} {...clickable(() => setSelectedId(b.id))} onDoubleClick={() => playBeat(b.id)}>
                   <button className={`play ${isPlaying ? 'on' : ''} ${b.ext === 'flp' && !b.hasPreview ? 'off' : ''}`} onClick={(e) => { e.stopPropagation(); if (b.ext === 'flp' && !b.hasPreview) return toast('FL project with no preview yet. Play it once with Studio HQ Bridge on the Master and close it.'); player.id === b.id ? player.toggle() : playBeat(b.id) }} aria-label={isPlaying ? 'pause' : 'play'}>{isPlaying ? <span className="eq" aria-hidden><i /><i /><i /></span> : b.ext === 'flp' && !b.hasPreview ? '–' : '▶'}</button>
                   <div className="name">
-                    <img className="arttile" alt="" src={artUrl({ seed: `g${b.groupId}`, peaks: b.thumb, key: b.key, bpm: b.bpm })} />
                     {b.ext === 'flp' ? <span className="projthumb" title={b.hasPreview ? 'FL Studio project, preview loop' : 'FL Studio project, no audio yet'}>{b.hasPreview ? 'FL loop' : 'FL project'}</span> : <span className="thumbwrap"><Thumb data={b.thumb} />{isNow && <Thumb data={b.thumb} className="fill" />}</span>}
                     <div className="nt">
                       <div className="t">{b.title}{count > 1 && <em className="ver-badge">{count} versions</em>}{!collapse && b.versionLabel && <em className="ver-badge">{b.versionLabel}</em>}</div>

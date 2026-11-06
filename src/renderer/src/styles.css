@@ -342,7 +342,7 @@ kbd { border-radius: 6px; background: var(--well); }
 .cl-bar { display: flex; gap: 10px; align-items: center; margin: 12px 0 10px; flex-wrap: wrap; } .cl-bar input[type=text] { width: 220px; } .cl-bar select { width: auto; }
 .cl-body { display: grid; grid-template-columns: 1fr 340px; gap: 14px; min-height: 0; flex: 1; }
 .cl-list { overflow-y: auto; min-height: 0; border: 1px solid var(--line-soft); border-radius: 14px; background: var(--well); max-height: 56vh; }
-.cl-row { display: grid; grid-template-columns: 22px 34px 1fr auto; gap: 12px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--rowline); cursor: default; }
+.cl-row { display: grid; grid-template-columns: 22px 1fr auto; gap: 12px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--rowline); cursor: default; }
 .cl-row input { width: auto; } .cl-row:hover { background: rgba(var(--fg-rgb), .025); } .cl-row.sel { background: linear-gradient(90deg, var(--accent-soft), transparent 80%); box-shadow: inset 3px 0 var(--accent); }
 .cl-row.mk { background: rgba(255,90,90,.07); } .cl-row.mk .cl-name b { text-decoration: line-through; text-decoration-color: #ff6b6b; opacity: .8; }
 .cl-name { min-width: 0; display: flex; flex-direction: column; } .cl-name b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; } .cl-name span { font-size: 11px; }
@@ -1285,22 +1285,15 @@ select.grp { width: auto; margin-left: 4px; padding: 2px 6px; }
    their own typefaces, their own light, and weather from the ambient layer. They are built on the app's soft base styles, not on
    Console's hardware structure, so each one keeps its own character.
    =================================================================================================== */
-@font-face { font-family: 'Kiwi Maru'; font-weight: 400; font-display: swap; src: url(./assets/fonts/KiwiMaru-400.woff2) format('woff2'); }
-@font-face { font-family: 'Kiwi Maru'; font-weight: 500; font-display: swap; src: url(./assets/fonts/KiwiMaru-500.woff2) format('woff2'); }
-@font-face { font-family: 'Zen Maru Gothic'; font-weight: 400; font-display: swap; src: url(./assets/fonts/ZenMaruGothic-400.woff2) format('woff2'); }
-@font-face { font-family: 'Zen Maru Gothic'; font-weight: 500; font-display: swap; src: url(./assets/fonts/ZenMaruGothic-500.woff2) format('woff2'); }
-@font-face { font-family: 'Zen Maru Gothic'; font-weight: 700; font-display: swap; src: url(./assets/fonts/ZenMaruGothic-700.woff2) format('woff2'); }
-@font-face { font-family: 'Mochiy Pop One'; font-weight: 400; font-display: swap; src: url(./assets/fonts/MochiyPopOne-400.woff2) format('woff2'); }
 @font-face { font-family: 'M PLUS Rounded 1c'; font-weight: 400; font-display: swap; src: url(./assets/fonts/MPLUSRounded1c-400.woff2) format('woff2'); }
 @font-face { font-family: 'M PLUS Rounded 1c'; font-weight: 500; font-display: swap; src: url(./assets/fonts/MPLUSRounded1c-500.woff2) format('woff2'); }
 @font-face { font-family: 'M PLUS Rounded 1c'; font-weight: 700; font-display: swap; src: url(./assets/fonts/MPLUSRounded1c-700.woff2) format('woff2'); }
 @font-face { font-family: 'DotGothic16'; font-weight: 400; font-display: swap; src: url(./assets/fonts/DotGothic16-400.woff2) format('woff2'); }
-@font-face { font-family: 'Pirata One'; font-weight: 400; font-display: swap; src: url(./assets/fonts/PirataOne-400.woff2) format('woff2'); }
 @font-face { font-family: 'Metal Mania'; font-weight: 400; font-display: swap; src: url(./assets/fonts/MetalMania-400.woff2) format('woff2'); }
 @font-face { font-family: 'Nosifer'; font-weight: 400; font-display: swap; src: url(./assets/fonts/Nosifer-400.woff2) format('woff2'); }
 
 [data-theme='koi'] {
-  --font: 'Zen Maru Gothic', 'Hiragino Maru Gothic ProN', -apple-system, sans-serif; --font-display: 'Kiwi Maru', 'Zen Maru Gothic', serif;
+  --font: 'Shippori Mincho B1', 'Hiragino Mincho ProN', serif; --font-display: 'Yuji Syuku', 'Shippori Mincho B1', serif;
   --display-case: none; --display-track: 0; --display-weight: 500; --root-size: 14px;
   --bg: #06101c; --bg-glow: #0a1b2e; --panel: rgba(9, 24, 42, .5); --panel-hi: rgba(15, 36, 60, .5); --panel-lo: rgba(6, 16, 30, .6);
   --panel2: rgba(26, 54, 88, .62); --well: rgba(4, 12, 24, .58); --hov: rgba(110, 170, 220, .14); --sel: rgba(255, 196, 107, .16); --raise: rgba(34, 66, 104, .82);
@@ -1313,7 +1306,7 @@ select.grp { width: auto; margin-left: 4px; padding: 2px 6px; }
   --side-bg: linear-gradient(180deg, var(--panel-hi), var(--panel-lo)); --enter: shq-cfade 160ms ease-out backwards;
 }
 [data-theme='citypop'] {
-  --font: 'M PLUS Rounded 1c', 'Hiragino Maru Gothic ProN', -apple-system, sans-serif; --font-display: 'Mochiy Pop One', 'M PLUS Rounded 1c', sans-serif;
+  --font: 'M PLUS Rounded 1c', 'Hiragino Maru Gothic ProN', -apple-system, sans-serif; --font-display: 'Monoton', 'Righteous', sans-serif;
   --display-case: none; --display-track: .01em; --display-weight: 400; --root-size: 14px;
   --bg: #170f3a; --bg-glow: #2a1856; --panel: rgba(30, 20, 74, .58); --panel-hi: rgba(46, 30, 100, .56); --panel-lo: rgba(22, 14, 56, .68);
   --panel2: rgba(70, 46, 130, .6); --well: rgba(14, 8, 40, .56); --hov: rgba(255, 140, 210, .13); --sel: rgba(255, 122, 200, .2); --raise: rgba(86, 58, 150, .84);
@@ -1326,7 +1319,7 @@ select.grp { width: auto; margin-left: 4px; padding: 2px 6px; }
   --side-bg: linear-gradient(180deg, var(--panel-hi), var(--panel-lo)); --vhs: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='w'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='4' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  3 0 0 0 -1.5'/></filter><rect width='100%' height='100%' filter='url(%23w)' opacity='.18'/></svg>");
 }
 [data-theme='magma'] {
-  --font: 'Barlow Condensed', -apple-system, sans-serif; --font-display: 'Metal Mania', 'Pirata One', serif;
+  --font: 'Barlow Condensed', -apple-system, sans-serif; --font-display: 'Metal Mania', 'Grenze Gotisch', serif;
   --display-case: none; --display-track: .02em; --display-weight: 400; --root-size: 15px;
   --r-btn: 6px; --r-field: 6px; --r-card: 8px; --r-modal: 10px; --r-nav: 6px;
   --bg: #070302; --bg-glow: #1a0a06; --panel: rgba(16, 8, 6, .56); --panel-hi: rgba(28, 12, 8, .54); --panel-lo: rgba(10, 4, 3, .66);
@@ -1393,7 +1386,6 @@ select.grp { width: auto; margin-left: 4px; padding: 2px 6px; }
 [data-theme='magma'] :is(.panel, .ocard, .scard, .dgrid > .panel, .modal, .palette) { background-image: linear-gradient(135deg, #ff7a3a 0, #ff3e3e 7px, transparent 7px), linear-gradient(225deg, #ff7a3a 0, #ff3e3e 7px, transparent 7px), linear-gradient(45deg, #ff7a3a 0, #ff3e3e 7px, transparent 7px), linear-gradient(315deg, #ff7a3a 0, #ff3e3e 7px, transparent 7px), linear-gradient(115deg, rgba(255, 255, 255, .09) 0%, transparent 26%, transparent 64%, rgba(255, 190, 140, .06) 100%), linear-gradient(180deg, var(--panel-hi), var(--panel-lo)); background-size: 9px 9px, 9px 9px, 9px 9px, 9px 9px, auto, auto; background-position: 0 0, 100% 0, 0 100%, 100% 100%, 0 0, 0 0; background-repeat: no-repeat; border-color: rgba(255, 110, 60, .3); box-shadow: inset 0 1px 0 rgba(255, 190, 140, .16), 0 0 0 1px rgba(0, 0, 0, .6), 0 14px 34px rgba(0, 0, 0, .55); }
 [data-theme='magma'] .thead { border-bottom: 1px solid rgba(255, 110, 60, .5); box-shadow: 0 1px 14px -4px rgba(255, 90, 40, .7); }
 [data-theme='magma'] .row.sel { background: linear-gradient(90deg, rgba(255, 62, 62, .3), rgba(255, 165, 0, .1) 60%, transparent); box-shadow: inset 3px 0 #ff3e3e, 0 0 30px -6px rgba(255, 70, 30, .7); }
-[data-theme='magma'] .row .t, [data-theme='magma'] .player .now .t { font-family: 'Pirata One', serif; font-weight: 400; font-size: 17px; letter-spacing: .02em; }
 [data-theme='magma'] .dot { background: none; width: auto; height: auto; margin-right: 4px; font-size: 12px; line-height: 1; }
 [data-theme='magma'] .dot::before { content: '\2620'; text-shadow: 0 0 8px currentColor; }
 [data-theme='magma'] .dot.st-wip { color: var(--wip); } [data-theme='magma'] .dot.st-finished { color: var(--finished); } [data-theme='magma'] .dot.st-sent { color: var(--sent); } [data-theme='magma'] .dot.st-sold { color: var(--sold); } [data-theme='magma'] .dot:not([class*='st-']) { color: var(--idea); }
@@ -1410,3 +1402,162 @@ select.grp { width: auto; margin-left: 4px; padding: 2px 6px; }
 .tmini[data-theme='citypop'] { background: linear-gradient(rgba(16, 8, 44, .25), rgba(16, 8, 44, .5)), url(./assets/backdrops/citypop.webp) center / cover; }
 .tmini[data-theme='magma'] { background: linear-gradient(rgba(6, 2, 2, .4), rgba(6, 2, 2, .65)), url(./assets/backdrops/magma.webp) center / cover; }
 [data-theme='koi'] .bm-koi, [data-theme='citypop'] .bm-citypop, [data-theme='magma'] .bm-magma { display: block; }
+
+
+/* ===================================================================================================
+   Realism pass. Photographic backdrops instead of painted ones, and a real character typeface for the interface itself (menus, buttons,
+   tabs, labels) in each world, not just the big titles. The rainbow-gradient title text is gone: it was a tell.
+   =================================================================================================== */
+@font-face { font-family: 'Yuji Syuku'; font-weight: 400; font-display: swap; src: url(./assets/fonts/YujiSyuku-400.woff2) format('woff2'); }
+@font-face { font-family: 'Shippori Mincho B1'; font-weight: 400; font-display: swap; src: url(./assets/fonts/ShipporiMinchoB1-400.woff2) format('woff2'); }
+@font-face { font-family: 'Shippori Mincho B1'; font-weight: 500; font-display: swap; src: url(./assets/fonts/ShipporiMinchoB1-500.woff2) format('woff2'); }
+@font-face { font-family: 'Shippori Mincho B1'; font-weight: 700; font-display: swap; src: url(./assets/fonts/ShipporiMinchoB1-700.woff2) format('woff2'); }
+@font-face { font-family: 'Monoton'; font-weight: 400; font-display: swap; src: url(./assets/fonts/Monoton-400.woff2) format('woff2'); }
+@font-face { font-family: 'Righteous'; font-weight: 400; font-display: swap; src: url(./assets/fonts/Righteous-400.woff2) format('woff2'); }
+@font-face { font-family: 'Grenze Gotisch'; font-weight: 400 700; font-display: swap; src: url(./assets/fonts/GrenzeGotisch-400-700.woff2) format('woff2'); }
+@font-face { font-family: 'Rubik Burned'; font-weight: 400; font-display: swap; src: url(./assets/fonts/RubikBurned-400.woff2) format('woff2'); }
+
+[data-theme='koi'] { --font: 'Shippori Mincho B1', 'Hiragino Mincho ProN', serif; --font-display: 'Yuji Syuku', 'Shippori Mincho B1', serif; --root-size: 14.5px; }
+[data-theme='citypop'] { --font-display: 'Monoton', 'Righteous', sans-serif; }
+[data-theme='magma'] { --font-display: 'Metal Mania', 'Grenze Gotisch', serif; }
+[data-theme='koi'] :is(.nav, .tab, button, .thead, .shead, .shead2, .field label, .ver-label label, .coll, .seg button, h3, .brand) { font-family: 'Yuji Syuku', 'Shippori Mincho B1', serif; letter-spacing: .02em; }
+[data-theme='citypop'] :is(.nav, .tab, button, .thead, .shead, .shead2, .field label, .ver-label label, .coll, .seg button, h3) { font-family: 'Righteous', 'M PLUS Rounded 1c', sans-serif; letter-spacing: .01em; }
+[data-theme='magma'] :is(.nav, .tab, button, .thead, .shead, .shead2, .field label, .ver-label label, .coll, .seg button, h3, .row .t, .player .now .t) { font-family: 'Grenze Gotisch', 'Metal Mania', serif; font-weight: 600; letter-spacing: .02em; }
+[data-theme='magma'] .row .t, [data-theme='magma'] .player .now .t { font-size: 16px; }
+[data-theme='magma'] :is(.thead, .shead, .shead2) { font-size: 13px; }
+[data-theme='magma'] :is(.stat b, .clock) { font-family: 'Rubik Burned', 'Metal Mania', serif; }
+[data-theme='koi'] :is(h2, .brand span) { background: none; color: #f6ecdc; filter: none; text-shadow: 0 2px 14px rgba(0, 0, 0, .7); font-size: 1.12em; }
+[data-theme='koi'] h2 { font-size: 1.6em; }
+[data-theme='citypop'] :is(h2, .brand span) { background: none; color: #ffd9f0; animation: none; filter: drop-shadow(1.5px 0 rgba(255, 0, 150, .6)) drop-shadow(-1.5px 0 rgba(0, 200, 255, .6)); text-shadow: 0 0 12px rgba(255, 100, 200, .75); letter-spacing: .02em; }
+[data-theme='citypop'] h2 { font-size: 1.5em; }
+[data-theme='koi'] { background: linear-gradient(rgba(4, 12, 26, .22), rgba(4, 12, 26, .52)), url(./assets/backdrops/koi.webp) center / cover fixed, var(--bg); }
+[data-theme='citypop'] { background: linear-gradient(rgba(16, 8, 44, .3), rgba(16, 8, 44, .56)), url(./assets/backdrops/citypop.webp) center / cover fixed, var(--bg); }
+[data-theme='magma'] { background: linear-gradient(rgba(6, 2, 2, .2), rgba(6, 2, 2, .5)), url(./assets/backdrops/magma.webp) center / cover fixed, var(--bg); }
+/* cards in the theme picker sit over busy photographs, so they get a darker plate to stay readable */
+:is([data-theme='koi'], [data-theme='citypop'], [data-theme='magma']) .tcard { background: rgba(8, 10, 16, .74); }
+
+/* let the photographs read: far less blur and a lighter tint, with a soft shadow behind text instead */
+:is([data-theme='koi'], [data-theme='citypop'], [data-theme='magma']) :is(.side, .detail, .player, .panel, .table, .crm-list, .cv-list, .snd-tree, .map-side, .glass) { backdrop-filter: blur(5px) saturate(1.2); }
+[data-theme='koi'] { --panel: rgba(9, 24, 42, .4); --panel-hi: rgba(15, 36, 60, .4); --panel-lo: rgba(6, 16, 30, .5); --well: rgba(4, 12, 24, .34); }
+[data-theme='citypop'] { --panel: rgba(30, 20, 74, .44); --panel-hi: rgba(46, 30, 100, .42); --panel-lo: rgba(22, 14, 56, .52); --well: rgba(14, 8, 40, .38); }
+[data-theme='magma'] { --panel: rgba(16, 8, 6, .46); --panel-hi: rgba(28, 12, 8, .44); --panel-lo: rgba(10, 4, 3, .54); --well: rgba(5, 2, 2, .42); }
+:is([data-theme='koi'], [data-theme='citypop'], [data-theme='magma']) :is(.row, .nav, .tab, .thead, .field label, .help, .sub, .t, .dim, h2, h3) { text-shadow: 0 1px 7px rgba(0, 0, 0, .75), 0 0 2px rgba(0, 0, 0, .5); }
+/* Koi's photograph is brightest right where the list sits, so its table gets a firmer tint; City Pop sits in between */
+[data-theme='koi'] { --panel: rgba(9, 24, 42, .5); --panel-hi: rgba(15, 36, 60, .5); --panel-lo: rgba(6, 16, 30, .58); --well: rgba(4, 12, 24, .62); }
+[data-theme='citypop'] { --well: rgba(14, 8, 40, .52); }
+[data-theme='koi'] { --well: rgba(4, 12, 24, .5); }
+
+
+/* ===================================================================================================
+   Yatai. A ramen cart at 11 pm in steady rain. The list is a hand-brushed menu board on worn cedar, the header is an indigo noren,
+   statuses are red hanko stamps (real kanji: 案 idea, 作 making, 完 finished, 送 sent, 売 sold), and the weather is rain and steam.
+   =================================================================================================== */
+@font-face { font-family: 'Yusei Magic'; font-weight: 400; font-display: swap; src: url(./assets/fonts/YuseiMagic-400.woff2) format('woff2'); }
+@font-face { font-family: 'Kaisei Tokumin'; font-weight: 400; font-display: swap; src: url(./assets/fonts/KaiseiTokumin-400.woff2) format('woff2'); }
+@font-face { font-family: 'Kaisei Tokumin'; font-weight: 700; font-display: swap; src: url(./assets/fonts/KaiseiTokumin-700.woff2) format('woff2'); }
+
+[data-theme='yatai'] {
+  --font: 'Kaisei Tokumin', 'Hiragino Mincho ProN', serif; --font-display: 'Yusei Magic', 'Kaisei Tokumin', serif;
+  --display-case: none; --display-track: .02em; --display-weight: 400; --root-size: 14.5px;
+  --r-btn: 5px; --r-field: 4px; --r-card: 5px; --r-modal: 6px; --r-nav: 4px;
+  --bg: #120a05; --bg-glow: #2a1608; --panel: rgba(22, 12, 6, .62); --panel-hi: rgba(36, 20, 10, .6); --panel-lo: rgba(14, 7, 3, .7);
+  --panel2: rgba(58, 34, 16, .7); --well: rgba(10, 5, 2, .5); --hov: rgba(255, 179, 71, .1); --sel: rgba(216, 57, 43, .22); --raise: #3a2412;
+  --chip: rgba(72, 44, 22, .7); --track: rgba(140, 95, 50, .4); --rowline: rgba(243, 230, 207, .12); --line: rgba(243, 230, 207, .2);
+  --line-soft: rgba(243, 230, 207, .12); --line-hi: rgba(243, 230, 207, .34);
+  --text: #f4e8d2; --text-2: #dcc9a6; --dim: #b39b78;
+  --accent: #d8392b; --accent-hi: #ee5a46; --accent-ink: #fff3e0; --accent-text: #ff8a6a; --accent-rgb: 216, 57, 43; --ember: #ffb347;
+  --fg-rgb: 255, 235, 205; --shadow-rgb: 6, 3, 1; --scrim: rgba(10, 5, 2, .66); --wf: #8a6a44;
+  --idea: #b39b78; --wip: #ffb347; --finished: #9bc27a; --sent: #7ea6e0; --sold: #e8b04a; --series-1: #7ea6e0; --series-2: #ffb347; --color-scheme: dark;
+  --side-bg: linear-gradient(180deg, var(--panel-hi), var(--panel-lo)); --enter: shq-cfade 160ms ease-out backwards;
+}
+[data-theme='yatai'] { background: linear-gradient(rgba(10, 5, 2, .2), rgba(10, 5, 2, .52)), url(./assets/backdrops/yatai.webp) center / cover fixed, var(--bg); }
+[data-theme='yatai'] body, [data-theme='yatai'] #root { background: transparent; }
+[data-theme='yatai'] .ambient { display: block; }
+[data-theme='yatai'] :is(.nav, .tab, button, .coll, .seg button, h2, h3, .brand, .row .t, .row .mono, .player .now .t) { font-family: 'Yusei Magic', 'Kaisei Tokumin', serif; letter-spacing: .02em; font-weight: 400; }
+[data-theme='yatai'] :is(.thead, .shead, .shead2, .field label, .ver-label label, .maplist-h, .sp-head, .crm-main h3) { font-family: var(--font); }
+[data-theme='yatai'] :is(.row, .nav, .tab, .thead, .field label, .help, .sub, .t, .dim, h2, h3) { text-shadow: 0 1px 7px rgba(0, 0, 0, .8), 0 0 2px rgba(0, 0, 0, .6); }
+
+/* cedar boards for the rails, the transport and every panel */
+[data-theme='yatai'] :is(.side, .detail) { background: linear-gradient(rgba(34, 18, 8, .5), rgba(14, 7, 3, .64)), url(./assets/textures/wood-board.webp) 0 0 / 300px 300px; box-shadow: inset 0 0 0 1px rgba(255, 220, 170, .1), inset 0 2px 0 rgba(255, 220, 170, .12), 0 0 28px rgba(0, 0, 0, .5); }
+[data-theme='yatai'] .player { background: linear-gradient(rgba(34, 18, 8, .5), rgba(14, 7, 3, .66)), url(./assets/textures/wood-board.webp) 0 0 / 300px 300px; backdrop-filter: none; border-top: 3px solid #7a5426; box-shadow: inset 0 1px 0 rgba(255, 220, 170, .25), 0 -8px 26px rgba(0, 0, 0, .45); }
+[data-theme='yatai'] :is(.panel, .ocard, .scard, .dgrid > .panel, .modal, .palette) { background-image: linear-gradient(rgba(34, 18, 8, .55), rgba(14, 7, 3, .72)), url(./assets/textures/wood-board.webp); background-size: auto, 300px 300px; border: 1px solid rgba(244, 232, 210, .22); box-shadow: inset 0 1px 0 rgba(255, 220, 170, .14), 0 8px 24px rgba(0, 0, 0, .45); }
+
+/* the list is the menu board: a framed board with a cream rule under the heading, dashed lines between items */
+[data-theme='yatai'] .table { background: linear-gradient(rgba(16, 8, 4, .6), rgba(10, 5, 2, .74)), url(./assets/textures/wood-board.webp) 0 0 / 300px 300px; box-shadow: inset 0 0 0 3px #2a190c, inset 0 0 0 4px rgba(244, 232, 210, .28), inset 0 10px 24px rgba(0, 0, 0, .5); }
+[data-theme='yatai'] .thead { border-bottom: 2px solid rgba(244, 232, 210, .5); }
+[data-theme='yatai'] .row { border-bottom: 1px dashed rgba(244, 232, 210, .22); }
+[data-theme='yatai'] .row .t { font-size: 16.5px; color: #f6ecd8; }
+[data-theme='yatai'] .row.sel { background: linear-gradient(90deg, rgba(255, 179, 71, .26), transparent 70%); box-shadow: inset 3px 0 #ffb347, 0 0 26px -8px rgba(255, 179, 71, .6); }
+
+/* the noren: an indigo cloth header with two slits */
+[data-theme='yatai'] .brand { position: relative; margin: -6px -4px 14px; padding: 10px 12px; color: #f4e8d2; background: linear-gradient(rgba(8, 8, 36, .22), rgba(8, 8, 36, .38)), url(./assets/textures/noren.webp) 0 0 / 180px 180px; box-shadow: inset 0 -2px 0 rgba(0, 0, 0, .4), 0 6px 14px rgba(0, 0, 0, .5); }
+[data-theme='yatai'] .brand::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(90deg, transparent calc(33.3% - 1px), rgba(0, 0, 0, .5) calc(33.3% - 1px), rgba(0, 0, 0, .5) 33.3%, transparent 33.3%, transparent calc(66.6% - 1px), rgba(0, 0, 0, .5) calc(66.6% - 1px), rgba(0, 0, 0, .5) 66.6%, transparent 66.6%); }
+
+/* hanko stamps for status, in real kanji */
+[data-theme='yatai'] .dot { display: inline-grid; place-items: center; width: 22px; height: 22px; margin-right: 8px; vertical-align: middle; background: none; border: 2px solid #d8392b; border-radius: 50%; color: #d8392b; font: 700 12px/1 'Hiragino Mincho ProN', 'Yu Mincho', serif; transform: rotate(-6deg); opacity: .92; box-shadow: inset 0 0 0 1px rgba(216, 57, 43, .35); text-shadow: none; }
+[data-theme='yatai'] .dot::before { content: '\6848'; }
+[data-theme='yatai'] .dot.st-wip::before { content: '\4F5C'; } [data-theme='yatai'] .dot.st-finished::before { content: '\5B8C'; } [data-theme='yatai'] .dot.st-sent::before { content: '\9001'; } [data-theme='yatai'] .dot.st-sold::before { content: '\58F2'; }
+[data-theme='yatai'] .dot.st-finished { border-radius: 4px; } [data-theme='yatai'] .dot.st-sent { border-radius: 4px; transform: rotate(4deg); }
+[data-theme='yatai'] .dot.st-sold { background: rgba(216, 57, 43, .92); color: #f6ecd8; }
+
+/* wooden plaques for buttons, lacquer red for the main action */
+:where([data-theme='yatai']) button { background: linear-gradient(#4a2f18, #2a190c); border-color: rgba(244, 232, 210, .3); color: #f4e8d2; box-shadow: inset 0 1px 0 rgba(255, 220, 170, .25), 0 2px 0 rgba(0, 0, 0, .6); }
+:where([data-theme='yatai']) button:hover { border-color: rgba(255, 179, 71, .7); }
+:where([data-theme='yatai']) button:active { transform: translateY(1px); box-shadow: inset 0 2px 5px rgba(0, 0, 0, .7); }
+[data-theme='yatai'] button.primary, [data-theme='yatai'] .big-play { background: linear-gradient(#ee5a46, #b72a1e); border-color: #ffb08a; color: #fff3e0; box-shadow: inset 0 1px 0 rgba(255, 220, 190, .5), 0 2px 0 rgba(0, 0, 0, .6), 0 0 18px rgba(216, 57, 43, .45); }
+[data-theme='yatai'] h2 { font-size: 1.7em; color: #f6ecd8; }
+[data-theme='yatai'] :is(.dash-head h2, .sales-head h2, .crm-head h2)::after { content: ''; display: block; width: 90px; height: 3px; margin-top: 5px; border-radius: 2px; background: linear-gradient(90deg, #f4e8d2, transparent); opacity: .7; }
+[data-theme='yatai'] .bm-yatai .bowl { fill: #f4e8d2; } [data-theme='yatai'] .bm-yatai .st { fill: none; stroke: #ffb347; stroke-width: 1.4; stroke-linecap: round; }
+[data-theme='yatai'] .tcard { background: rgba(8, 10, 16, .74); }
+.tmini[data-theme='yatai'] { background: linear-gradient(rgba(10, 5, 2, .3), rgba(10, 5, 2, .55)), url(./assets/backdrops/yatai.webp) center / cover; }
+[data-theme='yatai'] .bm-yatai, [data-theme='yatai'] .bm-yatai { display: block; }
+
+/* ---- Thorn: blackwork on black, red rim light, a sculpted wordmark that leans with the music ---- */
+[data-theme='thorn'] {
+  --font: 'Barlow Condensed', -apple-system, sans-serif; --font-display: 'Barlow Condensed', sans-serif;
+  --display-case: uppercase; --display-track: .01em; --display-weight: 700; --root-size: 15px;
+  --r-btn: 1px; --r-field: 1px; --r-card: 2px; --r-modal: 3px; --r-nav: 1px;
+  --bg: #050505; --bg-glow: #14090a; --panel: rgba(10, 8, 8, .78); --panel-hi: rgba(20, 12, 12, .8); --panel-lo: rgba(6, 5, 5, .86);
+  --panel2: rgba(34, 16, 16, .9); --well: rgba(0, 0, 0, .6); --hov: rgba(224, 70, 58, .1); --sel: rgba(224, 70, 58, .2); --raise: #1c0e0e;
+  --chip: rgba(52, 22, 20, .8); --track: rgba(120, 40, 36, .5); --rowline: rgba(255, 255, 255, .06); --line: rgba(224, 85, 74, .28);
+  --line-soft: rgba(224, 85, 74, .14); --line-hi: rgba(255, 110, 96, .55);
+  --text: #f4f1ee; --text-2: #cfc6c2; --dim: #8f8481;
+  --accent: #e0554a; --accent-hi: #ff6b5c; --accent-ink: #120302; --accent-text: #ff6b5c; --accent-rgb: 224, 85, 74;
+  --fg-rgb: 244, 241, 238; --shadow-rgb: 0, 0, 0; --scrim: rgba(0, 0, 0, .78); --wf: #6a2a26;
+  --idea: #8f8481; --wip: #ff9a4a; --finished: #f4f1ee; --sent: #ff6b5c; --sold: #ffd1c9; --series-1: #ff6b5c; --series-2: #f4f1ee; --color-scheme: dark;
+  --side-bg: linear-gradient(180deg, var(--panel-hi), var(--panel-lo));
+}
+[data-theme='thorn'] { background: linear-gradient(rgba(0, 0, 0, .35), rgba(0, 0, 0, .7)), url(./assets/backdrops/thorn.webp) center / cover fixed, var(--bg); }
+[data-theme='thorn'] body, [data-theme='thorn'] #root { background: transparent; }
+[data-theme='thorn'] .ambient { display: block; opacity: .55; }
+[data-theme='thorn'] #root::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 60; background: url(./assets/textures/rubber.webp) 0 0 / 256px; opacity: .22; mix-blend-mode: overlay; }
+[data-theme='thorn'] :is(.nav, .tab, button, .coll, .seg button, h2, h3, .thead, .shead, .shead2, .field label, .row .t, .player .now .t, .stat b, .clock) { font-family: 'Barlow Condensed', sans-serif; font-style: italic; text-transform: uppercase; font-weight: 700; letter-spacing: .03em; }
+[data-theme='thorn'] h2 { font-size: 2.1em; line-height: .95; text-shadow: 2px 0 rgba(255, 70, 56, .55), -2px 0 rgba(0, 0, 0, .9); }
+[data-theme='thorn'] :is(.row .t, .player .now .t) { font-size: 17px; }
+[data-theme='thorn'] :is(.panel, .ocard, .scard, .modal, .palette, .side, .detail, .table) { border: 1px solid var(--line); border-top-color: rgba(255, 120, 106, .6); box-shadow: inset 0 1px 0 rgba(255, 120, 106, .25), 0 0 0 1px #000, 0 18px 40px rgba(0, 0, 0, .7); backdrop-filter: blur(6px); }
+[data-theme='thorn'] .thead { border-bottom: 2px solid var(--accent); color: var(--text-2); }
+[data-theme='thorn'] .row.sel { background: linear-gradient(90deg, rgba(224, 85, 74, .32), transparent 70%); box-shadow: inset 4px 0 var(--accent); }
+:where([data-theme='thorn']) button { background: #0c0909; border: 1px solid var(--line-hi); color: var(--text); box-shadow: inset 0 1px 0 rgba(255, 120, 106, .25), 3px 3px 0 #000; }
+:where([data-theme='thorn']) button:hover { background: #1a0d0c; border-color: var(--accent-hi); }
+:where([data-theme='thorn']) button:active { transform: translate(2px, 2px); box-shadow: inset 0 2px 6px #000; }
+[data-theme='thorn'] button.primary, [data-theme='thorn'] .big-play { background: linear-gradient(#ee6a5e, #c4372c); border: 1px solid #ff9b8f; color: #120302; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 3px 3px 0 #000, 0 0 22px rgba(224, 85, 74, .5); }
+[data-theme='thorn'] .dot { border-radius: 0; transform: skewX(-14deg); }
+[data-theme='thorn'] .player { background: linear-gradient(180deg, rgba(18, 8, 8, .92), rgba(4, 3, 3, .96)); backdrop-filter: none; border-top: 2px solid var(--accent); box-shadow: 0 -10px 40px -10px rgba(224, 85, 74, .55); }
+[data-theme='thorn'] .nav.on { background: linear-gradient(90deg, rgba(224, 85, 74, .35), transparent); box-shadow: inset 3px 0 var(--accent); }
+
+/* the wordmark: a sculpted thorn logo in the sidebar, leaning toward the beat */
+[data-theme='thorn'] .brand { perspective: 520px; height: 96px; display: flex; align-items: center; justify-content: center; padding: 0; margin: 0 -10px 8px; }
+[data-theme='thorn'] .brand .bm { display: none; }
+[data-theme='thorn'] .brand span { display: block; width: 100%; height: 100%; font-size: 0; color: transparent; background: url(./assets/marks/thorn.webp) center / contain no-repeat; text-shadow: none; transform-style: preserve-3d; will-change: transform, filter;
+  transform: rotateX(calc(var(--lvl, 0) * 14deg)) rotateY(calc((var(--lvl-b, .5) - .5) * 24deg)) scale(calc(1 + var(--lvl, 0) * .06));
+  filter: brightness(1.7) contrast(1.15) saturate(1.3) drop-shadow(0 6px 10px rgba(0, 0, 0, .85)) drop-shadow(0 0 calc(4px + var(--lvl, 0) * 16px) rgba(255, 60, 48, calc(.35 + var(--lvl, 0) * .55))); transition: transform .08s linear; }
+[data-theme='thorn'] .bm-thorn { display: block; } [data-theme='thorn'] .bm-thorn .th { fill: var(--accent); }
+.tmini[data-theme='thorn'] { background: linear-gradient(rgba(0, 0, 0, .3), rgba(0, 0, 0, .6)), url(./assets/backdrops/thorn.webp) center / cover; }
+[data-theme='thorn'] .tcard { background: rgba(8, 6, 6, .8); }
+@media (prefers-reduced-motion: reduce) { [data-theme='thorn'] .brand span { transform: none; transition: none; } }
+
+/* Thorn type, everywhere: no element is left on a default face. Body text is condensed italic too; only the titles go uppercase. */
+[data-theme='thorn'] :is(body, div, span, p, td, th, li, label, a, b, i, em, strong, small, h1, h2, h3, h4, button, input, textarea, select, option, kbd, code, .mono, .tip, .tip span, .ctl-label, .ctl-val, .sub, .help, .dim, .badge, .timerpill) { font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-style: italic; font-weight: 600; letter-spacing: .02em; }
+[data-theme='thorn'] :is(input, textarea, select) { font-size: 1.08em; text-transform: none; }
+[data-theme='thorn'] :is(.mono, kbd, code, .ctl-val, .clock, .stat b) { font-weight: 700; letter-spacing: .04em; }
+[data-theme='thorn'] :is(.sub, .help, .dim, .field label, .thead, .shead, .shead2, .coll, .badge) { text-transform: uppercase; }

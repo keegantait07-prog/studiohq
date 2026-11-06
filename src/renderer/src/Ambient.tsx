@@ -1,11 +1,12 @@
 import { useEffect, useRef } from 'react'
 import { prefersReducedMotion } from './motion'
 
-type Mode = 'petals' | 'embers'
+type Mode = 'petals' | 'embers' | 'rain'
 interface Mote { x: number; y: number; vx: number; vy: number; s: number; rot: number; vr: number; ph: number; a: number; hue: number }
 interface Ripple { x: number; y: number; born: number }
+interface Puff { x: number; y: number; r: number; a: number }
 
-const MODE: Record<string, Mode | undefined> = { koi: 'petals', citypop: 'petals', magma: 'embers' }
+const MODE: Record<string, Mode | undefined> = { koi: 'petals', citypop: 'petals', magma: 'embers', yatai: 'rain', thorn: 'embers' }
 const TAU = Math.PI * 2
 
 /**
@@ -27,6 +28,7 @@ export function Ambient() {
     let theme = ''
     let motes: Mote[] = []
     const ripples: Ripple[] = []
+    let puffs: Puff[] = []
     let raf = 0, last = 0, lvl = 0, lastHit = 0, frames = 0
 
     const resize = (): void => {
@@ -37,7 +39,7 @@ export function Ambient() {
     const seed = (): void => {
       theme = document.documentElement.dataset.theme ?? ''
       mode = MODE[theme]
-      const n = mode === 'embers' ? 70 : mode === 'petals' ? 30 : 0
+      const n = mode === 'embers' ? 70 : mode === 'petals' ? 30 : mode === 'rain' ? 90 : 0
       motes = Array.from({ length: n }, () => ({
         x: Math.random() * w, y: Math.random() * h, ph: Math.random() * TAU, rot: Math.random() * TAU,
         s: mode === 'embers' ? 0.8 + Math.random() * 1.8 : 5 + Math.random() * 6,
@@ -45,6 +47,10 @@ export function Ambient() {
         vy: mode === 'embers' ? -(24 + Math.random() * 60) : 24 + Math.random() * 36,
         vr: (Math.random() - 0.5) * 2, a: 0.45 + Math.random() * 0.5, hue: Math.random()
       }))
+      if (mode === 'rain') {
+        for (const m of motes) { m.s = 10 + Math.random() * 18; m.vx = -(40 + Math.random() * 40); m.vy = 520 + Math.random() * 380; m.a = 0.1 + Math.random() * 0.2 }
+        puffs = Array.from({ length: 9 }, () => ({ x: w * (0.15 + Math.random() * 0.7), y: h * (0.62 + Math.random() * 0.3), r: 30 + Math.random() * 40, a: Math.random() * 0.07 }))
+      } else puffs = []
       ripples.length = 0
       g.setTransform(dpr, 0, 0, dpr, 0, 0)
       g.clearRect(0, 0, w, h)
@@ -93,8 +99,24 @@ export function Ambient() {
           g.beginPath(); g.arc(m.x, m.y, m.s, 0, TAU); g.fill()
         }
         g.globalCompositeOperation = 'source-over'
+      } else if (mode === 'rain') {
+        g.lineWidth = 1
+        for (const m of motes) {
+          m.x += m.vx * dt; m.y += m.vy * dt
+          if (m.y > h + 20) { m.y = -20; m.x = Math.random() * (w + 200) }
+          if (m.x < -20) m.x += w + 40
+          g.strokeStyle = `rgba(205, 220, 240, ${m.a})`
+          g.beginPath(); g.moveTo(m.x, m.y); g.lineTo(m.x - m.vx * 0.03, m.y - m.vy * 0.03); g.stroke()
+        }
+        for (const p of puffs) { // steam: soft wisps that rise from the counter, grow and fade
+          p.y -= 16 * dt; p.r += 7 * dt; p.a += (p.y < h * 0.45 ? -0.05 : 0.025) * dt
+          if (p.a <= 0.004) { p.x = w * (0.15 + Math.random() * 0.7); p.y = h * (0.78 + Math.random() * 0.15); p.r = 28 + Math.random() * 30; p.a = 0.05 }
+          const gr = g.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r)
+          gr.addColorStop(0, `rgba(255, 238, 215, ${Math.min(0.1, p.a)})`); gr.addColorStop(1, 'rgba(255, 238, 215, 0)')
+          g.fillStyle = gr; g.beginPath(); g.arc(p.x, p.y, p.r, 0, TAU); g.fill()
+        }
       } else if (mode === 'petals') {
-        const pink = theme === 'citypop' ? '255, 150, 210' : '255, 205, 225'
+        const pink = theme === 'citypop' ? '255, 150, 210' : '200, 120, 62'
         const blue = '170, 220, 255'
         for (const m of motes) {
           m.x += (m.vx + Math.sin(t * 0.9 + m.ph) * 16) * dt

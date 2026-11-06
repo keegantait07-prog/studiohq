@@ -1556,8 +1556,23 @@ select.grp { width: auto; margin-left: 4px; padding: 2px 6px; }
 [data-theme='thorn'] .tcard { background: rgba(8, 6, 6, .8); }
 @media (prefers-reduced-motion: reduce) { [data-theme='thorn'] .brand span { transform: none; transition: none; } }
 
-/* Thorn type, everywhere: no element is left on a default face. Body text is condensed italic too; only the titles go uppercase. */
-[data-theme='thorn'] :is(body, div, span, p, td, th, li, label, a, b, i, em, strong, small, h1, h2, h3, h4, button, input, textarea, select, option, kbd, code, .mono, .tip, .tip span, .ctl-label, .ctl-val, .sub, .help, .dim, .badge, .timerpill) { font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-style: italic; font-weight: 600; letter-spacing: .02em; }
-[data-theme='thorn'] :is(input, textarea, select) { font-size: 1.08em; text-transform: none; }
-[data-theme='thorn'] :is(.mono, kbd, code, .ctl-val, .clock, .stat b) { font-weight: 700; letter-spacing: .04em; }
-[data-theme='thorn'] :is(.sub, .help, .dim, .field label, .thead, .shead, .shead2, .coll, .badge) { text-transform: uppercase; }
+/* Thorn type, for real: tattoo blackletter for everything you read as a title, industrial condensed for the rest, bone and blood colours instead of white. */
+@font-face { font-family: 'Pirata One'; font-weight: 400; font-display: swap; src: url(./assets/fonts/PirataOne-400.woff2) format('woff2'); }
+@font-face { font-family: 'Big Shoulders Display'; font-weight: 600; font-display: swap; src: url(./assets/fonts/BigShouldersDisplay-600.woff2) format('woff2'); }
+@font-face { font-family: 'Big Shoulders Display'; font-weight: 800; font-display: swap; src: url(./assets/fonts/BigShouldersDisplay-800.woff2) format('woff2'); }
+[data-theme='thorn'] { --font: 'Big Shoulders Display', 'Arial Narrow', sans-serif; --font-display: 'Pirata One', 'Grenze Gotisch', serif; --text: #f1d5cb; --text-2: #c99a8e; --dim: #94645c; }
+[data-theme='thorn'] :is(body, div, span, p, td, th, li, label, a, b, i, em, strong, small, button, input, textarea, select, option, kbd, code, .mono, .tip, .tip span, .ctl-label, .ctl-val, .sub, .help, .dim, .badge, .timerpill) { font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif; font-style: normal; font-weight: 600; letter-spacing: .035em; }
+[data-theme='thorn'] :is(h1, h2, h3, h4, .nav, .tab, button, .coll, .seg button, .row .t, .player .now .t, .brand, .thead, .shead, .shead2, .field label, .modal h2, .palette input) { font-family: 'Pirata One', 'Grenze Gotisch', serif; font-style: normal; font-weight: 400; text-transform: none; letter-spacing: .02em; }
+[data-theme='thorn'] :is(.nav, .tab, button, .coll, .seg button) { font-size: 1.16em; }
+[data-theme='thorn'] :is(.row .t, .player .now .t) { font-size: 20px; color: #fff0ea; }
+[data-theme='thorn'] :is(.mono, kbd, code, .ctl-val, .clock, .stat b) { font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; letter-spacing: .06em; color: #ff8d7c; }
+[data-theme='thorn'] :is(.sub, .help, .dim, .badge) { text-transform: uppercase; font-size: .95em; }
+[data-theme='thorn'] :is(.thead, .shead, .shead2, .field label) { text-transform: none; font-size: 1.15em; color: #ff8d7c; }
+[data-theme='thorn'] :is(h2, h3, .dash-head h2) { background: linear-gradient(180deg, #fff3ee 0%, #ff8d7c 42%, #d3382c 72%, #6d0f0a 100%); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none; filter: drop-shadow(0 2px 0 #000) drop-shadow(0 0 10px rgba(224, 60, 48, .5)); }
+[data-theme='thorn'] h2 { font-size: 2.6em; font-weight: 400; }
+[data-theme='thorn'] .nav.on, [data-theme='thorn'] .tab.on { color: #fff0ea; text-shadow: 0 0 10px rgba(255, 70, 56, .8); }
+[data-theme='thorn'] button.primary, [data-theme='thorn'] .big-play { font-size: 1.25em; }
+
+/* every other world gets its own face on all remaining text too (titles keep the more specific rules above) */
+[data-theme='magma'] { --font: 'Grenze Gotisch', 'Metal Mania', serif; }
+:is([data-theme='koi'], [data-theme='citypop'], [data-theme='magma'], [data-theme='yatai']) :is(body, div, span, p, td, th, li, label, a, b, i, em, strong, small, input, textarea, select, option) { font-family: var(--font); }

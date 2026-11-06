@@ -4,3 +4,4 @@ Latin subsets only (the Japanese accents in the themes use the system Japanese f
 where every family below is published under the SIL Open Font License 1.1 (https://openfontlicense.org).
 
 Yuji Syuku, Shippori Mincho B1, Monoton, Righteous, Grenze Gotisch, Rubik Burned, M PLUS Rounded 1c, DotGothic16, Metal Mania, Nosifer.
+Pirata One, Big Shoulders Display.

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { usePlayerTime, type PlayerClock } from './player'
 import { artPng } from './genart'
 import type { Beat, BeatDetail, Settings, VideoExport, VideoFormat, VideoMotion, VideoProgress, VideoTitles, VizStyle } from '@shared/types'
 import type { VizFeatures } from '@shared/vizFeatures'
@@ -56,10 +57,11 @@ interface Props {
   toast: (m: string) => void
   playId: number | null
   playing: boolean
-  playTime: number
+  playClock: PlayerClock
 }
 
-export function VideoBuilder({ beat, settings, videos, onPlayAt, onExported, toast, playId, playing, playTime }: Props) {
+export function VideoBuilder({ beat, settings, videos, onPlayAt, onExported, toast, playId, playing, playClock }: Props) {
+  const playTime = usePlayerTime(playClock)
   const [prefs, setPrefs] = useState<Prefs>(loadPrefs)
   const set = (p: Partial<Prefs>) => setPrefs((x) => { const n = { ...x, ...p }; try { localStorage.setItem('shq-video', JSON.stringify(n)) } catch { /* ignore */ } return n })
   const defaultTag = beat.tags.artist.length ? `${beat.tags.artist.slice(0, 2).map((a) => a.replace(/\b\w/g, (c) => c.toUpperCase())).join(' x ')} type beat` : [beat.bpm ? `${Math.round(beat.bpm)} BPM` : '', displayKey(beat.key)].filter(Boolean).join(' · ')

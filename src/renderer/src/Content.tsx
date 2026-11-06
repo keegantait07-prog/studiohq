@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import type { PlayerClock } from './player'
 import { PLATFORMS, type Beat, type ContentData, type Post, type Sale, type Settings } from '@shared/types'
 import { clickable } from './a11y'
 import { displayKey } from '@shared/key'
@@ -24,7 +25,7 @@ interface Props {
   toast: (m: string) => void
   playId: number | null
   playing: boolean
-  playTime: number
+  playClock: PlayerClock
 }
 
 export function ContentView(p: Props) {
@@ -86,7 +87,7 @@ export function ContentView(p: Props) {
                 <div className="cv-beat"><h3>{beat.title}</h3>
                   <div className="seg" style={{ width: 'auto' }}>{([['video', 'Video'], ['copy', 'Titles & tags'], ['youtube', 'YouTube'], ['posts', `Posts (${postsOf(beat.id).length})`]] as const).map(([k, l]) => <button key={k} className={sub === k ? 'on' : ''} onClick={() => setSub(k)}>{l}</button>)}</div>
                 </div>
-                {sub === 'video' && <VideoBuilder key={beat.id} beat={beat} settings={p.settings} videos={p.content.videos} onPlayAt={p.onPlayAt} onExported={() => { p.reload(); p.reloadBeats() }} toast={p.toast} playId={p.playId} playing={p.playing} playTime={p.playTime} />}
+                {sub === 'video' && <VideoBuilder key={beat.id} beat={beat} settings={p.settings} videos={p.content.videos} onPlayAt={p.onPlayAt} onExported={() => { p.reload(); p.reloadBeats() }} toast={p.toast} playId={p.playId} playing={p.playing} playClock={p.playClock} />}
                 {sub === 'copy' && <CopyPanel beat={beat} settings={p.settings} onTags={async (artists) => { await window.api.setTags(beat.id, { ...beat.tags, artist: artists }); p.reloadBeats() }} />}
                 {sub === 'youtube' && <YouTubePublish key={`${beat.id}-${editVideo ?? 'new'}`} openVideoId={editVideo} beat={beat} settings={p.settings} toast={p.toast} reload={p.reload} reloadBeats={p.reloadBeats} />}
                 {sub === 'posts' && (

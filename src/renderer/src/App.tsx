@@ -2,10 +2,11 @@ import { lazy, useCallback, useEffect, useMemo, useRef, useState, Fragment } fro
 import { STATUSES, type Beat, type BeatDetail, type ContentData, type CrmData, type FeedbackData, type SoundList, type SoundStatus, type StudioSession, type SalesData, type Sale, type ScanStatus, type Settings as AppSettings, type Status, type TagKind, type NetlifyStatus, type VaultKind } from '@shared/types'
 import { clickable } from './a11y'
 import { ViewGuard } from './ViewGuard'
+import { useNow } from './useNow'
 import { displayKey } from '@shared/key'
 import { parseQuery } from './query'
 import { keysCompatible, bpmCompatible } from '@shared/key'
-import { usePlayer } from './player'
+import { usePlayer, usePlayerTime, type PlayerClock } from './player'
 import { Thumb, Waveform } from './Waveform'
 import { artUrl } from './genart'
 const SonicMap = lazy(() => import('./SonicMap').then((m) => ({ default: m.SonicMap })))
@@ -46,6 +47,24 @@ function rank(b: Beat): number {
   if (v) return 2e13 + +v[1] * 1e11 + b.mtime / 1e3
   if (b.versionLabel === 'stems') return b.mtime - 1e13
   return 1e13 + b.mtime
+}
+
+/** The "0:12 / 3:04" readout. It alone re-renders as the playhead moves. */
+function PlayerReadout({ player, fallbackDuration }: { player: PlayerClock & { duration: number }; fallbackDuration: number | null }) {
+  const time = usePlayerTime(player)
+  return <div className="sub mono">{fmtDur(time)} / {fmtDur(player.duration || fallbackDuration || null)}</div>
+}
+
+/** The waveform with its moving progress line. */
+function PlayerWave({ player, peaks }: { player: PlayerClock & { duration: number; seek: (t: number) => void }; peaks: number[] }) {
+  const time = usePlayerTime(player)
+  return <Waveform peaks={peaks} progress={player.duration ? time / player.duration : 0} onSeek={(f) => player.duration && player.seek(f * player.duration)} />
+}
+
+/** The running-session timer in the sidebar. It owns the 1-second tick, so the rest of the app does not re-render every second. */
+function SessionPill({ startedAt, onClick }: { startedAt: number; onClick: () => void }) {
+  const now = useNow(1000)
+  return <a className="timerpill" {...clickable(onClick)} title="Studio session running">● {fmtClock(now - startedAt)}</a>
 }
 
 export function App() {
@@ -118,7 +137,6 @@ export function App() {
   const [feedback, setFeedback] = useState<FeedbackData>({ links: [], comments: [] })
   const [fbDlg, setFbDlg] = useState<{ beatIds?: number[] } | null>(null)
   const [sessions, setSessions] = useState<StudioSession[]>([])
-  const [clock, setClock] = useState(Date.now())
   const reloadSounds = useCallback(async () => { setSounds(await window.api.soundsList()) }, [])
   const reloadFeedback = useCallback(async () => { setFeedback(await window.api.feedbackAll()) }, [])
   const reloadSessions = useCallback(async () => { setSessions(await window.api.sessionsAll()) }, [])
@@ -130,7 +148,6 @@ export function App() {
     return () => { a(); b(); c() }
   }, [reloadSounds, reloadFeedback, reloadSessions])
   const openSession = sessions.find((x) => x.endedAt == null)
-  useEffect(() => { const t = setInterval(() => setClock(Date.now()), 1000); return () => clearInterval(t) }, [])
   const unseenFeedback = useMemo(() => feedback.comments.filter((c) => !c.seen).length, [feedback.comments])
   const [content, setContent] = useState<ContentData>({ posts: [], videos: [] })
   const [contentBeat, setContentBeat] = useState<number | null>(null)
@@ -252,7 +269,7 @@ export function App() {
     if (takes.length < 2) return toast(`Only one take of this ${isLoop ? 'loop' : 'beat'}. Export another version to A/B them.`)
     const i = takes.findIndex((t) => t.id === player.id)
     const next = takes[(i + 1) % takes.length]
-    player.play(next.id, player.time)
+    player.play(next.id, player.getTime())
     toast(`${i === 0 ? 'B' : 'A'}: ${next.versionLabel || next.filename}`)
   }, [everything, player, toast, isLoop])
   const [reindexing, setReindexing] = useState(false)
@@ -403,7 +420,7 @@ export function App() {
         <a className={`nav ${view === 'feedback' ? 'on' : ''}`} {...clickable(() => setView('feedback'))}><em className="nl"><Icon name="feedback" />Feedback</em> {unseenFeedback > 0 ? <span className="badge">{unseenFeedback}</span> : <span>{feedback.links.length}</span>}</a>
         <a className={`nav ${view === 'themes' ? 'on' : ''}`} {...clickable(() => setView('themes'))}><em className="nl"><Icon name="themes" />Themes</em> <span>{THEMES.find((t) => t.id === theme)?.name}</span></a>
         <div className="grow" />
-        {openSession && <a className="timerpill" onClick={() => setView('dashboard')} title="Studio session running">● {fmtClock(clock - openSession.startedAt)}</a>}
+        {openSession && <SessionPill startedAt={openSession.startedAt} onClick={() => setView('dashboard')} />}
         <button className={`ghost as-btn ${assistantOpen ? 'on' : ''}`} onClick={() => setAssistantOpen((o) => !o)} title="Ask the assistant to look things up or make changes (⌘J)">
           <em className="nl"><Icon name="assistant" />Assistant</em>
           {assistantStatus === 'approval' ? <span className="badge">approve</span> : assistantStatus === 'working' ? <span className="as-dot" title="Working…" /> : <kbd>⌘J</kbd>}
@@ -413,7 +430,7 @@ export function App() {
 
       {view === 'dashboard' ? (
         <Dashboard
-          beats={beats} crm={crm} content={content} sales={salesData} feedback={feedback} sessions={sessions} settings={appSettings} now={clock}
+          beats={beats} crm={crm} content={content} sales={salesData} feedback={feedback} sessions={sessions} settings={appSettings}
           onGo={setView} onQuery={openCollection} onOpenBeat={(id) => openItem(id)}
           onOpenContact={(id) => { setCrmSel(id); setView('crm') }} onPitchBeat={(id) => setPitchDlg({ beatIds: [id] })}
           onMakeVideo={(id) => { setContentBeat(id); setView('content') }} onSetStatus={setStatus} reloadSessions={reloadSessions}
@@ -433,7 +450,7 @@ export function App() {
       ) : view === 'content' ? (
         <ViewGuard name="Content"><ContentView
           beats={audioBeats} sales={salesData.sales} content={content} settings={appSettings} beatId={contentBeat} onSelectBeat={setContentBeat}
-          onPlayAt={(id, at) => safePlay(id, at)} reload={reloadContent} reloadBeats={reload} toast={toast} playId={player.id} playing={player.playing} playTime={player.time}
+          onPlayAt={(id, at) => safePlay(id, at)} reload={reloadContent} reloadBeats={reload} toast={toast} playId={player.id} playing={player.playing} playClock={player}
         /></ViewGuard>
       ) : view === 'sales' ? (
         <SalesView
@@ -542,10 +559,10 @@ export function App() {
         <button className="big-play" onClick={() => (player.id == null && selectedId != null ? safePlay(selectedId) : player.toggle())}>{player.playing ? '❚❚' : '▶'}</button>
         <div className="now">
           <div className="t">{playingDetail?.title ?? 'Nothing playing'}</div>
-          <div className="sub mono">{fmtDur(player.time)} / {fmtDur(player.duration || playingDetail?.duration || null)}</div>
+          <PlayerReadout player={player} fallbackDuration={playingDetail?.duration ?? null} />
         </div>
         <div className="wavewrap">
-          <Waveform peaks={playingDetail?.peaks ?? []} progress={player.duration ? player.time / player.duration : 0} onSeek={(f) => player.duration && player.seek(f * player.duration)} />
+          <PlayerWave player={player} peaks={playingDetail?.peaks ?? []} />
         </div>
         <div className="pchips">
           <button className={`pchip2 ${audition ? 'on' : ''}`} onClick={() => setAudition((a) => !a)} title="Audition mode (A): play beats from their fullest part as you move through them">Audition</button>

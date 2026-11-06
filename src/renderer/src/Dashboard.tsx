@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { Beat, ContentData, CrmData, FeedbackData, SalesData, Settings, Status, StudioSession } from '@shared/types'
 import { isDue, daysSince } from './crmUtils'
+import { useNow } from './useNow'
 import { activity, beatsMadeSince, dayKey, DAY, fmtClock, fmtHM, isActive, sessionMs, startOfDay, streaks, weekStart } from './dashUtils'
 import { money, net } from './salesUtils'
 import { HEALTH } from './query'
@@ -14,7 +15,6 @@ interface Props {
   feedback: FeedbackData
   sessions: StudioSession[]
   settings: Settings | null
-  now: number
   onGo: (v: View) => void
   onOpenBeat: (id: number) => void
   onQuery: (q: string) => void
@@ -61,7 +61,8 @@ function CatalogHealth({ beats, onQuery }: { beats: Beat[]; onQuery: (q: string)
 }
 
 export function Dashboard(p: Props) {
-  const { beats, crm, content, sales, feedback, sessions, settings, now } = p
+  const { beats, crm, content, sales, feedback, sessions, settings } = p
+  const now = useNow(1000)
   const wk = weekStart(now)
   const today0 = startOfDay(now)
   const act = useMemo(() => activity(beats, sessions, now), [beats, sessions, now])

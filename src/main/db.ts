@@ -1,12 +1,48 @@
 import Database from 'better-sqlite3'
 import { join } from 'path'
-import { mkdirSync } from 'fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync, unlinkSync } from 'fs'
 
 export function openDb(dir: string): Database.Database {
   mkdirSync(dir, { recursive: true })
   const db = new Database(join(dir, 'studio-hq.db'))
   db.pragma('journal_mode = WAL')
   db.pragma('foreign_keys = ON')
+  migrate(db, join(dir, 'studio-hq.db'))
+  seedTemplates(db)
+  seedLicenses(db)
+  return db
+}
+
+/**
+ * Schema steps, run in order. A database remembers how many it has run in PRAGMA user_version.
+ * Add new changes as a new entry at the END; never edit an old one. The first two are written to be
+ * safe on databases that already have everything (they predate version numbers).
+ */
+const MIGRATIONS: ((db: Database.Database) => void)[] = [createTables, addColumns]
+
+function migrate(db: Database.Database, file: string): void {
+  const from = db.pragma('user_version', { simple: true }) as number
+  if (from >= MIGRATIONS.length) return
+  const existing = (db.prepare("SELECT COUNT(*) c FROM sqlite_master WHERE name='beats'").get() as { c: number }).c > 0
+  if (existing) snapshotBeforeMigrating(db, file, from)
+  for (let v = from; v < MIGRATIONS.length; v++) {
+    db.transaction(() => { MIGRATIONS[v](db); db.pragma(`user_version = ${v + 1}`) })()
+  }
+}
+
+/** Keeps a copy of the database from just before an upgrade, so a bad migration can be undone. Keeps the last 3. */
+function snapshotBeforeMigrating(db: Database.Database, file: string, from: number): void {
+  try {
+    db.pragma('wal_checkpoint(TRUNCATE)')
+    const dir = join(file, '..', 'backups')
+    mkdirSync(dir, { recursive: true })
+    copyFileSync(file, join(dir, `pre-migration-v${from}-${Date.now()}.db`))
+    const old = readdirSync(dir).filter((f) => f.startsWith('pre-migration-')).map((f) => ({ f, t: statSync(join(dir, f)).mtimeMs })).sort((a, b) => b.t - a.t).slice(3)
+    for (const o of old) if (existsSync(join(dir, o.f))) unlinkSync(join(dir, o.f))
+  } catch (e) { console.error('pre-migration backup failed', e) }
+}
+
+function createTables(db: Database.Database): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS groups (
       id INTEGER PRIMARY KEY,
@@ -295,6 +331,9 @@ export function openDb(dir: string): Database.Database {
       note TEXT NOT NULL DEFAULT ''
     );
   `)
+}
+
+function addColumns(db: Database.Database): void {
   const bcols = db.prepare('PRAGMA table_info(beats)').all() as { name: string }[]
   if (!bcols.some((c) => c.name === 'cover_path')) db.exec('ALTER TABLE beats ADD COLUMN cover_path TEXT')
   if (!bcols.some((c) => c.name === 'preview_path')) db.exec('ALTER TABLE beats ADD COLUMN preview_path TEXT')
@@ -305,9 +344,6 @@ export function openDb(dir: string): Database.Database {
   if (!pcols.some((c) => c.name === 'kind')) db.exec("ALTER TABLE packs ADD COLUMN kind TEXT NOT NULL DEFAULT 'pitch'")
   const gcols = db.prepare('PRAGMA table_info(groups)').all() as { name: string }[]
   if (!gcols.some((c) => c.name === 'split_sheet_at')) db.exec('ALTER TABLE groups ADD COLUMN split_sheet_at INTEGER')
-  seedTemplates(db)
-  seedLicenses(db)
-  return db
 }
 
 function seedLicenses(db: Database.Database): void {

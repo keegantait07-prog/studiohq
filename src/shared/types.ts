@@ -201,6 +201,20 @@ export interface VideoFile { id: number; beatId: number; beatTitle: string; form
   youtube?: { hasDraft: boolean; uploaded: YtPublishResult | null } }
 export interface ContentData { posts: Post[]; videos: VideoExport[] }
 export interface VideoProgress { label: string; pct: number }
+/** One click from a finished beat to everything needed to post it. */
+export interface ContentPackRequest {
+  beatId: number
+  look: VizStyle
+  accent: string
+  clipStart: number
+  clipLength: number
+  vertical: boolean
+  full: boolean
+  draft: boolean
+  artists: string[]
+  plan: { platform: Platform; date: number }[]
+}
+export interface ContentPackResult { files: string[]; draftVideoId: number | null; planned: number; skipped: string[] }
 
 // ---- Sales & Collabs ----
 export type SaleSource = 'beatstars' | 'paypal' | 'venmo' | 'cashapp' | 'zelle' | 'other'
@@ -385,6 +399,7 @@ export interface Api {
   // ---- YouTube publisher ----
   ytStatus(): Promise<YtStatus>
   ytSuggestArtists(beatId: number): Promise<string[]>
+  contentPack(r: ContentPackRequest): Promise<ContentPackResult>
   ytPrepare(beatId: number, artists: string[], reuseVideoId?: number): Promise<PublishDraft>
   ytPublish(draft: PublishDraft, edits: YtPublishEdits): Promise<YtPublishResult>
   ytLoadDraft(videoId: number): Promise<SavedDraft>

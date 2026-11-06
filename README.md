@@ -2,7 +2,19 @@
 
 A local-first desktop app for your whole producer workflow. Built with Electron, React and SQLite. Runs on macOS.
 
-**Status: all five milestones (Beat Vault, Pitch CRM, Sales & Collabs, Content Machine, and Sound Library + Feedback links + Dashboard).** Planned next: Sound Library, Feedback Links and the Daily Dashboard.
+**Version 3.0.** The sections below describe each tool by its original name: Pitch CRM is now **People**, Sales & Collabs is **Ledger**, Sound Library is **Crate**, Plugins is **Rig**, the Beat Vault is the **Beat table**, and the Dashboard is **Overview**.
+
+## The Line
+
+The Line (⌘1) is home. Every beat is one card, with its versions folded together, in one of four lanes: **Inbox** (finish and tag it), **Ready** (done, not out yet), **Out** (pitched or posted) and **Earning** (has made money). Each card shows four stamps for the Finish, Pitch, Post and Sell tracks, worked out from what has actually happened, and one button for the next thing to do. Urgent cards come first. Click a card to open its Beat Sheet beside the Line. The strip at the top lists what changed since you last opened the app.
+
+The Jobs tray in the transport shows exports, uploads and analysis from any view.
+
+## Content Pack
+
+Press **Make a video** on a card, or use ⌘K, *Content Pack for this beat*. One click makes a 30-second vertical clip from the fullest part of the beat, the full-length horizontal video, a YouTube draft to review, and planned posts for Shorts, TikTok and Reels on each platform's next free day. It runs in the background and shows in the Jobs tray, where you can cancel it. Each beat starts on a different look so a run of posts doesn't look like a template.
+
+Nothing is published. The draft waits under Content → Videos, with the BeatStars link filled in if you saved one for that beat. The draft needs a Google sign-in, unused pictures and at least one type-beat artist; if any is missing, you still get the videos and are told what was skipped.
 
 ## Setup
 
@@ -177,21 +189,26 @@ Open **Content**, pick a beat, then the **YouTube** tab. Studio HQ studies top t
 
 | Key | Action |
 |---|---|
-| ⌘0 | Dashboard |
-| ⌘1 / ⌘2 / ⌘3 / ⌘4 | Beat Vault / Pitch CRM / Sales & Collabs / Content |
-| ⌘5 / ⌘6 | Sound Library / Feedback |
+| ⌘1 | The Line |
+| ⌘2 / ⌘3 / ⌘4 / ⌘5 | People / Ledger / Crate / Rig |
+| ⌘6 / ⌘7 / ⌘8 / ⌘9 / ⌘0 | Beat table / Content / Loops / Stage / Overview |
+| ⌘K | Search everything / commands |
+| ⌘J | Studio Assistant |
+| ⌘, | Settings |
+| Space | Play / pause (The Line, Beat table, Loops) |
+| Esc | Close the Beat Sheet |
+
+In the Beat table and Loops:
 
 | Key | Action |
 |---|---|
-| ⌘K | Search everything / commands |
 | `/` or ⌘F | Focus search |
 | ↑ ↓ | Move selection |
-| Space | Play / pause |
 | Enter | Play selected |
 | ← → (Shift for 15s) | Seek |
-| 1–5 | Set status (idea, wip, finished, sent, sold) |
+| 1–4 | Set status (idea, wip, finished, sent). A beat becomes sold by logging an exclusive sale |
 | G | Toggle version grouping |
-| ⌘, | Settings |
+| A / B | Audition mode / A/B takes |
 
 ## Where your data is stored
 

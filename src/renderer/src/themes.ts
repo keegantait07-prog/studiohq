@@ -22,7 +22,7 @@ export const THEMES: Theme[] = [
 ]
 
 const KEY = 'shq.theme'
-export const DEFAULT_THEME = 'console'
+export const DEFAULT_THEME = 'yatai'
 // Bumped when the default look changes, so everyone lands on the new default once and can then pick any theme they like.
 const UI_REV = '3'
 

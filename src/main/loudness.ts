@@ -7,8 +7,8 @@ const ffmpeg = (ffmpegStatic as unknown as string).replace('app.asar', 'app.asar
 /** Where quiet beats are brought up to. YouTube turns loud audio down, but it leaves quiet audio quiet. */
 const TARGET_LUFS = -14
 const MAX_GAIN_DB = 12
-/** Limiter ceiling as a linear level: about -1.9 dBFS. AAC overshoot lands that near -1 dBTP (0.85 measured -0.6). */
-const CEILING = 0.8
+/** Limiter ceiling as a linear level, about -3 dBFS. AAC overshoot on loud masters needs the room: 0.8 measured -0.15 dBTP in a real export. */
+const CEILING = 0.7
 
 export interface Loudness { lufs: number; truePeak: number }
 

@@ -1,6 +1,6 @@
 {
   "name": "studio-hq",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "Local-first producer workflow app",
   "main": "./out/main/index.js",
   "scripts": {

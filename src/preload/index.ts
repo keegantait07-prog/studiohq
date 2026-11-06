@@ -84,6 +84,7 @@ const api: Api = {
   onVideoProgress: (cb) => sub('video:progress', cb),
   ytStatus: () => ipcRenderer.invoke('yt:status'),
   ytSuggestArtists: (id) => ipcRenderer.invoke('yt:suggestArtists', id),
+  contentPack: (r) => ipcRenderer.invoke('content:pack', r),
   ytPrepare: (id, artists, reuseVideoId) => ipcRenderer.invoke('yt:prepare', id, artists, reuseVideoId),
   ytPublish: (draft, edits) => ipcRenderer.invoke('yt:publish', draft, edits),
   ytLoadDraft: (id) => ipcRenderer.invoke('yt:loadDraft', id),

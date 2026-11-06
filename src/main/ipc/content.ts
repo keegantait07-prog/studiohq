@@ -10,6 +10,8 @@ import type { PublishDraft, YtDraftEdits, YtPublishEdits } from '../../shared/yt
 import type { Post, VideoOptions } from '../../shared/types'
 import { isKnownPath } from '../safe-path'
 import type { IpcCtx } from './context'
+import { runContentPack } from '../contentpack'
+import type { ContentPackRequest } from '../../shared/types'
 
 export function registerContentIpc(c: IpcCtx): void {
   const h = ipcMain.handle.bind(ipcMain)
@@ -42,6 +44,16 @@ export function registerContentIpc(c: IpcCtx): void {
     if (p) { try { await shell.trashItem(p) } catch { /* already gone */ } }
     c.content.forgetVideo(id)
   })
+
+  h('content:pack', (_, r: ContentPackRequest) => runContentPack({
+    beat: (id) => c.store.getBeat(id),
+    render: (o, p) => c.videos.run(o, p),
+    videoIdOf: (path) => (c.store.db.prepare('SELECT id FROM videos WHERE path=? ORDER BY id DESC').get(path) as { id: number } | undefined)?.id ?? null,
+    draftBlocker: async () => { const s = await c.yt.status(); return !s.signedIn ? 'Sign in to Google in Settings to get a YouTube draft.' : !s.imagesLeft ? 'Add unused pictures to your image folder to get a YouTube draft.' : null },
+    prepareDraft: (id, artists, p, videoId) => c.yt.prepare(id, artists, p, videoId),
+    savePost: (p) => c.content.savePost(p),
+    footer: () => c.store.getSettings().producerName
+  }, r, (p) => c.win?.webContents.send('video:progress', p)))
 
   // ---- YouTube publisher ----
   h('yt:status', () => c.yt.status())

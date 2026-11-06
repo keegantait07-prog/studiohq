@@ -41,6 +41,11 @@ export function YouTubePublish({ beat, settings, toast, reload, reloadBeats, ope
       if (uploaded) { setResult(uploaded); setStep('done') } else setStep('review')
     }).catch((e) => setErr(String((e as Error).message)))
   }, [openVideoId])
+  // the link you already saved for this beat, so it isn't typed twice
+  useEffect(() => {
+    if (!draft || link) return
+    window.api.siteStatus().then((s) => { const l = s.entries.find((e) => e.beatId === beat.id)?.link; if (l) setLink(l) }).catch(() => {})
+  }, [draft?.videoId, beat.id])
   // keep what is typed, so leaving the screen never loses it
   useEffect(() => {
     if (!draft || step !== 'review') return

@@ -50,7 +50,7 @@ export function Crm({ crm, myName, selected, onSelect, onPitch, onOpenBeat, relo
     <section className="crm">
       <aside className="crm-list">
         <div className="crm-head">
-          <h2>Pitch CRM</h2>
+          <h2>People</h2>
           <button className="primary" onClick={() => setForm({})}>+ Contact</button>
         </div>
         <div className="seg">

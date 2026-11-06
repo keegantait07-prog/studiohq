@@ -36,6 +36,10 @@ const Plugins = lazy(() => import('./Plugins').then((m) => ({ default: m.Plugins
 import { FeedbackView } from './FeedbackView'
 import { FeedbackDialog } from './FeedbackDialog'
 import { Dashboard } from './Dashboard'
+import { Line, TrackStrip } from './Line'
+import { JobsTray } from './Jobs'
+import { PackDialog } from './PackDialog'
+import { buildLine, sinceYouLeft, type BeatCard } from '@shared/tracks'
 const ThemesView = lazy(() => import('./ThemesView').then((m) => ({ default: m.ThemesView })))
 import { BrandMark, Defs, Icon } from './Icons'
 import { THEMES, applyTheme, getTheme } from './themes'
@@ -75,7 +79,7 @@ function SessionPill({ startedAt, onClick }: { startedAt: number; onClick: () =>
 export function App() {
   const [beats, setBeats] = useState<Beat[]>([])
   const [loaded, setLoaded] = useState(false)
-  const [view, setView] = useState<'dashboard' | 'stage' | 'vault' | 'loops' | 'map' | 'crm' | 'sales' | 'content' | 'sounds' | 'kits' | 'plugins' | 'feedback' | 'themes'>('dashboard')
+  const [view, setView] = useState<'line' | 'dashboard' | 'stage' | 'vault' | 'loops' | 'map' | 'crm' | 'sales' | 'content' | 'sounds' | 'kits' | 'plugins' | 'feedback' | 'themes'>('line')
   // the Beat Vault and the Loop Vault each keep their own search, status tab and selection
   const vaultKind: VaultKind = view === 'loops' ? 'loop' : 'beat'
   const isLoop = vaultKind === 'loop'
@@ -100,7 +104,7 @@ export function App() {
     return [{ name: 'Ready to pitch', q: 'finished, unsent' }, { name: 'Needs info', q: 'needsinfo' }, { name: 'Stale WIPs', q: 'stale' }]
   })
   const [naming, setNaming] = useState<string | null>(null)
-  const [whatsNew, setWhatsNew] = useState(() => { try { return localStorage.getItem('shq.seen') !== '2.0' } catch { return false } })
+  const [whatsNew, setWhatsNew] = useState(() => { try { return localStorage.getItem('shq.seen') !== '3.0' } catch { return false } })
   useEffect(() => { try { localStorage.setItem('shq.collections', JSON.stringify(collections)) } catch { /* private mode */ } }, [collections])
   const openCollection = (q: string) => { setView('vault'); setTabs((o) => ({ ...o, beat: 'all' })); setQueries((o) => ({ ...o, beat: q })) }
   const openLoopCollection = (q: string) => { setView('loops'); setTabs((o) => ({ ...o, loop: 'all' })); setQueries((o) => ({ ...o, loop: q })) }
@@ -155,11 +159,16 @@ export function App() {
   const openSession = sessions.find((x) => x.endedAt == null)
   const unseenFeedback = useMemo(() => feedback.comments.filter((c) => !c.seen).length, [feedback.comments])
   const [content, setContent] = useState<ContentData>({ posts: [], videos: [] })
+  const [rigProblems, setRigProblems] = useState(0)
+  const [packDlg, setPackDlg] = useState<number | null>(null)
+  useEffect(() => { window.api.pluginsFindings().then((f) => setRigProblems(f.length)).catch(() => {}) }, [view])
   const [contentBeat, setContentBeat] = useState<number | null>(null)
   const reloadContent = useCallback(async () => { setContent(await window.api.contentAll()) }, [])
   useEffect(() => { reloadContent() }, [beats, reloadContent])
   const overduePosts = useMemo(() => content.posts.filter((p) => p.status === 'planned' && startOfDay(p.date) < startOfDay(Date.now())).length, [content.posts, tick])
   const [toastMsg, setToastMsg] = useState('')
+  // what "since you left" is measured from: the last launch, read once and moved on for next time
+  const [lastSeen, setLastSeen] = useState(() => { try { const v = Number(localStorage.getItem('shq.lastSeen')); localStorage.setItem('shq.lastSeen', String(Date.now())); return v || Date.now() } catch { return Date.now() } })
   const toast = useCallback((m: string) => { setToastMsg(m); setTimeout(() => setToastMsg((cur) => (cur === m ? '' : cur)), 4500) }, [])
   const reloadSales = useCallback(async () => { setSalesData(await window.api.salesAll()) }, [])
   useEffect(() => { reloadSales() }, [beats, reloadSales])
@@ -353,16 +362,8 @@ export function App() {
       const t = e.target as HTMLElement
       const typing = t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable
       if (mod && e.key.toLowerCase() === 'k') { e.preventDefault(); setPalette((p) => !p); return }
-      if (mod && e.key === '9') { e.preventDefault(); setView('stage'); return }
-      if (mod && e.key === '0') { e.preventDefault(); setView('dashboard'); return }
-      if (mod && e.key === '5') { e.preventDefault(); setView('sounds'); return }
-      if (mod && e.key === '6') { e.preventDefault(); setView('feedback'); return }
-      if (mod && e.key === '7') { e.preventDefault(); setView('themes'); return }
-      if (mod && e.key === '8') { e.preventDefault(); setView('loops'); return }
-      if (mod && e.key === '1') { e.preventDefault(); setView('vault'); return }
-      if (mod && e.key === '2') { e.preventDefault(); setView('crm'); return }
-      if (mod && e.key === '3') { e.preventDefault(); setView('sales'); return }
-      if (mod && e.key === '4') { e.preventDefault(); setView('content'); return }
+      const jump = mod ? ({ '1': 'line', '2': 'crm', '3': 'sales', '4': 'sounds', '5': 'plugins', '6': 'vault', '7': 'content', '8': 'loops', '9': 'stage', '0': 'dashboard' } as const)[e.key as '1'] : undefined
+      if (jump) { e.preventDefault(); setView(jump); return }
       if (mod && e.key.toLowerCase() === 'j') { e.preventDefault(); setAssistantOpen((o) => !o); return }
       if (mod && e.key === ',') { e.preventDefault(); setSettings(true); return }
       if (mod && e.key.toLowerCase() === 'f') { e.preventDefault(); search.current?.focus(); search.current?.select(); return }
@@ -374,6 +375,11 @@ export function App() {
         if (query) return setQuery('')
       }
       if (typing || palette || settings || pitchDlg || saleDlg || splitsDlg || mod) return
+      if (view === 'line') {
+        if (e.key === ' ') { e.preventDefault(); player.id == null && selectedId != null ? safePlay(selectedId) : player.toggle() }
+        else if (e.key === 'Escape') setSelectedId(null)
+        return
+      }
       if (view !== 'vault' && view !== 'loops') return
       if (e.key === '/') { e.preventDefault(); search.current?.focus() }
       else if (e.key === ' ') { e.preventDefault(); player.id == null && selectedId != null ? safePlay(selectedId) : player.toggle() }
@@ -391,22 +397,43 @@ export function App() {
     return () => window.removeEventListener('keydown', onKey)
   })
 
+  const cards = useMemo(() => buildLine({ beats, pitches: crm?.pitches ?? [], posts: content.posts, sales: salesData.sales, splits: salesData.groups, now: Date.now() }), [beats, crm, content.posts, salesData, tick])
+  const since = useMemo(() => sinceYouLeft({ beats, pitches: crm?.pitches ?? [], posts: content.posts, sales: salesData.sales, splits: salesData.groups, now: Date.now(), since: lastSeen, comments: feedback.comments }), [beats, crm, content.posts, salesData, feedback.comments, lastSeen, tick])
+  const selectedCard = detail ? cards.find((c) => c.groupId === detail.groupId) : undefined
+  const lineAction = (c: BeatCard) => {
+    const id = c.beat.id
+    switch (c.next.kind) {
+      case 'finish': return void setStatus(id, 'finished')
+      case 'followup': setCrmSel(c.next.contactId ?? null); return setView('crm')
+      case 'publish': setSelectedId(id); if (c.next.url) window.open(c.next.url); return
+      case 'overdue': setContentBeat(id); return setView('content')
+      case 'post': return setPackDlg(id)
+      case 'pitch': return setPitchDlg({ beatIds: [id] })
+      case 'splits': return setSplitsDlg({ groupId: c.groupId, title: c.beat.title })
+      default: return setSelectedId(id) // tags and bounces are handled on the Beat Sheet
+    }
+  }
+
   const commands: Command[] = [
-    { id: 'go-dash', label: 'Go to Dashboard', hint: '⌘0', run: () => setView('dashboard') },
+    { id: 'go-line', label: 'Go to The Line', hint: '⌘1', run: () => setView('line') },
+    { id: 'go-dash', label: 'Go to Overview', hint: '⌘0', run: () => setView('dashboard') },
     { id: 'cleanup', label: 'Clean up FL projects…', run: () => setCleanup(true) },
     { id: 'go-map', label: 'Go to Sonic Map', run: () => setView('map') },
     { id: 'audition', label: audition ? 'Turn audition mode off' : 'Turn audition mode on', hint: 'A', run: () => setAudition((a) => !a) },
-    { id: 'go-sounds', label: 'Go to Sound Library', hint: '⌘5', run: () => setView('sounds') },
-    { id: 'go-themes', label: 'Go to Themes', hint: '⌘7', run: () => setView('themes') },
+    { id: 'go-sounds', label: 'Go to Crate (Sound Library)', hint: '⌘4', run: () => setView('sounds') },
+    { id: 'go-kits', label: 'Go to Kit Maker', run: () => setView('kits') },
+    { id: 'go-rig', label: 'Go to Rig (Plugins)', hint: '⌘5', run: () => setView('plugins') },
+    { id: 'go-themes', label: 'Go to Themes', run: () => setView('themes') },
     ...THEMES.map((t) => ({ id: 'theme-' + t.id, label: `Theme: ${t.name}`, run: () => pickTheme(t.id) })),
-    { id: 'go-feedback', label: 'Go to Feedback', hint: '⌘6', run: () => setView('feedback') },
+    { id: 'go-feedback', label: 'Go to Feedback', run: () => setView('feedback') },
     { id: 'new-feedback', label: 'New feedback link…', run: () => setFbDlg({}) },
     { id: 'session', label: openSession ? 'Stop studio session' : 'Start studio session', run: async () => { await (openSession ? window.api.stopSession() : window.api.startSession()); reloadSessions() } },
-    { id: 'go-vault', label: 'Go to Beat Vault', hint: '⌘1', run: () => setView('vault') },
-    { id: 'go-loops', label: 'Go to Loop Vault', hint: '⌘8', run: () => setView('loops') },
-    { id: 'go-crm', label: 'Go to Pitch CRM', hint: '⌘2', run: () => setView('crm') },
-    { id: 'go-sales', label: 'Go to Sales & Collabs', hint: '⌘3', run: () => setView('sales') },
-    { id: 'go-content', label: 'Go to Content Machine', hint: '⌘4', run: () => setView('content') },
+    { id: 'go-vault', label: 'Go to Beat Table', hint: '⌘6', run: () => setView('vault') },
+    { id: 'go-loops', label: 'Go to Loops', hint: '⌘8', run: () => setView('loops') },
+    { id: 'go-crm', label: 'Go to People', hint: '⌘2', run: () => setView('crm') },
+    { id: 'go-sales', label: 'Go to Ledger', hint: '⌘3', run: () => setView('sales') },
+    { id: 'go-content', label: 'Go to Content', hint: '⌘7', run: () => setView('content') },
+    { id: 'pack', label: 'Content Pack for this beat…', run: () => { if (selectedId != null) setPackDlg(selectedId); else toast('Select a beat first.') } },
     { id: 'log-sale', label: 'Log a sale…', run: () => setSaleDlg({}) },
     { id: 'new-pitch', label: 'New pitch…', run: () => setPitchDlg({}) },
     { id: 'new-contact', label: 'New contact…', run: () => { setView('crm'); setNewContactSignal((n) => n + 1) } },
@@ -420,6 +447,15 @@ export function App() {
   ]
 
   const scanning = scan.pending > 0
+  const beatSheet = detail && (
+        <Detail tracks={selectedCard ? <TrackStrip card={selectedCard} /> : null} beat={detail} kind={vaultKind} allTags={isLoop ? loopTags : allTags} onSelect={setSelectedId} onPlay={playBeat} refresh={reload} pitchedTo={pitchedTo} onPitch={() => setPitchDlg({ beatIds: [detail.id] })} onOpenContact={(id) => { setCrmSel(id); setView('crm') }}
+          sales={salesData.sales.filter((x) => x.groupId === detail.groupId)} splitGroup={salesData.groups.find((g) => g.groupId === detail.groupId)}
+          onLogSale={() => setSaleDlg({ beatId: detail.id })} onEditSplits={() => setSplitsDlg({ groupId: detail.groupId, title: detail.title })}
+          onSheet={async () => { try { const f = await window.api.exportSplitSheet(detail.groupId); if (f) toast(`Split sheet saved: ${f.split('/').pop()}`); reloadSales() } catch (e) { toast(errMsg(e)) } }}
+          projectSection={sounds?.projects.find((x) => x.path === detail.projectPath) ?? null} onProjectSounds={(id) => { setSoundProject(id); setView('sounds') }}
+          compatible={compatible} onFeedback={() => setFbDlg({ beatIds: [detail.id] })} posts={content.posts.filter((x) => x.beatId === detail.id || everything.find((b) => b.id === x.beatId)?.groupId === detail.groupId)} onContent={() => { setContentBeat(detail.id); setView('content') }}
+          onError={toast} />
+  )
   return (
     <div className="app">
       <Defs />
@@ -428,32 +464,36 @@ export function App() {
       <nav className="side">
         <span className="nav-tick" ref={tickRef} aria-hidden />
         <div className="brand"><BrandMark /><span>Studio HQ</span></div>
-        <a className={`nav ${view === 'dashboard' ? 'on' : ''}`} {...clickable(() => setView('dashboard'))}><em className="nl"><Icon name="dashboard" />Dashboard</em></a>
-        <a className={`nav ${view === 'stage' ? 'on' : ''}`} {...clickable(() => setView('stage'))}><em className="nl"><Icon name="stage" />Stage</em> <span>{player.playing ? '●' : ''}</span></a>
-        <a className={`nav ${view === 'vault' ? 'on' : ''}`} {...clickable(() => setView('vault'))}><em className="nl"><Icon name="vault" />Beat Vault</em> <span>{beats.length}</span></a>
+        <a className={`nav ${view === 'line' ? 'on' : ''}`} {...clickable(() => setView('line'))}><em className="nl"><Icon name="dashboard" />The Line</em> <span>{cards.length}</span></a>
         <div className="colls">
-          {collections.map((c) => (
-            <a key={c.name} className={`coll ${view === 'vault' && queries.beat === c.q ? 'on' : ''}`} {...clickable(() => openCollection(c.q))} title={c.q}>
+          <a className={`coll ${view === 'vault' ? 'on' : ''}`} {...clickable(() => setView('vault'))}><span>Beat table</span></a>
+          {view === 'vault' && collections.map((c) => (
+            <a key={c.name} className={`coll sub ${queries.beat === c.q ? 'on' : ''}`} {...clickable(() => openCollection(c.q))} title={c.q}>
               <span>{c.name}</span><button className="x" aria-label="remove" onClick={(e) => { e.stopPropagation(); setCollections(collections.filter((x) => x !== c)) }}>×</button>
             </a>
           ))}
-        </div>
-        <a className={`nav ${view === 'loops' ? 'on' : ''}`} {...clickable(() => setView('loops'))}><em className="nl"><Icon name="loops" />Loop Vault</em> <span>{loops.length}</span></a>
-        <div className="colls">
-          {loopCollections.map((c) => (
-            <a key={c.name} className={`coll ${view === 'loops' && queries.loop === c.q ? 'on' : ''}`} {...clickable(() => openLoopCollection(c.q))} title={c.q}>
+          <a className={`coll ${view === 'loops' ? 'on' : ''}`} {...clickable(() => setView('loops'))}><span>Loops</span></a>
+          {view === 'loops' && loopCollections.map((c) => (
+            <a key={c.name} className={`coll sub ${queries.loop === c.q ? 'on' : ''}`} {...clickable(() => openLoopCollection(c.q))} title={c.q}>
               <span>{c.name}</span><button className="x" aria-label="remove" onClick={(e) => { e.stopPropagation(); setLoopCollections(loopCollections.filter((x) => x !== c)) }}>×</button>
             </a>
           ))}
+          <a className={`coll ${view === 'content' ? 'on' : ''}`} {...clickable(() => setView('content'))}><span>Content</span>{overduePosts > 0 && <span className="badge">{overduePosts}</span>}</a>
+          <a className={`coll ${view === 'feedback' ? 'on' : ''}`} {...clickable(() => setView('feedback'))}><span>Feedback</span>{unseenFeedback > 0 && <span className="badge">{unseenFeedback}</span>}</a>
+          <a className={`coll ${view === 'map' ? 'on' : ''}`} {...clickable(() => setView('map'))}><span>Sonic Map</span></a>
+          <a className={`coll ${view === 'stage' ? 'on' : ''}`} {...clickable(() => setView('stage'))}><span>Stage{player.playing ? ' ●' : ''}</span></a>
+          <a className={`coll ${view === 'dashboard' ? 'on' : ''}`} {...clickable(() => setView('dashboard'))}><span>Overview</span></a>
         </div>
-        <a className={`nav ${view === 'map' ? 'on' : ''}`} {...clickable(() => setView('map'))}><em className="nl"><Icon name="map" />Sonic Map</em> <span>◎</span></a>
-        <a className={`nav ${view === 'crm' ? 'on' : ''}`} {...clickable(() => setView('crm'))}><em className="nl"><Icon name="crm" />Pitch CRM</em> {dueCount > 0 ? <span className="badge">{dueCount}</span> : <span>{crm?.contacts.length ?? 0}</span>}</a>
-        <a className={`nav ${view === 'sales' ? 'on' : ''}`} {...clickable(() => setView('sales'))}><em className="nl"><Icon name="sales" />Sales & Collabs</em> <span>{salesData.sales.length}</span></a>
-        <a className={`nav ${view === 'content' ? 'on' : ''}`} {...clickable(() => setView('content'))}><em className="nl"><Icon name="content" />Content</em> {overduePosts > 0 ? <span className="badge">{overduePosts}</span> : <span>{content.posts.filter((p) => p.status === 'posted').length}</span>}</a>
-        <a className={`nav ${view === 'sounds' ? 'on' : ''}`} {...clickable(() => setView('sounds'))}><em className="nl"><Icon name="sounds" />Sound Library</em> <span>{sounds ? sounds.items.length.toLocaleString() : ''}</span></a>
-        <a className={`nav ${view === 'kits' ? 'on' : ''}`} {...clickable(() => setView('kits'))}><em className="nl"><Icon name="kits" />Kit Maker</em> <span></span></a>
-        <a className={`nav ${view === 'plugins' ? 'on' : ''}`} {...clickable(() => setView('plugins'))}><em className="nl"><Icon name="plugins" />Plugins</em> <span></span></a>
-        <a className={`nav ${view === 'feedback' ? 'on' : ''}`} {...clickable(() => setView('feedback'))}><em className="nl"><Icon name="feedback" />Feedback</em> {unseenFeedback > 0 ? <span className="badge">{unseenFeedback}</span> : <span>{feedback.links.length}</span>}</a>
+        <a className={`nav ${view === 'crm' ? 'on' : ''}`} {...clickable(() => setView('crm'))}><em className="nl"><Icon name="crm" />People</em> {dueCount > 0 ? <span className="badge">{dueCount}</span> : <span>{crm?.contacts.length ?? 0}</span>}</a>
+        <a className={`nav ${view === 'sales' ? 'on' : ''}`} {...clickable(() => setView('sales'))}><em className="nl"><Icon name="sales" />Ledger</em> <span>{salesData.sales.length}</span></a>
+        <a className={`nav ${view === 'sounds' ? 'on' : ''}`} {...clickable(() => setView('sounds'))}><em className="nl"><Icon name="sounds" />Crate</em> <span>{sounds ? sounds.items.length.toLocaleString() : ''}</span></a>
+        <div className="colls">
+          <a className={`coll ${view === 'kits' ? 'on' : ''}`} {...clickable(() => setView('kits'))}><span>Kit Maker</span></a>
+        </div>
+        <a className={`nav ${view === 'plugins' ? 'on' : ''}`} {...clickable(() => setView('plugins'))}><em className="nl"><Icon name="plugins" />Rig</em> {rigProblems > 0 ? <span className="badge">{rigProblems}</span> : <span></span>}</a>
+        <div className="colls">
+          <a className="coll" {...clickable(() => setCleanup(true))}><span>Clean up projects</span></a>
+        </div>
         <a className={`nav ${view === 'themes' ? 'on' : ''}`} {...clickable(() => setView('themes'))}><em className="nl"><Icon name="themes" />Themes</em> <span>{THEMES.find((t) => t.id === theme)?.name}</span></a>
         <div className="grow" />
         {openSession && <SessionPill startedAt={openSession.startedAt} onClick={() => setView('dashboard')} />}
@@ -464,7 +504,14 @@ export function App() {
         <button className="ghost" onClick={() => setSettings(true)}><em className="nl"><Icon name="settings" />Settings</em> <kbd>⌘,</kbd></button>
       </nav>
 
-      {view === 'dashboard' ? (
+      {view === 'line' ? (<>
+        <Line
+          cards={cards} since={since} selectedId={detail ? selectedId : null} playingId={player.playing ? player.id : null} loaded={loaded}
+          onOpen={(id) => setSelectedId(selectedId === id ? null : id)} onPlay={(id) => (player.id === id ? player.toggle() : playBeat(id))} onAction={lineAction}
+          onDismissSince={() => setLastSeen(Date.now())} onSettings={() => setSettings(true)} onSearch={() => setPalette(true)}
+        />
+        {beatSheet}
+      </>) : view === 'dashboard' ? (
         <Dashboard
           beats={beats} crm={crm} content={content} sales={salesData} feedback={feedback} sessions={sessions} settings={appSettings}
           onGo={setView} onQuery={openCollection} onOpenBeat={(id) => openItem(id)}
@@ -580,15 +627,7 @@ export function App() {
         </div>
       </main>
 
-      {detail ? (
-        <Detail beat={detail} kind={vaultKind} allTags={isLoop ? loopTags : allTags} onSelect={setSelectedId} onPlay={playBeat} refresh={reload} pitchedTo={pitchedTo} onPitch={() => setPitchDlg({ beatIds: [detail.id] })} onOpenContact={(id) => { setCrmSel(id); setView('crm') }}
-          sales={salesData.sales.filter((x) => x.groupId === detail.groupId)} splitGroup={salesData.groups.find((g) => g.groupId === detail.groupId)}
-          onLogSale={() => setSaleDlg({ beatId: detail.id })} onEditSplits={() => setSplitsDlg({ groupId: detail.groupId, title: detail.title })}
-          onSheet={async () => { try { const f = await window.api.exportSplitSheet(detail.groupId); if (f) toast(`Split sheet saved: ${f.split('/').pop()}`); reloadSales() } catch (e) { toast(errMsg(e)) } }}
-          projectSection={sounds?.projects.find((x) => x.path === detail.projectPath) ?? null} onProjectSounds={(id) => { setSoundProject(id); setView('sounds') }}
-          compatible={compatible} onFeedback={() => setFbDlg({ beatIds: [detail.id] })} posts={content.posts.filter((x) => x.beatId === detail.id || everything.find((b) => b.id === x.beatId)?.groupId === detail.groupId)} onContent={() => { setContentBeat(detail.id); setView('content') }}
-          onError={toast} />
-      ) : (
+      {detail ? beatSheet : (
         <aside className="detail empty-detail"><p>Select a {isLoop ? 'loop' : 'beat'}</p><p className="dim">↑ ↓ to move · Space to play · 1–5 sets status</p></aside>
       )}
       </>)}
@@ -613,28 +652,39 @@ export function App() {
           <button className={`pchip2 ${audition ? 'on' : ''}`} onClick={() => setAudition((a) => !a)} title="Audition mode (A): play beats from their fullest part as you move through them">Audition</button>
           <button className="pchip2" onClick={flipTake} disabled={player.id == null || takesOf(beats, player.id).length < 2} title="A/B the takes of this beat at the same moment (B)">A/B</button>
         </div>
-        {scanning && <div className="scan">Analyzing {scan.total - scan.pending}/{scan.total}<div className="bar"><div style={{ width: `${((scan.total - scan.pending) / Math.max(1, scan.total)) * 100}%` }} /></div></div>}
+        <JobsTray scan={scan} />
       </footer>
 
       {palette && <Palette beats={everything} contacts={crm?.contacts ?? []} sales={salesData.sales} sounds={sounds?.items ?? []} onPickSound={(x) => { setSoundQuery(x.n); setView('sounds') }} onPickSale={(sale) => { setSalesQuery(sale.beatTitle); setView('sales') }} commands={commands} onPickBeat={(b) => openItem(b.id, true)} onPickContact={(c) => { setCrmSel(c.id); setView('crm') }} onClose={() => setPalette(false)} />}
-      {whatsNew && (
-        <div className="overlay" onClick={() => { try { localStorage.setItem('shq.seen', '2.0') } catch { /* ok */ } setWhatsNew(false) }}>
+      {whatsNew && beats.length > 0 && (
+        <div className="overlay" onClick={() => { try { localStorage.setItem('shq.seen', '3.0') } catch { /* ok */ } setWhatsNew(false) }}>
           <div className="modal whatsnew" onClick={(e) => e.stopPropagation()}>
-            <header><h2>Studio HQ 2.0</h2></header>
+            <header><h2>Studio HQ 3.0</h2></header>
             <ul>
-              <li><b>Save to Studio HQ from FL.</b> One click in the plugin adds the project as a beat. No recording.</li>
-              <li><b>Preview loops.</b> Beats you never exported keep a 4-bar loop, saved when you close the project.</li>
-              <li><b>MP3-only bounces.</b> Recordings are converted to MP3 and the WAV is removed.</li>
-              <li><b>Smart collections.</b> Save any search to the sidebar: “Ready to pitch”, “Needs info”, “Stale WIPs” are there already.</li>
-              <li><b>Plays well with.</b> Camelot key codes, and beats that mix with the one you have open.</li>
-              <li><b>Catalog health.</b> The dashboard shows what is missing a BPM, key or tags, and jumps you to it.</li>
-              <li><b>CSV export.</b> Settings → Export beats and sales.</li>
-              <li><b>New look</b> for the app and the plugin.</li>
+              <li><b>The Line.</b> Your new home. Every beat sits in Inbox, Ready, Out or Earning, with its one next action on the card.</li>
+              <li><b>Four tracks.</b> Finish, Pitch, Post and Sell work themselves out from what you've actually done.</li>
+              <li><b>Beat Sheet.</b> Click a card and its whole story opens beside the Line.</li>
+              <li><b>People, Ledger, Crate, Rig.</b> The sidebar is down to the jobs you do. Everything else lives under them, and ⌘K still finds it all.</li>
+              <li><b>Jobs tray.</b> Exports, uploads and analysis stay visible in the transport, whichever view you're in.</li>
+              <li><b>Safer.</b> Daily backups, File → Restore From Backup, and an unplugged drive no longer looks like deleted work.</li>
+              <li><b>Sharper.</b> Better key detection with a ? when it's unsure, the half-time BPM fix, and levelled video audio.</li>
             </ul>
-            <button className="primary" onClick={() => { try { localStorage.setItem('shq.seen', '2.0') } catch { /* ok */ } setWhatsNew(false) }}>Let’s go</button>
+            <button className="primary" onClick={() => { try { localStorage.setItem('shq.seen', '3.0') } catch { /* ok */ } setWhatsNew(false) }}>Let’s go</button>
           </div>
         </div>
       )}
+      {packDlg != null && (() => { const b = beats.find((x) => x.id === packDlg); return b ? (
+        <PackDialog beat={b} content={content} onClose={() => setPackDlg(null)} onCustom={() => { setPackDlg(null); setContentBeat(b.id); setView('content') }}
+          onStart={(r) => {
+            setPackDlg(null)
+            toast(`Making the pack for ${b.title}. It runs in the background.`)
+            window.api.contentPack(r).then((res) => {
+              reloadContent(); reload()
+              const made = `${res.files.length} video${res.files.length === 1 ? '' : 's'}${res.planned ? `, ${res.planned} post${res.planned === 1 ? '' : 's'} planned` : ''}${res.draftVideoId ? ', YouTube draft ready' : ''}`
+              toast(`${b.title}: ${made}.${res.skipped.length ? ' ' + res.skipped.join(' ') : ''}`)
+            }).catch((e) => toast(errMsg(e)))
+          }} />
+      ) : null })()}
       {cleanup && <Cleanup onClose={() => setCleanup(false)} onChanged={() => { reload(); reloadSounds() }} />}
       {assistantMounted && <Assistant hidden={!assistantOpen} onBusy={setAssistantStatus} onClose={() => setAssistantOpen(false)} />}
       {settings && <Settings onClose={() => { setSettings(false); reload(); reloadCrm() }} />}

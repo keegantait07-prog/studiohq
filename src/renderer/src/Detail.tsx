@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { STATUSES, TAG_KINDS, type Beat, type BeatDetail, type Pitch, type Post, type ProjectSection, type Sale, type SplitGroup, type Status, type TagKind, type VaultKind } from '@shared/types'
 import { clickable } from './a11y'
 import { displayKey, camelot } from '@shared/key'
@@ -65,9 +65,11 @@ interface Props {
   compatible: Beat[]
   projectSection: ProjectSection | null
   onProjectSounds: (id: number) => void
+  /** the four tracks, shown at the top on the Beat Sheet */
+  tracks?: ReactNode
 }
 
-export function Detail({ beat, kind, allTags, onSelect, onPlay, refresh, pitchedTo, onPitch, onOpenContact, sales, splitGroup, onLogSale, onEditSplits, onSheet, onError, posts, onContent, onFeedback, compatible, projectSection, onProjectSounds }: Props) {
+export function Detail({ tracks, beat, kind, allTags, onSelect, onPlay, refresh, pitchedTo, onPitch, onOpenContact, sales, splitGroup, onLogSale, onEditSplits, onSheet, onError, posts, onContent, onFeedback, compatible, projectSection, onProjectSounds }: Props) {
   const [title, setTitle] = useState(beat.title)
   const [bpm, setBpm] = useState(fmtBpm(beat.bpm).replace('–', ''))
   const [key, setKey] = useState(displayKey(beat.key))
@@ -83,6 +85,7 @@ export function Detail({ beat, kind, allTags, onSelect, onPlay, refresh, pitched
 
   return (
     <aside className="detail">
+      {tracks}
       <div className="arthero">
         <img src={artUrl({ seed: `g${beat.groupId}`, peaks: beat.thumb, key: beat.key, bpm: beat.bpm })} alt="" />
         <div className="arthero-side">

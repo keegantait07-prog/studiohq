@@ -105,6 +105,16 @@ Not done, with where each one belongs:
 
 ---
 
+### V2 build status
+
+Built and installed as 3.0: the four tracks, The Line with Since you left, the six-surface sidebar, the Beat Sheet (track strip on the existing detail panel), the Jobs tray, the Rig badge, and Line styling for Yatai, Gilded, Thorn, Magma, Koi and City Pop.
+
+Content Pack is also built, without hook detection (it uses the loudest section) and without scheduled upload, since each upload still needs your review.
+
+Not built yet: docked actions inside the Beat Sheet, Send Run, the full first-run path, the Phase 2 foundations, Theme Pack slots, the audition engine, Bridge 2, and everything in Phase 6.
+
+---
+
 ## 3. The new model: one beat, four tracks
 
 The old status ladder (idea, wip, finished, sent, sold) is the root design flaw. A beat is pitched, posted and leased **at the same time**, and a lease doesn't end its life. So a pipeline of single statuses and a Kanban board would both be wrong.

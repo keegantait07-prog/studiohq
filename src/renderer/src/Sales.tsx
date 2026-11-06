@@ -22,7 +22,7 @@ export function SalesView(p: Props) {
   return (
     <section className="sales">
       <div className="sales-head">
-        <h2>Sales & Collabs</h2>
+        <h2>Ledger</h2>
         <div className="seg" style={{ width: 'auto' }}>
           {([['sales', 'Sales'], ['revenue', 'Revenue'], ['collabs', 'Collabs & splits'], ['licenses', 'Licenses']] as const).map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>)}
         </div>

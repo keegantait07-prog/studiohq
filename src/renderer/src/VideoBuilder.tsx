@@ -40,7 +40,7 @@ const TITLES: { id: VideoTitles; label: string; hint: string }[] = [
 const LENGTHS = [15, 30, 45, 60, 90, 0]
 
 interface Prefs { viz: VizStyle; motion: VideoMotion; titles: VideoTitles; accent: string; formats: VideoFormat[]; length: number }
-const DEFAULTS: Prefs = { viz: 'lab', motion: 'still', titles: 'intro', accent: '#ff6b3d', formats: ['vertical'], length: 30 }
+const DEFAULTS: Prefs = { viz: 'vinyl', motion: 'still', titles: 'intro', accent: '#ff6b3d', formats: ['vertical'], length: 30 }
 const loadPrefs = (): Prefs => {
   try {
     const p = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('shq-video') ?? '{}') }

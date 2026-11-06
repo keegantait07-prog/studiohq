@@ -185,7 +185,7 @@ export function Plugins({ toast }: { toast: (m: string) => void }) {
   return (
     <section className="sales pl2">
       <div className="sales-head">
-        <h2>Plugins</h2>
+        <h2>Rig</h2>
         <div className="grow" />
         <div className="seg">
           <button className={tab === 'plugins' ? 'on' : ''} onClick={() => setTab('plugins')}>All plugins</button>

@@ -46,7 +46,7 @@ export function ContentView(p: Props) {
   return (
     <section className="contentv">
       <div className="sales-head">
-        <h2>Content Machine</h2>
+        <h2>Content</h2>
         <div className="seg" style={{ width: 'auto' }}>
           <button className={tab === 'create' ? 'on' : ''} onClick={() => setTab('create')}>Create</button>
           <button className={tab === 'calendar' ? 'on' : ''} onClick={() => setTab('calendar')}>Calendar</button>

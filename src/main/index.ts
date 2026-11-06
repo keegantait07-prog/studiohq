@@ -37,6 +37,7 @@ import { buildTools } from './assistant/tools'
 import type { PublishDraft, YtDraftEdits, YtPublishEdits } from '../shared/ytTypes'
 import type { Post, VideoOptions } from '../shared/types'
 import { splitSheetHtml, writePdf } from './splitsheet'
+import { isAppUrl, isExternalUrl, isKnownPath } from './safe-path'
 import type { LogSaleInput, License, Sale, SplitRow } from '../shared/types'
 import type { SitePatch } from '../shared/types'
 import type { HealthFinding, RemoveManyResult, RemoveResult } from '../shared/types'
@@ -48,7 +49,7 @@ app.setName('Studio HQ')
 app.setPath('userData', join(app.getPath('appData'), 'Studio HQ'))
 
 protocol.registerSchemesAsPrivileged([
-  { scheme: 'shqa', privileges: { stream: true, supportFetchAPI: true, bypassCSP: true, standard: true, secure: true, corsEnabled: true } }
+  { scheme: 'shqa', privileges: { stream: true, supportFetchAPI: true, standard: true, secure: true, corsEnabled: true } }
 ])
 
 let win: BrowserWindow | null = null
@@ -81,6 +82,16 @@ function createWindow(): void {
   })
   if (process.env['ELECTRON_RENDERER_URL']) win.loadURL(process.env['ELECTRON_RENDERER_URL'])
   else win.loadFile(join(__dirname, '../renderer/index.html'))
+  // The window only ever shows the app itself: popups are refused (web links go to the browser) and navigation away is blocked.
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (isExternalUrl(url)) void shell.openExternal(url)
+    return { action: 'deny' }
+  })
+  win.webContents.on('will-navigate', (e, url) => {
+    if (isAppUrl(url, process.env['ELECTRON_RENDERER_URL'])) return
+    e.preventDefault()
+    if (isExternalUrl(url)) void shell.openExternal(url)
+  })
   win.on('closed', () => (win = null))
 }
 
@@ -94,7 +105,7 @@ function serveAudio(req: Request): Response {
   let size: number
   try { size = statSync(path).size } catch { return new Response('missing', { status: 404 }) }
   const ext = path.split('.').pop()!.toLowerCase()
-  const headers: Record<string, string> = { 'Content-Type': MIME[ext] ?? 'application/octet-stream', 'Accept-Ranges': 'bytes', 'Access-Control-Allow-Origin': '*' }
+  const headers: Record<string, string> = { 'Content-Type': MIME[ext] ?? 'application/octet-stream', 'Accept-Ranges': 'bytes', 'Access-Control-Allow-Origin': '*' } // the renderer (file:// or the dev server) fetches shqa:// cross-origin
   const range = req.headers.get('range')?.match(/bytes=(\d*)-(\d*)/)
   let start = 0, end = size - 1, status = 200
   if (range) {
@@ -306,7 +317,12 @@ function registerIpc(): void {
     await scanPlugins(store.db, pluginHome())
     return r
   })
-  h('plugins:reveal', (_, path: string) => { if (typeof path === 'string' && path.startsWith('/')) shell.showItemInFolder(path) })
+  // Reveal only plugin files the scan already found (or the Disabled Plugins folder), never an arbitrary renderer-supplied path.
+  h('plugins:reveal', (_, path: string) => {
+    if (typeof path !== 'string') return
+    const known = store.db.prepare('SELECT 1 FROM plugin_bundles WHERE path=? UNION SELECT 1 FROM plugin_files WHERE path=? UNION SELECT 1 FROM plugin_findings WHERE path=? LIMIT 1').get(path, path, path)
+    if (known || isKnownPath(path, [join(pluginHome(), 'Library/Application Support/Studio HQ')])) shell.showItemInFolder(path)
+  })
   h('projects:open', (_, id: number) => { const p = (store.db.prepare('SELECT path FROM flp_projects WHERE id=?').get(id) as { path: string } | undefined)?.path; if (p) return shell.openPath(p) })
   h('projects:reveal', (_, id: number) => { const p = (store.db.prepare('SELECT path FROM flp_projects WHERE id=?').get(id) as { path: string } | undefined)?.path; if (p) shell.showItemInFolder(p) })
   h('sounds:tag', (_, ids: number[], add: string[], remove: string[]) => sounds.tag(ids, add, remove))
@@ -380,7 +396,14 @@ function registerIpc(): void {
     if (!r.canceled && r.filePaths[0]) store.saveSettings({ ...store.getSettings(), ytImageFolder: r.filePaths[0] })
   })
   h('yt:openStudio', (_, url: string) => { if (url.startsWith('https://studio.youtube.com/')) return shell.openExternal(url) })
-  h('app:revealPath', (_, p: string) => shell.showItemInFolder(p))
+  // Reveal only files the app produced or tracks: exported videos, or anything inside the export, image or watched folders.
+  h('app:revealPath', (_, p: string) => {
+    if (typeof p !== 'string') return
+    const s = store.getSettings()
+    const roots = [s.exportDir, s.ytImageFolder, app.getPath('userData'), ...s.watchFolders, ...s.loopFolders, ...s.projectFolders, ...s.soundFolders].filter(Boolean)
+    const isVideo = !!store.db.prepare('SELECT 1 FROM videos WHERE path=?').get(p)
+    if (isVideo || isKnownPath(p, roots)) shell.showItemInFolder(p)
+  })
   h('settings:chooseExportDir', async () => {
     const r = await dialog.showOpenDialog(win!, { title: 'Where should videos be saved?', properties: ['openDirectory', 'createDirectory'] })
     if (r.canceled || !r.filePaths[0]) return

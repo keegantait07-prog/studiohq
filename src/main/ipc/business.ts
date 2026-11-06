@@ -41,7 +41,7 @@ export function registerBusinessIpc(c: IpcCtx): void {
   h('sales:csv', async () => {
     let path = process.env.SHQ_TEST_SAVE_PATH ?? ''
     if (!path) {
-      const r = await dialog.showSaveDialog(c.win!, { title: 'Export sales', defaultPath: join(app.getPath('documents'), 'Studio HQ c.sales.csv'), filters: [{ name: 'CSV', extensions: ['csv'] }] })
+      const r = await dialog.showSaveDialog(c.win!, { title: 'Export sales', defaultPath: join(app.getPath('documents'), 'Studio HQ sales.csv'), filters: [{ name: 'CSV', extensions: ['csv'] }] })
       if (r.canceled || !r.filePath) return null
       path = r.filePath
     }

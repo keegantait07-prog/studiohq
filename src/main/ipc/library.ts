@@ -5,13 +5,15 @@ import { Feedback } from '../feedback'
 import { cleanupList, trashProjects } from '../cleanup'
 import type { BeatPatch, Settings, TagKind, VaultKind } from '../../shared/types'
 import type { FolderKind, IpcCtx } from './context'
+import { cleanSettingsPatch } from '../settings-guard'
 
 export function registerLibraryIpc(c: IpcCtx): void {
   const h = ipcMain.handle.bind(ipcMain)
   h('beats:list', () => c.store.listBeats())
   h('loops:list', () => c.store.listLoops())
   h('beats:get', (_, id: number) => c.store.getBeat(id))
-  h('beats:update', (_, id: number, patch: BeatPatch) => c.store.updateBeat(id, patch))
+  // a project link is only set through the file picker below, because Open in FL hands that path to the system
+  h('beats:update', (_, id: number, patch: BeatPatch) => c.store.updateBeat(id, patch?.projectPath ? { ...patch, projectPath: undefined } : patch))
   h('beats:setTags', (_, id: number, tags: Record<TagKind, string[]>) => c.store.setTags(id, tags))
   h('beats:allTags', (_, kind?: VaultKind) => c.store.allTags(kind === 'loop' ? 'loop' : 'beat'))
   h('beats:reanalyze', (_, id: number) => c.store.reanalyze(id))
@@ -44,7 +46,16 @@ export function registerLibraryIpc(c: IpcCtx): void {
     c.writeBridgeConfig()
     await c.restartWatchers()
   })
-  h('settings:set', async (_, patch: Partial<Settings>) => {
+  h('settings:chooseClaudePath', async (_, clear?: boolean) => {
+    if (!clear) {
+      const r = await dialog.showOpenDialog(c.win!, { title: 'Choose the Claude CLI', properties: ['openFile', 'showHiddenFiles'], defaultPath: '/usr/local/bin' })
+      if (r.canceled || !r.filePaths[0]) return c.store.getSettings().claudePath
+      c.store.saveSettings({ ...c.store.getSettings(), claudePath: r.filePaths[0] })
+    } else c.store.saveSettings({ ...c.store.getSettings(), claudePath: '' })
+    return c.store.getSettings().claudePath
+  })
+  h('settings:set', async (_, raw: unknown) => {
+    const patch = cleanSettingsPatch(raw, c.store.getSettings())
     c.store.saveSettings({ ...c.store.getSettings(), ...patch })
     if ('includeIdeas' in patch || 'ownHandles' in patch) await c.restartWatchers()
     else c.sendCrm()

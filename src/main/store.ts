@@ -5,7 +5,7 @@ import { homedir, cpus } from 'os'
 import { Worker } from 'worker_threads'
 import createWorker from './analyze.worker?nodeWorker'
 import type { AnalyzeResult } from './analyze.worker'
-import { parseName, genreFromFolder } from './filename'
+import { parseName, genreFromFolder, pickMoved } from './filename'
 import { normalizeKey } from '../shared/key'
 import { scanProjects, matchProject, type ProjectFile } from './projects'
 import { TAG_KINDS, type Beat, type BeatDetail, type BeatPatch, type ScanStatus, type Settings, type Status, type TagKind, type VaultKind } from '../shared/types'
@@ -85,7 +85,7 @@ export class Store {
   private toBeat(r: Row, tags?: Record<TagKind, string[]>): Beat {
     return {
       id: r.id, path: r.path, filename: r.filename, title: r.title, folder: r.folder, ext: r.ext, size: r.size, mtime: r.mtime,
-      duration: r.duration, bpm: r.bpm, bpmSource: r.bpm_source, bpmConfidence: r.bpm_confidence,
+      duration: r.duration, bpm: r.bpm, bpmSource: r.bpm_source, bpmConfidence: r.bpm_confidence, keyConfidence: r.key_confidence,
       key: r.key, keySource: r.key_source, status: r.status, notes: r.notes, credits: r.credits,
       groupId: r.group_id, versionLabel: r.version_label, projectPath: r.project_path, projectConfidence: r.project_confidence,
       missing: !!r.missing, hasPreview: !!r.preview_path, analyzed: r.analyzed_at != null, thumb: r.thumb ? JSON.parse(r.thumb) : [], coverPath: r.cover_path ?? null,
@@ -94,7 +94,7 @@ export class Store {
   }
   listBeats(kind: VaultKind = 'beat'): Beat[] {
     const tags = this.tagMap()
-    const rows = this.db.prepare(`SELECT id,path,filename,title,folder,ext,size,mtime,duration,bpm,bpm_source,bpm_confidence,key,key_source,status,notes,credits,group_id,version_label,project_path,project_confidence,missing,analyzed_at,thumb,cover_path,preview_path,created_at FROM beats b WHERE kind=? AND missing=0 AND NOT (ext='flp' AND EXISTS (SELECT 1 FROM beats a WHERE a.project_path=b.path AND a.ext!='flp' AND a.missing=0)) ORDER BY mtime DESC`).all(kind) as Row[]
+    const rows = this.db.prepare(`SELECT id,path,filename,title,folder,ext,size,mtime,duration,bpm,bpm_source,bpm_confidence,key,key_source,key_confidence,status,notes,credits,group_id,version_label,project_path,project_confidence,missing,analyzed_at,thumb,cover_path,preview_path,created_at FROM beats b WHERE kind=? AND missing=0 AND NOT (ext='flp' AND EXISTS (SELECT 1 FROM beats a WHERE a.project_path=b.path AND a.ext!='flp' AND a.missing=0)) ORDER BY mtime DESC`).all(kind) as Row[]
     return rows.map((r) => this.toBeat(r, tags.get(r.id)))
   }
   listLoops(): Beat[] { return this.listBeats('loop') }
@@ -140,10 +140,12 @@ export class Store {
     if (p.status !== undefined) {
       const lock = this.db.prepare(`SELECT s.buyer FROM sales s JOIN beats b ON b.group_id=s.group_id WHERE b.id=? AND s.exclusive=1 LIMIT 1`).get(id) as { buyer: string } | undefined
       if (lock && p.status !== 'sold') throw new Error(`This beat was sold exclusively to ${lock.buyer}, so it stays "sold". Delete that sale first if it was a mistake.`)
+      const kind = (this.db.prepare('SELECT kind FROM beats WHERE id=?').get(id) as Row | undefined)?.kind
+      if (!lock && p.status === 'sold' && kind === 'beat') throw new Error('A beat becomes sold when you log an exclusive sale. Use Log a sale, so the buyer and price are on record.')
       add('status', p.status)
     }
     if (p.bpm !== undefined) { add('bpm', p.bpm); add('bpm_source', p.bpm == null ? null : 'user'); add('bpm_confidence', p.bpm == null ? null : 'high') }
-    if (p.key !== undefined) { const k = p.key ? normalizeKey(p.key) : null; add('key', k); add('key_source', k ? 'user' : null) }
+    if (p.key !== undefined) { const k = p.key ? normalizeKey(p.key) : null; add('key', k); add('key_source', k ? 'user' : null); add('key_confidence', null) }
     if (p.notes !== undefined) add('notes', p.notes)
     if (p.versionLabel !== undefined) add('version_label', p.versionLabel.trim())
     if (p.projectPath !== undefined) { add('project_path', p.projectPath); add('project_confidence', p.projectPath ? 1 : null) }
@@ -197,7 +199,8 @@ export class Store {
       return
     }
     // moved/renamed file? same size + mtime as a row that went missing
-    const moved = this.db.prepare(`SELECT id,analyzed_at FROM beats WHERE missing=1 AND kind=? AND size=? AND mtime=?`).get(vault, size, mtime) as Row | undefined
+    const candidates = this.db.prepare(`SELECT id,analyzed_at,filename FROM beats WHERE missing=1 AND kind=? AND size=? AND mtime=? AND ext=?`).all(vault, size, mtime, extname(path).slice(1).toLowerCase()) as Row[]
+    const moved = pickMoved(candidates, basename(path))
     if (moved) {
       this.db.prepare(`UPDATE beats SET path=?, filename=?, folder=?, missing=0 WHERE id=?`).run(path, basename(path), dirname(path), moved.id)
       this.touch(moved.id)
@@ -271,6 +274,7 @@ export class Store {
         hints.credits.join(' '), gid, hints.versionLabel, path, Date.now(), Date.now()
       ).lastInsertRowid
     )
+    if (this.db.prepare('SELECT 1 FROM sales WHERE group_id=? AND exclusive=1').get(gid)) this.db.prepare(`UPDATE beats SET status='sold' WHERE id=?`).run(id)
     const ins = this.db.prepare('INSERT OR IGNORE INTO tags(beat_id,kind,value) VALUES(?,?,?)')
     hints.vibe.forEach((v) => ins.run(id, 'vibe', v))
     hints.genre.forEach((v) => ins.run(id, 'genre', v))
@@ -350,12 +354,12 @@ export class Store {
         this.db.prepare(
           `UPDATE beats SET duration=?, peaks=?, thumb=?, analyzed_at=?,
              bpm=CASE WHEN ? THEN ? ELSE bpm END, bpm_source=CASE WHEN ? THEN 'analysis' ELSE bpm_source END, bpm_confidence=CASE WHEN ? THEN ? ELSE bpm_confidence END,
-             key=CASE WHEN ? THEN ? ELSE key END, key_source=CASE WHEN ? THEN 'analysis' ELSE key_source END
+             key=CASE WHEN ? THEN ? ELSE key END, key_source=CASE WHEN ? THEN 'analysis' ELSE key_source END, key_confidence=CASE WHEN ? THEN ? ELSE key_confidence END
            WHERE id=?`
         ).run(
           r.duration ?? null, JSON.stringify(r.peaks ?? []), JSON.stringify(r.thumb ?? []), Date.now(),
           useBpm ? 1 : 0, r.bpm ?? null, useBpm ? 1 : 0, useBpm ? 1 : 0, r.bpmConfidence ?? null,
-          useKey ? 1 : 0, r.key ?? null, useKey ? 1 : 0, r.id
+          useKey ? 1 : 0, r.key ?? null, useKey ? 1 : 0, useKey ? 1 : 0, r.keyConfidence ?? null, r.id
         )
       }
     } else {

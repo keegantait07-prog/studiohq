@@ -222,10 +222,13 @@ export function App() {
   const dueCount = useMemo(() => (crm ? crm.pitches.filter((p) => isDue(p)).length : 0), [crm, tick])
   const pitchedTo = useMemo(() => {
     if (!crm || selectedId == null) return []
-    return crm.pitches.filter((p) => p.beats.some((b) => b.beatId === selectedId)).map((p) => ({
-      pitch: p, contact: crm.contacts.find((c) => c.id === p.contactId)?.name ?? '?', response: p.beats.find((b) => b.beatId === selectedId)!.response
+    // every version of a beat shares its history
+    const groupId = [...beats, ...loops].find((b) => b.id === selectedId)?.groupId
+    const same = (b: { beatId: number; groupId: number }) => b.beatId === selectedId || b.groupId === groupId
+    return crm.pitches.filter((p) => p.beats.some(same)).map((p) => ({
+      pitch: p, contact: p.contactName, response: p.beats.find(same)!.response
     }))
-  }, [crm, selectedId])
+  }, [crm, selectedId, beats, loops])
 
   useEffect(() => {
     if (selectedId == null) return setDetail(null)
@@ -559,7 +562,7 @@ export function App() {
                   </div>
                   <div className="tg">{[...b.tags.genre.map((t) => ['genre', t]), ...b.tags.vibe.map((t) => ['vibe', t]), ...b.tags.artist.map((t) => ['artist', t])].slice(0, 4).map(([k, t]) => <span key={k + t} className={`chip ${k}`}>{t}</span>)}</div>
                   <span className={`r mono ${b.bpmConfidence === 'low' ? 'warn' : ''}`} title={b.bpmConfidence === 'low' ? 'Low confidence. Check half/double time.' : ''}>{fmtBpm(b.bpm)}{!b.analyzed && b.bpm == null ? '…' : ''}</span>
-                  <span className="mono keycell" style={b.key ? { color: keyColor(b.key) } : undefined}>{b.key && <i className="kdotc" style={{ background: keyColor(b.key) }} />}{displayKey(b.key) || (b.analyzed ? '–' : '…')}</span>
+                  <span className="mono keycell" style={b.key ? { color: keyColor(b.key) } : undefined} title={b.keyConfidence === 'low' ? 'Low confidence. Check this by ear.' : undefined}>{b.key && <i className="kdotc" style={{ background: keyColor(b.key) }} />}{displayKey(b.key) || (b.analyzed ? '–' : '…')}{b.keyConfidence === 'low' && '?'}</span>
                   <span className="r mono dim">{fmtDur(b.duration)}</span>
                   <span><i className={`dot st-${b.status}`} />{b.status}</span>
                   <span className="r dim">{ago(b.mtime)}</span>
@@ -583,7 +586,7 @@ export function App() {
           onLogSale={() => setSaleDlg({ beatId: detail.id })} onEditSplits={() => setSplitsDlg({ groupId: detail.groupId, title: detail.title })}
           onSheet={async () => { try { const f = await window.api.exportSplitSheet(detail.groupId); if (f) toast(`Split sheet saved: ${f.split('/').pop()}`); reloadSales() } catch (e) { toast(errMsg(e)) } }}
           projectSection={sounds?.projects.find((x) => x.path === detail.projectPath) ?? null} onProjectSounds={(id) => { setSoundProject(id); setView('sounds') }}
-          compatible={compatible} onFeedback={() => setFbDlg({ beatIds: [detail.id] })} posts={content.posts.filter((x) => x.beatId === detail.id)} onContent={() => { setContentBeat(detail.id); setView('content') }}
+          compatible={compatible} onFeedback={() => setFbDlg({ beatIds: [detail.id] })} posts={content.posts.filter((x) => x.beatId === detail.id || everything.find((b) => b.id === x.beatId)?.groupId === detail.groupId)} onContent={() => { setContentBeat(detail.id); setView('content') }}
           onError={toast} />
       ) : (
         <aside className="detail empty-detail"><p>Select a {isLoop ? 'loop' : 'beat'}</p><p className="dim">↑ ↓ to move · Space to play · 1–5 sets status</p></aside>

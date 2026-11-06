@@ -103,9 +103,11 @@ export function Dashboard(p: Props) {
   const awaiting = crm ? crm.pitches.filter((x) => x.status === 'sent' || x.status === 'listened').length : 0
   const wip = beats.filter((b) => b.status === 'wip').sort((a, b) => b.mtime - a.mtime)
   const seenGroups = new Set<number>()
-  const pitched = new Set((crm?.pitches ?? []).flatMap((x) => x.beats.map((b) => b.beatId)))
-  const posted = new Set(content.posts.filter((x) => x.status === 'posted').map((x) => x.beatId))
-  const ready = beats.filter((b) => b.ext !== 'flp' && b.status === 'finished' && !pitched.has(b.id) && !posted.has(b.id)).sort((a, b) => b.mtime - a.mtime).filter((b) => (seenGroups.has(b.groupId) ? false : (seenGroups.add(b.groupId), true)))
+  // by group, because pitching or posting one version counts for the whole beat
+  const groupOf = new Map(beats.map((b) => [b.id, b.groupId]))
+  const pitched = new Set((crm?.pitches ?? []).flatMap((x) => x.beats.map((b) => b.groupId)))
+  const posted = new Set(content.posts.filter((x) => x.status !== 'planned').map((x) => groupOf.get(x.beatId)))
+  const ready = beats.filter((b) => b.ext !== 'flp' && b.status === 'finished' && !pitched.has(b.groupId) && !posted.has(b.groupId)).sort((a, b) => b.mtime - a.mtime).filter((b) => (seenGroups.has(b.groupId) ? false : (seenGroups.add(b.groupId), true)))
   const planned = content.posts.filter((x) => x.status === 'planned' && startOfDay(x.date) <= today0)
   const unseen = feedback.comments.filter((c) => !c.seen)
   const monthStart = new Date(new Date(now).getFullYear(), new Date(now).getMonth(), 1).getTime()
@@ -161,7 +163,7 @@ export function Dashboard(p: Props) {
 
         <div className="panel">
           <h3>Follow-ups due {due.length > 0 && <span className="badge">{due.length}</span>}</h3>
-          {due.slice(0, 5).map((x) => <div key={x.id} className="drow"><a onClick={() => p.onOpenContact(x.contactId)}>{crm!.contacts.find((c) => c.id === x.contactId)?.name}</a><span className="dim">{x.beats.map((b) => b.title).join(', ') || x.subject}</span><span className="warn">{daysSince(x.sentAt, now)}d</span></div>)}
+          {due.slice(0, 5).map((x) => <div key={x.id} className="drow"><a onClick={() => p.onOpenContact(x.contactId)}>{x.contactName}</a><span className="dim">{x.beats.map((b) => b.title).join(', ') || x.subject}</span><span className="warn">{daysSince(x.sentAt, now)}d</span></div>)}
           {!due.length && <p className="help">Nothing due today.</p>}
           {due.length > 5 && <a onClick={() => p.onGo('crm')}>+{due.length - 5} more</a>}
         </div>

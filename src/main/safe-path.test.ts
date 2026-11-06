@@ -25,7 +25,11 @@ describe('safe-path', () => {
     expect(isAppUrl('http://localhost:5173/', 'http://localhost:5173')).toBe(true)
     expect(isAppUrl('http://localhost:51730/', 'http://localhost:5173')).toBe(false)
     expect(isAppUrl('https://evil.test/', 'http://localhost:5173')).toBe(false)
-    expect(isAppUrl('file:///app/out/renderer/index.html', undefined)).toBe(true)
+    const index = 'file:///app/out/renderer/index.html'
+    expect(isAppUrl(index, undefined, index)).toBe(true)
+    expect(isAppUrl(index + '#/vault', undefined, index)).toBe(true)
+    expect(isAppUrl('file:///Users/me/Desktop/kit/readme.html', undefined, index)).toBe(false)
+    expect(isAppUrl(index, undefined)).toBe(false)
     expect(isAppUrl('https://evil.test/', undefined)).toBe(false)
   })
 })

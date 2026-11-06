@@ -6,6 +6,7 @@ import { basename, dirname, extname, join, sep } from 'path'
 import { parseFile } from 'music-metadata'
 import { parseName } from './filename'
 import { SOUND_KINDS, type DupGroup, type ProjectSection, type SoundKind, type SoundList, type SoundRow, type SoundStatus } from '../shared/types'
+import { isUnder } from './safe-path'
 
 type Row = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 const AUDIO = new Set(['.wav', '.aif', '.aiff', '.mp3', '.flac', '.ogg', '.m4a', '.mid', '.midi'])
@@ -71,6 +72,7 @@ async function pool<T>(items: T[], n: number, fn: (x: T) => Promise<void>, tick:
 
 export class Sounds {
   private running = false
+  private unreadable: string[] = []
   constructor(private db: Database.Database, private roots: () => string[], private opts: () => { midiRoot: string; packsMidi: boolean }, private emit: (s: SoundStatus) => void, private changed: () => void) {}
 
   async scan(): Promise<void> {
@@ -80,6 +82,7 @@ export class Sounds {
       const roots = this.roots()
       this.emit({ phase: 'scanning', done: 0, total: 0 })
       const found: { path: string; root: string; size: number; mtime: number }[] = []
+      this.unreadable = []
       for (const root of roots) await this.walk(root, root, found)
       const seen = new Set<string>()
       const byPath = new Map((this.db.prepare('SELECT id,path,size,mtime,missing FROM sounds').all() as Row[]).map((r) => [r.path as string, r]))
@@ -101,7 +104,7 @@ export class Sounds {
           ins.run(f.path, dirname(f.path), name, ext, f.size, f.mtime, isMidi(ext) ? 'midi' : classify(f.path, f.root), h.bpm, h.key, Date.now())
         }
         const gone = this.db.prepare('UPDATE sounds SET missing=1 WHERE id=?')
-        for (const [p, r] of byPath) if (!seen.has(p) && !r.missing && roots.some((root) => p.startsWith(root + sep))) gone.run(r.id)
+        for (const [p, r] of byPath) if (!seen.has(p) && !r.missing && roots.some((root) => p.startsWith(root + sep)) && !isUnder(p, this.unreadable)) gone.run(r.id) // an unplugged drive isn't a deleted one
       })()
       this.changed()
 
@@ -123,7 +126,7 @@ export class Sounds {
 
   private async walk(dir: string, root: string, out: { path: string; root: string; size: number; mtime: number }[]): Promise<void> {
     let entries
-    try { entries = await fs.readdir(dir, { withFileTypes: true }) } catch { return }
+    try { entries = await fs.readdir(dir, { withFileTypes: true }) } catch { this.unreadable.push(dir); return }
     const files: string[] = []
     for (const e of entries) {
       if (e.name.startsWith('.') || e.name === '__MACOSX') continue

@@ -12,17 +12,17 @@ export class Crm {
   ) {}
 
   all(): CrmData {
-    const contacts = (this.db.prepare('SELECT * FROM contacts ORDER BY name COLLATE NOCASE').all() as Row[]).map((r) => this.toContact(r))
+    const contacts = (this.db.prepare('SELECT * FROM contacts WHERE archived_at IS NULL ORDER BY name COLLATE NOCASE').all() as Row[]).map((r) => this.toContact(r))
     const beatsByPitch = new Map<number, Pitch['beats']>()
     for (const r of this.db.prepare(
-      `SELECT pb.pitch_id, pb.beat_id, pb.response, b.title, b.bpm, b.key, b.status FROM pitch_beats pb JOIN beats b ON b.id=pb.beat_id ORDER BY b.title`
+      `SELECT pb.pitch_id, pb.beat_id, pb.response, b.group_id, b.title, b.bpm, b.key, b.status FROM pitch_beats pb JOIN beats b ON b.id=pb.beat_id ORDER BY b.title`
     ).all() as Row[]) {
       const list = beatsByPitch.get(r.pitch_id) ?? []
-      list.push({ beatId: r.beat_id, title: r.title, bpm: r.bpm, key: r.key, status: r.status, response: r.response })
+      list.push({ beatId: r.beat_id, groupId: r.group_id, title: r.title, bpm: r.bpm, key: r.key, status: r.status, response: r.response })
       beatsByPitch.set(r.pitch_id, list)
     }
-    const pitches = (this.db.prepare('SELECT * FROM pitches ORDER BY sent_at DESC').all() as Row[]).map((r) => ({
-      id: r.id, contactId: r.contact_id, packId: r.pack_id, subject: r.subject, channel: r.channel, link: r.link, sentAt: r.sent_at,
+    const pitches = (this.db.prepare('SELECT p.*, c.name contact_name FROM pitches p JOIN contacts c ON c.id=p.contact_id ORDER BY p.sent_at DESC').all() as Row[]).map((r) => ({
+      id: r.id, contactId: r.contact_id, contactName: r.contact_name, packId: r.pack_id, subject: r.subject, channel: r.channel, link: r.link, sentAt: r.sent_at,
       status: r.status as PitchStatus, responseNote: r.response_note, respondedAt: r.responded_at, nextFollowupAt: r.next_followup_at,
       followupCount: r.followup_count, lastFollowupAt: r.last_followup_at, beats: beatsByPitch.get(r.id) ?? []
     }))
@@ -46,8 +46,10 @@ export class Crm {
     }
     return Number(this.db.prepare('INSERT INTO contacts(name,role,email,sound,links,notes,followup_days,created_at) VALUES(?,?,?,?,?,?,?,?)').run(...vals, Date.now()).lastInsertRowid)
   }
+  /** Hides the person but keeps the record of what was sent to them, and stops their follow-ups. */
   deleteContact(id: number): void {
-    this.db.prepare('DELETE FROM contacts WHERE id=?').run(id)
+    this.db.prepare('UPDATE contacts SET archived_at=? WHERE id=?').run(Date.now(), id)
+    this.db.prepare('UPDATE pitches SET next_followup_at=NULL WHERE contact_id=?').run(id)
   }
 
   private daysFor(contactId: number): number {

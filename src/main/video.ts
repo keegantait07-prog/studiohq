@@ -4,6 +4,7 @@ import { spawn, type ChildProcess } from 'child_process'
 import { mkdirSync, existsSync, unlinkSync, openSync, writeSync, closeSync } from 'fs'
 import { join } from 'path'
 import { once } from 'events'
+import { measureLoudness, videoAudioFilter } from './loudness'
 import { parseFile } from 'music-metadata'
 import ffmpegStatic from 'ffmpeg-static'
 import { sceneLayout } from '../shared/videoTemplate'
@@ -94,7 +95,7 @@ function wireWorker(): void {
 
 async function openWorker(): Promise<BrowserWindow> {
   wireWorker()
-  const w = new BrowserWindow({ show: false, width: 320, height: 240, webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false, contextIsolation: true, backgroundThrottling: false } })
+  const w = new BrowserWindow({ show: false, width: 320, height: 240, webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: true, contextIsolation: true, backgroundThrottling: false } })
   if (process.env['ELECTRON_RENDERER_URL']) await w.loadURL(process.env['ELECTRON_RENDERER_URL'] + '#viz-worker')
   else await w.loadFile(join(__dirname, '../renderer/index.html'), { hash: 'viz-worker' })
   return w
@@ -135,6 +136,7 @@ export class VideoExporter {
         const total = beat.duration ?? 0
         const start = Math.min(Math.max(0, o.start), Math.max(0, total - 3))
         const dur = o.length > 0 ? Math.min(o.length, total - start) : total - start
+        const levels = videoAudioFilter(await measureLoudness(beat.path, start, dur))
         if (!(dur > 1)) throw new Error('The clip is too short.')
         onProgress({ label: `${label}: listening to the beat`, pct: 0 })
         const features = await vizFeatures(this.db, o.beatId, start, dur)
@@ -188,8 +190,8 @@ export class VideoExporter {
           onProgress({ label: `${label}: adding the audio`, pct: 0.98 })
           const mux = spawn(ffmpeg, [
             '-y', '-hide_banner', '-v', 'error', '-i', tmp, '-ss', start.toFixed(3), '-t', dur.toFixed(3), '-i', beat.path,
-            '-filter_complex', `[1:a]afade=t=in:d=0.03,afade=t=out:st=${(dur - fade).toFixed(2)}:d=${fade.toFixed(2)}[a]`,
-            '-map', '0:v', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', path
+            '-filter_complex', `[1:a]${levels},afade=t=in:d=0.03,afade=t=out:st=${(dur - fade).toFixed(2)}:d=${fade.toFixed(2)}[a]`,
+            '-map', '0:v', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '320k', '-movflags', '+faststart', path
           ])
           this.proc = mux
           let merr = ''
@@ -209,10 +211,10 @@ export class VideoExporter {
           '-y', '-hide_banner', '-v', 'error', '-progress', 'pipe:1', '-nostats',
           '-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', `${L.W}x${L.H}`, '-framerate', String(FPS), '-i', 'pipe:0',
           '-ss', start.toFixed(3), '-t', dur.toFixed(3), '-i', beat.path,
-          '-filter_complex', `[0:v]format=yuv420p[v];[1:a]afade=t=in:d=0.03,afade=t=out:st=${(dur - fade).toFixed(2)}:d=${fade.toFixed(2)}[a]`,
+          '-filter_complex', `[0:v]format=yuv420p[v];[1:a]${levels},afade=t=in:d=0.03,afade=t=out:st=${(dur - fade).toFixed(2)}:d=${fade.toFixed(2)}[a]`,
           '-map', '[v]', '-map', '[a]',
           '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18', '-tune', 'animation', '-pix_fmt', 'yuv420p', '-r', String(FPS),
-          '-c:a', 'aac', '-b:a', '192k', '-shortest', '-movflags', '+faststart', path
+          '-c:a', 'aac', '-b:a', '320k', '-shortest', '-movflags', '+faststart', path
         ]
         const p = spawn(ffmpeg, args)
         this.proc = p

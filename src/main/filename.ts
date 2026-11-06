@@ -58,14 +58,15 @@ export function parseName(file: string, folderName: string, ownHandles: string[]
   const vm = s.match(/\bv(\d+)\b/i)
   if (vm) versionLabel = 'v' + vm[1]
   else if (/\bstems?\b/i.test(s) || /stems/i.test(folderName)) versionLabel = 'stems'
-  else if (/\bfinal\b/i.test(s)) versionLabel = 'final'
+  else if (/\S.*\bfinal\b/i.test(s)) versionLabel = 'final'
   else if (paren.length && /mix|empty|instrumental|inst\b|acapella|demo|clean|stripped|alt|remix|\bid\b/i.test(paren[paren.length - 1])) versionLabel = paren[paren.length - 1].toLowerCase()
 
   let core = s
     .replace(/\.(mp3|wav|flac|m4a|aiff?)\b/gi, ' ')
     .replace(/(^|\s)[+&](?=\s|$)/g, ' ')
     .replace(/\([^)]*\)/g, ' ')
-    .replace(/\b(v\d+|final|stems?)\b/gi, ' ')
+    .replace(/\b(v\d+|stems?)\b/gi, ' ')
+    .replace(/(\S.*?)\bfinal\b/gi, '$1 ') // "Night final" is a version, "Final Boss" is a title
     .replace(/\s+x\s*$/i, ' ')
     .replace(/[\s\-–_,]+/g, ' ')
     .replace(/(^\s*x\s+|\s+x\s*$)/gi, ' ')
@@ -80,4 +81,9 @@ export function genreFromFolder(folderName: string): string | null {
   const g = folderName.replace(/^[!\s]+/, '').trim().toLowerCase()
   if (!g || /^(beats|ideas|ideas : scraps|ideas: scraps|midi stuff|september beats \d+)$/.test(g)) return null
   return g
+}
+
+/** Which missing row a newly seen file is, or nothing if that can't be told apart. Same-size stems must not swap identities. */
+export function pickMoved<T extends Record<string, unknown>>(candidates: T[], name: string): T | undefined {
+  return candidates.find((c) => c.filename === name) ?? (candidates.length === 1 ? candidates[0] : undefined)
 }

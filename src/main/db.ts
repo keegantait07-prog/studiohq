@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3'
 import { join } from 'path'
-import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync, unlinkSync } from 'fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, renameSync, statSync, unlinkSync } from 'fs'
 
 export function openDb(dir: string): Database.Database {
   mkdirSync(dir, { recursive: true })
@@ -18,7 +18,7 @@ export function openDb(dir: string): Database.Database {
  * Add new changes as a new entry at the END; never edit an old one. The first two are written to be
  * safe on databases that already have everything (they predate version numbers).
  */
-const MIGRATIONS: ((db: Database.Database) => void)[] = [createTables, addColumns]
+const MIGRATIONS: ((db: Database.Database) => void)[] = [createTables, addColumns, integrityAndIndexes]
 
 function migrate(db: Database.Database, file: string): void {
   const from = db.pragma('user_version', { simple: true }) as number
@@ -344,6 +344,74 @@ function addColumns(db: Database.Database): void {
   if (!pcols.some((c) => c.name === 'kind')) db.exec("ALTER TABLE packs ADD COLUMN kind TEXT NOT NULL DEFAULT 'pitch'")
   const gcols = db.prepare('PRAGMA table_info(groups)').all() as { name: string }[]
   if (!gcols.some((c) => c.name === 'split_sheet_at')) db.exec('ALTER TABLE groups ADD COLUMN split_sheet_at INTEGER')
+}
+
+/** Clears rows that lost their parent, adds what the sale lock and soft deletes need, and queues a re-analysis with the fixed detectors. */
+function integrityAndIndexes(db: Database.Database): void {
+  // pitch ids get reused, so a row left behind by a deleted pitch would attach itself to a future one
+  db.exec(`DELETE FROM pitch_beats WHERE pitch_id NOT IN (SELECT id FROM pitches) OR beat_id NOT IN (SELECT id FROM beats)`)
+  const has = (table: string, col: string) => (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).some((c) => c.name === col)
+  if (!has('contacts', 'archived_at')) db.exec('ALTER TABLE contacts ADD COLUMN archived_at INTEGER')
+  if (!has('beats', 'key_confidence')) db.exec('ALTER TABLE beats ADD COLUMN key_confidence TEXT')
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS beats_project_path ON beats(project_path);
+    CREATE INDEX IF NOT EXISTS beats_size_mtime ON beats(size, mtime);
+    CREATE INDEX IF NOT EXISTS sales_beat ON sales(beat_id);
+    CREATE INDEX IF NOT EXISTS pitch_beats_beat ON pitch_beats(beat_id);
+    CREATE INDEX IF NOT EXISTS videos_beat ON videos(beat_id);
+  `)
+  // one exclusive per beat, enforced by the database itself (skipped if old data already breaks the rule, so it can't block an upgrade)
+  const doubled = db.prepare('SELECT 1 FROM sales WHERE exclusive=1 GROUP BY group_id HAVING COUNT(*)>1 LIMIT 1').get()
+  if (!doubled) db.exec('CREATE UNIQUE INDEX IF NOT EXISTS sales_one_exclusive ON sales(group_id) WHERE exclusive=1')
+  db.exec(`UPDATE beats SET analyzed_at=NULL WHERE ext!='flp' AND (bpm_source='analysis' OR key_source='analysis')`)
+}
+
+/** Refuses anything that isn't a healthy Studio HQ database. */
+export function checkBackup(file: string): void {
+  let d: Database.Database
+  try { d = new Database(file, { readonly: true, fileMustExist: true }) } catch { throw new Error('That file could not be opened as a database.') }
+  try {
+    const ok = d.pragma('quick_check', { simple: true })
+    const beats = d.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='beats'").get()
+    if (ok !== 'ok' || !beats) throw new Error('That file is not a healthy Studio HQ backup.')
+  } catch (e) {
+    throw e instanceof Error && e.message.includes('Studio HQ') ? e : new Error('That file is not a healthy Studio HQ backup.')
+  } finally { d.close() }
+}
+
+const PENDING = 'restore-pending.db'
+
+/** Queues a backup to replace the library on the next launch, when nothing has the database open. */
+export function stageRestore(dir: string, file: string): void {
+  checkBackup(file)
+  copyFileSync(file, join(dir, PENDING))
+}
+
+/** Runs before the database opens. The old -wal and -shm must go too, or SQLite would replay them over the restored file. */
+export function applyPendingRestore(dir: string): boolean {
+  const pending = join(dir, PENDING)
+  if (!existsSync(pending)) return false
+  const live = join(dir, 'studio-hq.db')
+  if (existsSync(live)) {
+    const old = new Database(live)
+    try { old.pragma('wal_checkpoint(TRUNCATE)') } finally { old.close() }
+    const backups = join(dir, 'backups')
+    mkdirSync(backups, { recursive: true })
+    copyFileSync(live, join(backups, `pre-restore-${Date.now()}.db`))
+  }
+  for (const f of [`${live}-wal`, `${live}-shm`]) if (existsSync(f)) unlinkSync(f)
+  renameSync(pending, live)
+  return true
+}
+
+/** One automatic snapshot a day, keeping the newest few. Returns the file to write, or null if today's already exists. */
+export function autoBackupTarget(dir: string, now: Date, keep = 5): string | null {
+  mkdirSync(dir, { recursive: true })
+  const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  const name = `auto-${day}.db`
+  const autos = readdirSync(dir).filter((f) => /^auto-\d{4}-\d{2}-\d{2}\.db$/.test(f)).sort().reverse()
+  for (const f of autos.slice(autos.includes(name) ? keep : keep - 1)) unlinkSync(join(dir, f))
+  return autos.includes(name) ? null : join(dir, name)
 }
 
 function seedLicenses(db: Database.Database): void {

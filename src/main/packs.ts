@@ -66,6 +66,10 @@ export class Packs {
   async build(req: PackRequest, opts: BuildOpts = {}): Promise<PackResult> {
     if (!req.beatIds.length) throw new Error('Pick at least one beat.')
     const beats = req.beatIds.map((id) => this.db.prepare('SELECT * FROM beats WHERE id=?').get(id) as Row).filter(Boolean)
+    if ((opts.kind ?? 'pitch') === 'pitch') {
+      const sold = beats.find((b) => this.db.prepare('SELECT 1 FROM sales WHERE group_id=? AND exclusive=1').get(b.group_id))
+      if (sold) throw new Error(`"${sold.title}" was sold exclusively, so it can't go in a pitch.`)
+    }
     const slug = randomBytes(8).toString('base64url')
     const dir = join(this.siteDir, 'p', slug)
     mkdirSync(dir, { recursive: true })

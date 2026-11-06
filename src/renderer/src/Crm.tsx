@@ -41,7 +41,7 @@ export function Crm({ crm, myName, selected, onSelect, onPitch, onOpenBeat, relo
   const contact = crm.contacts.find((c) => c.id === selected) ?? null
   const dueAll = crm.pitches.filter((p) => isDue(p))
 
-  const contactName = (id: number) => crm.contacts.find((c) => c.id === id)?.name ?? '?'
+  const contactName = (id: number) => crm.contacts.find((c) => c.id === id)?.name ?? crm.pitches.find((p) => p.contactId === id)?.contactName ?? '?'
 
   const openDraft = (p: Pitch) => setDraft({ pitch: p })
   const followTpl = crm.templates.find((t) => t.kind === 'follow_up')
@@ -89,12 +89,15 @@ export function Crm({ crm, myName, selected, onSelect, onPitch, onOpenBeat, relo
         {tab === 'templates' ? (
           <Templates crm={crm} myName={myName} reload={reload} />
         ) : contact ? (
+          <>
+          <button className="ghost" onClick={() => onSelect(null)}>← All contacts and follow-ups</button>
           <ContactView
             c={contact} pitches={byContact.get(contact.id) ?? []} defaultDays={crm.defaultFollowupDays}
             onEdit={() => setForm({ contact })} onPitch={() => onPitch(contact.id)} onOpenBeat={onOpenBeat} onDraft={openDraft}
-            onDelete={async () => { if (confirm(`Delete ${contact.name} and their pitch history?`)) { await window.api.deleteContact(contact.id); onSelect(null); reload() } }}
+            onDelete={async () => { if (confirm(`Remove ${contact.name}? Their follow-ups stop, and what you sent them stays on your beats.`)) { await window.api.deleteContact(contact.id); onSelect(null); reload() } }}
             reload={reload}
           />
+          </>
         ) : (
           <Overview crm={crm} contactName={contactName} onSelect={onSelect} onDraft={openDraft} onPitch={() => onPitch()} reload={reload} />
         )}

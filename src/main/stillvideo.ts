@@ -5,7 +5,7 @@ import ffmpegStatic from 'ffmpeg-static'
 const ffmpeg = (ffmpegStatic as unknown as string).replace('app.asar', 'app.asar.unpacked')
 
 export function exportStill(
-  o: { audioPath: string; framePath: string; outPath: string; durationSec: number },
+  o: { audioPath: string; framePath: string; outPath: string; durationSec: number; audioFilter?: string },
   onProgress: (pct: number) => void
 ): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -13,7 +13,7 @@ export function exportStill(
       '-y', '-hide_banner', '-v', 'error', '-progress', 'pipe:1', '-nostats',
       '-loop', '1', '-framerate', '2', '-i', o.framePath, '-i', o.audioPath,
       '-vf', 'scale=1920:1080,format=yuv420p', '-c:v', 'libx264', '-tune', 'stillimage', '-preset', 'veryfast', '-crf', '20', '-r', '30',
-      '-c:a', 'aac', '-b:a', '192k', '-shortest', '-movflags', '+faststart', o.outPath
+      ...(o.audioFilter ? ['-af', o.audioFilter] : []), '-c:a', 'aac', '-b:a', '320k', '-shortest', '-movflags', '+faststart', o.outPath
     ])
     let err = ''
     p.stderr.on('data', (c) => (err += c))

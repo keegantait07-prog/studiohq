@@ -32,15 +32,26 @@ export class Watcher {
         return !!stats?.isFile() && !AUDIO.has(extname(p).toLowerCase())
       }
     })
+    const save = (p: string, st: { size: number; mtimeMs: number }) => {
+      try { this.store.upsertFile(p, st.size, st.mtimeMs, rootOf(p), this.kind) } catch (e) { console.error('import failed', p, e) }
+    }
+    // The first scan is held until the whole tree is known. A file renamed while the app was closed can only be
+    // matched to its old row once that row is marked missing, or its tags and status would stay behind.
+    let scanned = false
+    const firstScan: [string, { size: number; mtimeMs: number }][] = []
     const onFile = (p: string, st?: { size: number; mtimeMs: number }) => {
       if (!st || !AUDIO.has(extname(p).toLowerCase())) return
       seen.add(p)
-      try { this.store.upsertFile(p, st.size, st.mtimeMs, rootOf(p), this.kind) } catch (e) { console.error('import failed', p, e) }
+      if (scanned) save(p, st)
+      else firstScan.push([p, st])
     }
     this.fw.on('add', onFile).on('change', onFile)
     this.fw.on('unlink', (p) => this.store.markMissing(p))
     this.fw.on('ready', () => {
+      scanned = true
       this.store.markUnseenMissing(roots, seen, this.kind)
+      for (const [p, st] of firstScan) save(p, st)
+      firstScan.length = 0
       this.store.relinkProjects()
     })
   }

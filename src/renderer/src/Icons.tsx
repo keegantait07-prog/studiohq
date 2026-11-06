@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 
 // One drawing per icon. Each theme restyles them (stroke weight, caps, fill, a hand-drawn filter, the cap they sit in) through the --ico-* tokens in styles.css.
 const G: Record<string, ReactNode> = {
+  stage: <><circle className="f" cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="3.2" /><path d="M12 3.5v3M5 17.5l2-2M19 17.5l-2-2" /></>,
   dashboard: <><rect className="f" x="3.5" y="3.5" width="7" height="7" /><rect className="f" x="13.5" y="3.5" width="7" height="4.5" /><rect className="f" x="13.5" y="11" width="7" height="9.5" /><rect className="f" x="3.5" y="13.5" width="7" height="7" /></>,
   vault: <><path className="f" d="M3.5 8.5h17v11h-17z" /><path d="M8.5 8.5v-4h7v4M3.5 13h17" /></>,
   loops: <><path className="f" d="M3.5 9.5h17v6h-17z" /><path d="M7 9.5c0-3 10-3 10 0M7 15.5c0 3 10 3 10 0" /></>,
@@ -42,6 +43,7 @@ export function Defs() {
 export function BrandMark() {
   return (
     <span className="bm" aria-hidden>
+      <svg className="bm-chrome" viewBox="0 0 22 22"><circle cx="11" cy="11" r="8.2" className="ring" /><path d="M4.4 15.6A8.2 8.2 0 1 1 17.6 15.6" className="arc" /><path d="M11 11L11 5.4" className="nt" /></svg>
       <svg className="bm-console" viewBox="0 0 22 22"><rect x="3" y="1" width="2" height="20" className="rail" /><rect x="10" y="1" width="2" height="20" className="rail" /><rect x="17" y="1" width="2" height="20" className="rail" /><rect x="0.5" y="13" width="7" height="4" className="cap c1" /><rect x="7.5" y="3" width="7" height="4" className="cap c2" /><rect x="14.5" y="10" width="7" height="4" className="cap c3" /></svg>
       <svg className="bm-signal" viewBox="0 0 22 20"><rect x="0" y="11" width="3.4" height="9" /><rect x="6" y="0" width="3.4" height="20" /><rect x="12" y="6" width="3.4" height="14" /><rect x="18" y="13" width="3.4" height="7" /></svg>
       <svg className="bm-faceplate" viewBox="0 0 22 22"><rect x="9.5" y="1" width="3" height="20" rx="1.5" className="slot" /><rect x="4" y="12" width="14" height="6" rx="1" className="cap" /><path d="M11 13.5v3" className="mark" /></svg>

@@ -10,10 +10,12 @@ import { usePlayer, usePlayerTime, type PlayerClock } from './player'
 import { Thumb, Waveform } from './Waveform'
 import { useLevelDriver } from './motion'
 import { artUrl } from './genart'
+const Stage = lazy(() => import('./Stage').then((m) => ({ default: m.Stage })))
 const SonicMap = lazy(() => import('./SonicMap').then((m) => ({ default: m.SonicMap })))
 import { Cleanup } from './Cleanup'
 import { hotspot, takesOf } from './audition'
-import { keyColor } from './keyColor'
+import { keyColor, keyHue } from './keyColor'
+import { setNeon } from './neon'
 import { Detail } from './Detail'
 import { Palette, type Command } from './Palette'
 import { Assistant, type AssistantStatus } from './Assistant'
@@ -73,7 +75,7 @@ function SessionPill({ startedAt, onClick }: { startedAt: number; onClick: () =>
 export function App() {
   const [beats, setBeats] = useState<Beat[]>([])
   const [loaded, setLoaded] = useState(false)
-  const [view, setView] = useState<'dashboard' | 'vault' | 'loops' | 'map' | 'crm' | 'sales' | 'content' | 'sounds' | 'kits' | 'plugins' | 'feedback' | 'themes'>('dashboard')
+  const [view, setView] = useState<'dashboard' | 'stage' | 'vault' | 'loops' | 'map' | 'crm' | 'sales' | 'content' | 'sounds' | 'kits' | 'plugins' | 'feedback' | 'themes'>('dashboard')
   // the Beat Vault and the Loop Vault each keep their own search, status tab and selection
   const vaultKind: VaultKind = view === 'loops' ? 'loop' : 'beat'
   const isLoop = vaultKind === 'loop'
@@ -165,6 +167,8 @@ export function App() {
   const player = usePlayer()
   useEffect(() => { document.documentElement.toggleAttribute('data-playing', player.playing) }, [player.playing])
   useLevelDriver({ playing: player.playing, duration: player.duration, peaks: playingDetail?.peaks ?? NO_PEAKS, getTime: player.getTime, subscribe: player.subscribe })
+
+  useEffect(() => { setNeon(keyHue(playingDetail?.key ?? null)) }, [playingDetail?.key])
 
   // One amber tick that slides to whichever sidebar item is active (the Console theme shows it; the others hide it).
   const tickRef = useRef<HTMLSpanElement>(null)
@@ -346,6 +350,7 @@ export function App() {
       const t = e.target as HTMLElement
       const typing = t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable
       if (mod && e.key.toLowerCase() === 'k') { e.preventDefault(); setPalette((p) => !p); return }
+      if (mod && e.key === '9') { e.preventDefault(); setView('stage'); return }
       if (mod && e.key === '0') { e.preventDefault(); setView('dashboard'); return }
       if (mod && e.key === '5') { e.preventDefault(); setView('sounds'); return }
       if (mod && e.key === '6') { e.preventDefault(); setView('feedback'); return }
@@ -402,6 +407,7 @@ export function App() {
     { id: 'log-sale', label: 'Log a sale…', run: () => setSaleDlg({}) },
     { id: 'new-pitch', label: 'New pitch…', run: () => setPitchDlg({}) },
     { id: 'new-contact', label: 'New contact…', run: () => { setView('crm'); setNewContactSignal((n) => n + 1) } },
+    { id: 'stage', label: 'Open Stage (now playing)', hint: '⌘9', run: () => setView('stage') },
     { id: 'assistant', label: 'Open Studio Assistant', hint: '⌘J', run: () => setAssistantOpen(true) },
     { id: 'settings', label: 'Open settings (folders, backup)', hint: '⌘,', run: () => setSettings(true) },
     { id: 'group', label: collapse ? 'Show every file (ungroup versions)' : `Group versions of the same ${isLoop ? 'loop' : 'beat'}`, hint: 'G', run: () => setCollapse((c) => !c) },
@@ -419,6 +425,7 @@ export function App() {
         <span className="nav-tick" ref={tickRef} aria-hidden />
         <div className="brand"><BrandMark /><span>Studio HQ</span></div>
         <a className={`nav ${view === 'dashboard' ? 'on' : ''}`} {...clickable(() => setView('dashboard'))}><em className="nl"><Icon name="dashboard" />Dashboard</em></a>
+        <a className={`nav ${view === 'stage' ? 'on' : ''}`} {...clickable(() => setView('stage'))}><em className="nl"><Icon name="stage" />Stage</em> <span>{player.playing ? '●' : ''}</span></a>
         <a className={`nav ${view === 'vault' ? 'on' : ''}`} {...clickable(() => setView('vault'))}><em className="nl"><Icon name="vault" />Beat Vault</em> <span>{beats.length}</span></a>
         <div className="colls">
           {collections.map((c) => (
@@ -460,6 +467,8 @@ export function App() {
           onOpenContact={(id) => { setCrmSel(id); setView('crm') }} onPitchBeat={(id) => setPitchDlg({ beatIds: [id] })}
           onMakeVideo={(id) => { setContentBeat(id); setView('content') }} onSetStatus={setStatus} reloadSessions={reloadSessions}
         />
+      ) : view === 'stage' ? (
+        <ViewGuard name="Stage"><Stage beats={audioBeats} player={player} detail={playingDetail} audition={audition} onAudition={setAudition} onPlay={(id) => playBeat(id)} onOpenVault={openCollection} /></ViewGuard>
       ) : view === 'themes' ? (
         <ViewGuard name="Themes"><ThemesView current={theme} onPick={pickTheme} /></ViewGuard>
       ) : view === 'map' ? (

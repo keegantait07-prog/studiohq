@@ -2,6 +2,7 @@ export interface Theme { id: string; name: string; dark: boolean; font: string; 
 
 export const THEMES: Theme[] = [
   { id: 'console', name: 'Console', dark: true, font: 'SF Pro', story: 'A working desk. Graphite panels, flat and square, with one amber LED for whatever is live.', traits: 'SF Pro and SF Mono · fader mark · no glow, no gradients · square 3px corners · amber playhead' },
+  { id: 'chrome', name: 'Chrome', dark: true, font: 'SF Pro', story: 'Matte black and polished chrome. The neon is borrowed from the key of whatever is playing.', traits: 'SF Pro and SF Mono · chrome dials and faders · LED rings · glass over the Stage · neon that follows the key' },
   { id: 'signal', name: 'Signal', dark: true, font: 'SF Pro', story: 'The earlier night console. Ink black with a lime level-meter glow.', traits: 'SF Pro · glowing line icons · scanlines · meters that pump' },
   { id: 'faceplate', name: 'Faceplate', dark: true, font: 'Gill Sans', story: 'A console channel strip: blue-grey steel, one red cap, squared-off controls.', traits: 'Barlow Semi Condensed · keycap icons · brushed steel and screws · stepped power-on' },
   { id: 'tape', name: 'Tape', dark: true, font: 'Avenir Next', story: 'A multitrack deck. Olive-grey metal with a warm amber lamp.', traits: 'IBM Plex Mono · reel logo that spins while you play · oxide grain · sprocket edge' },

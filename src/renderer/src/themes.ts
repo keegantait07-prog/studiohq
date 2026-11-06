@@ -1,7 +1,8 @@
 export interface Theme { id: string; name: string; dark: boolean; font: string; story: string; traits: string }
 
 export const THEMES: Theme[] = [
-  { id: 'signal', name: 'Signal', dark: true, font: 'SF Pro', story: 'The original night console. Ink black with a lime level-meter glow.', traits: 'SF Pro · glowing line icons · scanlines · meters that pump' },
+  { id: 'console', name: 'Console', dark: true, font: 'SF Pro', story: 'A working desk. Graphite panels, flat and square, with one amber LED for whatever is live.', traits: 'SF Pro and SF Mono · fader mark · no glow, no gradients · square 3px corners · amber playhead' },
+  { id: 'signal', name: 'Signal', dark: true, font: 'SF Pro', story: 'The earlier night console. Ink black with a lime level-meter glow.', traits: 'SF Pro · glowing line icons · scanlines · meters that pump' },
   { id: 'faceplate', name: 'Faceplate', dark: true, font: 'Gill Sans', story: 'A console channel strip: blue-grey steel, one red cap, squared-off controls.', traits: 'Barlow Semi Condensed · keycap icons · brushed steel and screws · stepped power-on' },
   { id: 'tape', name: 'Tape', dark: true, font: 'Avenir Next', story: 'A multitrack deck. Olive-grey metal with a warm amber lamp.', traits: 'IBM Plex Mono · reel logo that spins while you play · oxide grain · sprocket edge' },
   { id: 'brass', name: 'Brass', dark: true, font: 'Optima', story: 'Racing-green panelling and brass fittings, like a room with a good reputation.', traits: 'Cinzel and Source Serif · engraved medallion icons · tufted leather · gleam on hover' },
@@ -15,10 +16,15 @@ export const THEMES: Theme[] = [
 ]
 
 const KEY = 'shq.theme'
-export const DEFAULT_THEME = 'signal'
+export const DEFAULT_THEME = 'console'
+// Bumped when the default look changes, so everyone lands on the new default once and can then pick any theme they like.
+const UI_REV = '3'
 
 export function getTheme(): string {
-  try { const t = localStorage.getItem(KEY); if (t && THEMES.some((x) => x.id === t)) return t } catch { /* storage blocked */ }
+  try {
+    if (localStorage.getItem(KEY + '.rev') !== UI_REV) { localStorage.setItem(KEY + '.rev', UI_REV); localStorage.setItem(KEY, DEFAULT_THEME); return DEFAULT_THEME }
+    const t = localStorage.getItem(KEY); if (t && THEMES.some((x) => x.id === t)) return t
+  } catch { /* storage blocked */ }
   return DEFAULT_THEME
 }
 

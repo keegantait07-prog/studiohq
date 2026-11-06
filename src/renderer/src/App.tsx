@@ -561,6 +561,10 @@ export function App() {
           <div className="t">{playingDetail?.title ?? 'Nothing playing'}</div>
           <PlayerReadout player={player} fallbackDuration={playingDetail?.duration ?? null} />
         </div>
+        <div className="xmeta" aria-label="Tempo and key of the playing beat">
+          <div><b>{playingDetail?.bpm ?? '–'}</b><span>bpm</span></div>
+          <div><b>{playingDetail?.key ?? '–'}</b><span>key</span></div>
+        </div>
         <div className="wavewrap">
           <PlayerWave player={player} peaks={playingDetail?.peaks ?? []} />
         </div>

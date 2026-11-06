@@ -43,6 +43,7 @@ export function Defs() {
 export function BrandMark() {
   return (
     <span className="bm" aria-hidden>
+      <svg className="bm-gilded" viewBox="0 0 22 22"><path d="M11 1.500L20.500 11 11 20.500 1.500 11z" className="gd" /><path d="M11 6l5 5-5 5-5-5z" className="gi" /></svg>
       <svg className="bm-thorn" viewBox="0 0 22 22"><path d="M11 1l1.600 7.400L20 6l-5.200 5.400L21 15l-8-.8L11 21l-2-6.800L1 15l6.200-3.600L2 6l7.400 2.400z" className="th" /></svg>
       <svg className="bm-yatai" viewBox="0 0 22 22"><path d="M3 11h16a8 8 0 0 1-16 0z" className="bowl" /><path d="M8 5.500c-1.500-1.200 1.500-2.400 0-3.600M12 5.500c-1.500-1.200 1.500-2.400 0-3.600M16 5.500c-1.500-1.200 1.500-2.400 0-3.600" className="st" /></svg>
       <svg className="bm-koi" viewBox="0 0 22 22"><path d="M11 3c2.2 3.2 2.2 7.2 0 11.5-2.2-4.300-2.200-8.300 0-11.500z" className="pt" /><path d="M10.500 14.500C6.500 14 3.500 11 2.500 7.500c3.200.1 6.200 2.200 8 7z" className="pt" /><path d="M11.500 14.500c4-.5 7-3.500 8-7-3.200.1-6.200 2.200-8 7z" className="pt" /><path d="M3 18.500c2.500-1.500 5-1.500 8 0s5.500 1.500 8 0" className="wv" /></svg>

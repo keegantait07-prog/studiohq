@@ -5,3 +5,4 @@ where every family below is published under the SIL Open Font License 1.1 (https
 
 Yuji Syuku, Shippori Mincho B1, Monoton, Righteous, Grenze Gotisch, Rubik Burned, M PLUS Rounded 1c, DotGothic16, Metal Mania, Nosifer.
 Pirata One, Big Shoulders Display.
+Cinzel Decorative, IM Fell English.

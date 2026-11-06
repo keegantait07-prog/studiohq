@@ -1576,3 +1576,115 @@ select.grp { width: auto; margin-left: 4px; padding: 2px 6px; }
 /* every other world gets its own face on all remaining text too (titles keep the more specific rules above) */
 [data-theme='magma'] { --font: 'Grenze Gotisch', 'Metal Mania', serif; }
 :is([data-theme='koi'], [data-theme='citypop'], [data-theme='magma'], [data-theme='yatai']) :is(body, div, span, p, td, th, li, label, a, b, i, em, strong, small, input, textarea, select, option) { font-family: var(--font); }
+
+/* ---- Gilded Ruin: a golden-tree ruin. Every surface is solid: no transparency, no blur, no glass. ---- */
+@font-face { font-family: 'Cinzel Decorative'; font-weight: 700; font-display: swap; src: url(./assets/fonts/CinzelDecorative-700.woff2) format('woff2'); }
+@font-face { font-family: 'Cinzel Decorative'; font-weight: 900; font-display: swap; src: url(./assets/fonts/CinzelDecorative-900.woff2) format('woff2'); }
+@font-face { font-family: 'IM Fell English'; font-weight: 400; font-style: normal; font-display: swap; src: url(./assets/fonts/IMFellEnglish-400.woff2) format('woff2'); }
+@font-face { font-family: 'IM Fell English'; font-weight: 400; font-style: italic; font-display: swap; src: url(./assets/fonts/IMFellEnglish-400i.woff2) format('woff2'); }
+[data-theme='gilded'] {
+  --font: 'IM Fell English', Georgia, serif; --font-display: 'Cinzel Decorative', 'IM Fell English', serif;
+  --display-case: none; --display-track: .03em; --display-weight: 700; --root-size: 15px;
+  --r-btn: 2px; --r-field: 2px; --r-card: 3px; --r-modal: 4px; --r-nav: 2px;
+  --bg: #0d0b08; --bg-glow: #0d0b08; --panel: #16120d; --panel-hi: #1c1710; --panel-lo: #120f0a;
+  --panel2: #231c12; --well: #0f0c08; --hov: #251d11; --sel: #33270f; --raise: #2a2114;
+  --chip: #2b2214; --track: #4a3a1c; --rowline: #2a2216; --line: #5e4a22;
+  --line-soft: #3a2e17; --line-hi: #c9a24a;
+  --text: #e8dab8; --text-2: #c2b08a; --dim: #8e7c58;
+  --accent: #d4a94c; --accent-hi: #f0cb73; --accent-ink: #1a1306; --accent-text: #e6bd5e; --accent-rgb: 212, 169, 76;
+  --fg-rgb: 232, 218, 184; --shadow-rgb: 0, 0, 0; --scrim: #0b0906; --wf: #6b5628;
+  --idea: #8e7c58; --wip: #e08a3c; --finished: #e8dab8; --sent: #d4a94c; --sold: #f0cb73; --series-1: #d4a94c; --series-2: #b8503a; --color-scheme: dark;
+  --side-bg: #16120d;
+}
+[data-theme='gilded'] { background: linear-gradient(#0d0b08, #0d0b08 0) padding-box, url(./assets/backdrops/gilded.webp) center / cover fixed, var(--bg); }
+[data-theme='gilded'] body, [data-theme='gilded'] #root { background: #0d0b08 url(./assets/backdrops/gilded.webp) center / cover fixed; }
+[data-theme='gilded'] .ambient { display: none; }
+[data-theme='gilded'] * { backdrop-filter: none !important; }
+[data-theme='gilded'] :is(body, div, span, p, td, th, li, label, a, b, i, em, strong, small, input, textarea, select, option, kbd, code, .mono, .tip, .tip span, .ctl-label, .ctl-val, .sub, .help, .dim, .badge, .timerpill) { font-family: 'IM Fell English', Georgia, serif; font-weight: 400; letter-spacing: .01em; }
+[data-theme='gilded'] :is(h1, h2, h3, h4, .nav, .tab, button, .coll, .seg button, .thead, .shead, .shead2, .field label, .brand, .modal h2) { font-family: 'Cinzel Decorative', 'IM Fell English', serif; font-weight: 700; text-transform: none; letter-spacing: .04em; }
+[data-theme='gilded'] :is(.nav, .tab, button, .coll, .seg button) { font-size: .92em; }
+[data-theme='gilded'] :is(.row .t, .player .now .t) { font-family: 'IM Fell English', serif; font-size: 18px; color: #f6ead0; }
+[data-theme='gilded'] :is(.mono, kbd, code, .ctl-val, .clock, .stat b) { font-family: 'Cinzel Decorative', serif; font-weight: 700; color: #e6bd5e; letter-spacing: .05em; }
+[data-theme='gilded'] :is(h2, h3) { color: #e6bd5e; background: linear-gradient(180deg, #fff1c4 0%, #e6bd5e 48%, #9a7324 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 2px 0 #000); }
+[data-theme='gilded'] h2 { font-size: 1.9em; font-weight: 900; }
+[data-theme='gilded'] :is(.thead, .shead, .shead2, .field label) { color: #e6bd5e; font-size: .95em; }
+[data-theme='gilded'] :is(.sub, .help, .dim, .badge) { font-style: italic; color: var(--dim); }
+
+/* carved stone: solid panel, double gold rule, gold corner ornaments */
+[data-theme='gilded'] :is(.panel, .ocard, .scard, .modal, .palette, .side, .detail, .table, .tip, .tcard) { background-color: #16120d; border: 1px solid #8a6d2f; box-shadow: inset 0 0 0 3px #16120d, inset 0 0 0 4px #4d3c1b, 0 12px 30px #000; }
+[data-theme='gilded'] :is(.panel, .ocard, .scard, .modal, .palette) { background-image: linear-gradient(135deg, #d4a94c 0, #d4a94c 6px, transparent 6px), linear-gradient(225deg, #d4a94c 0, #d4a94c 6px, transparent 6px), linear-gradient(45deg, #d4a94c 0, #d4a94c 6px, transparent 6px), linear-gradient(315deg, #d4a94c 0, #d4a94c 6px, transparent 6px); background-size: 12px 12px; background-position: 0 0, 100% 0, 0 100%, 100% 100%; background-repeat: no-repeat; }
+[data-theme='gilded'] .thead { background: #1c1710; border-bottom: 2px solid #8a6d2f; }
+[data-theme='gilded'] .row { border-bottom: 1px solid #2a2216; }
+[data-theme='gilded'] .row:hover { background: #251d11; }
+[data-theme='gilded'] .row.sel { background: #33270f; box-shadow: inset 4px 0 #d4a94c; }
+[data-theme='gilded'] :is(input, textarea, select) { background: #0f0c08; border: 1px solid #5e4a22; color: #f6ead0; box-shadow: inset 0 2px 4px #000; }
+[data-theme='gilded'] :is(input, textarea):focus { border-color: #d4a94c; }
+:where([data-theme='gilded']) button { background: #231c12; border: 1px solid #8a6d2f; color: #e6bd5e; box-shadow: inset 0 0 0 2px #231c12, inset 0 0 0 3px #4d3c1b, 0 2px 0 #000; }
+:where([data-theme='gilded']) button:hover { background: #33270f; border-color: #f0cb73; color: #fff1c4; }
+:where([data-theme='gilded']) button:active { background: #120f0a; transform: translateY(1px); }
+[data-theme='gilded'] button.primary, [data-theme='gilded'] .big-play { background: linear-gradient(#f0cb73, #b78a2e); border: 1px solid #fff1c4; color: #1a1306; box-shadow: inset 0 0 0 2px #d4a94c, 0 2px 0 #000; }
+[data-theme='gilded'] .nav.on { background: #33270f; color: #fff1c4; box-shadow: inset 3px 0 #d4a94c; }
+[data-theme='gilded'] .player { background: #120f0a; border-top: 2px solid #8a6d2f; box-shadow: 0 -2px 0 #000; backdrop-filter: none; }
+[data-theme='gilded'] .dot { border-radius: 1px; transform: rotate(45deg) scale(.8); }
+[data-theme='gilded'] :is(.dash-head h2, .sales-head h2, .crm-head h2)::after { content: ''; display: block; width: 140px; height: 8px; margin-top: 4px; background: linear-gradient(90deg, #d4a94c, #d4a94c) 0 3px / 58px 2px no-repeat, linear-gradient(#d4a94c, #d4a94c) 100% 3px / 58px 2px no-repeat; }
+
+/* the engraved wordmark: solid image, brightens a little with the level */
+[data-theme='gilded'] .brand { height: 78px; display: flex; align-items: center; justify-content: center; padding: 0; margin: 0 -6px 8px; }
+[data-theme='gilded'] .brand .bm { display: none; }
+[data-theme='gilded'] .brand span { display: block; width: 100%; height: 100%; font-size: 0; color: transparent; background: url(./assets/marks/gilded.webp) center / contain no-repeat; -webkit-text-fill-color: transparent; filter: brightness(calc(1.05 + var(--lvl, 0) * .35)) drop-shadow(0 2px 0 #000); }
+[data-theme='gilded'] .bm-gilded { display: block; } [data-theme='gilded'] .bm-gilded .gd { fill: #d4a94c; } [data-theme='gilded'] .bm-gilded .gi { fill: #16120d; }
+.tmini[data-theme='gilded'] { background: #0d0b08 url(./assets/backdrops/gilded.webp) center / cover; }
+
+/* ---- Thorn hardware: scratched black surface, brushed metal plates with screws, red-lit buttons, knurled knobs (all drawn in CSS, no image model) ---- */
+[data-theme='thorn'] {
+  --screw: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'><defs><radialGradient id='g' cx='.4' cy='.32' r='.75'><stop offset='0' stop-color='%239a9a9c'/><stop offset='.5' stop-color='%234a4a4c'/><stop offset='1' stop-color='%23161617'/></radialGradient></defs><circle cx='8' cy='8.6' r='6.4' fill='%23000' opacity='.6'/><circle cx='8' cy='8' r='6.2' fill='url(%23g)' stroke='%230c0c0c' stroke-width='.8'/><path d='M4.600 4.600L11.400 11.400M11.400 4.600L4.600 11.400' stroke='%230a0a0a' stroke-width='1.500' stroke-linecap='round'/><path d='M3.600 6.200A5 5 0 0 1 8 3' stroke='%23d8d8da' stroke-width='.7' fill='none' opacity='.55'/></svg>");
+  --scratch: url(./assets/textures/thorn-scratch.webp);
+  --brushed: url(./assets/textures/thorn-brushed.webp);
+  --plate: linear-gradient(172deg, #3b3b3e 0%, #232325 18%, #171718 55%, #101011 100%);
+  --chrome-round: conic-gradient(from 25deg, #d9d9dc, #6a6a6d, #c4c4c7, #3d3d40, #d9d9dc, #6a6a6d, #c4c4c7, #3d3d40, #d9d9dc);
+  --chrome-flat: linear-gradient(180deg, #b8b8bb, #6d6d70 48%, #3a3a3d 52%, #8d8d90);
+  --panel: #131314; --panel-hi: #1a1a1c; --panel-lo: #0e0e0f; --panel2: #1d1d1f; --well: #080808; --raise: #232325;
+}
+/* the surface everything sits on: matte black with scratches and one red light from the top left */
+[data-theme='thorn'], [data-theme='thorn'] body, [data-theme='thorn'] #root { background: var(--scratch) 0 0 / 768px, radial-gradient(900px 600px at 6% -8%, #3a0d0c 0%, #120a0a 45%, #080808 100%); background-attachment: fixed, fixed; }
+[data-theme='thorn'] body, [data-theme='thorn'] #root { background: transparent; }
+[data-theme='thorn'] #root::after { display: none; }
+[data-theme='thorn'] .ambient { display: none; }
+
+/* plates: brushed black metal, bevelled edge, four screws */
+[data-theme='thorn'] :is(.panel, .ocard, .scard, .modal, .palette, .tcard) { border: 1px solid #060606; border-radius: 10px; background:
+    var(--screw) left 9px top 9px / 16px 16px no-repeat, var(--screw) right 9px top 9px / 16px 16px no-repeat,
+    var(--screw) left 9px bottom 9px / 16px 16px no-repeat, var(--screw) right 9px bottom 9px / 16px 16px no-repeat,
+    var(--scratch) 0 0 / 768px, var(--brushed) 0 0 / 768px, var(--plate);
+  box-shadow: inset 0 1px 0 #6a6a6e, inset 1px 0 0 #2e2e30, inset 0 -2px 0 #000, inset 0 0 0 3px #0a0a0b, inset 0 0 0 4px #2a2a2c, 0 10px 22px #000, 0 2px 0 #000; backdrop-filter: none; }
+[data-theme='thorn'] :is(.panel, .ocard, .scard) { padding-left: max(var(--pad, 0px), 0px); }
+[data-theme='thorn'] :is(.side, .detail, .table) { border: 1px solid #060606; background: var(--scratch) 0 0 / 768px, var(--brushed) 0 0 / 768px, var(--plate); box-shadow: inset 0 1px 0 #5a5a5e, inset 0 -2px 0 #000, 2px 0 0 #000, 0 0 30px #000; backdrop-filter: none; }
+[data-theme='thorn'] .thead { background: linear-gradient(#262628, #151516); border-bottom: 2px solid #000; box-shadow: 0 1px 0 #3a3a3d; color: #ff8d7c; }
+[data-theme='thorn'] .row.sel { background: linear-gradient(90deg, #4a100d, #1b0b0a 70%); box-shadow: inset 4px 0 #e0554a, inset 0 1px 0 #6a1d17; }
+[data-theme='thorn'] :is(input, textarea, select) { background: linear-gradient(#050505, #101010); border: 1px solid #000; box-shadow: inset 0 3px 6px #000, 0 1px 0 #3a3a3d; color: #f1d5cb; }
+[data-theme='thorn'] :is(input, textarea):focus { box-shadow: inset 0 3px 6px #000, 0 0 0 1px #e0554a, 0 0 14px #e0554a77; }
+
+/* buttons: cast and chamfered metal; the primary is the red-lit cap */
+:where([data-theme='thorn']) button { background: var(--scratch) 0 0 / 768px, linear-gradient(#444447, #232325 48%, #121213); border: 1px solid #050505; border-radius: 5px; color: #e9d2c9;
+  box-shadow: inset 0 1px 0 #8a8a8e, inset 0 -2px 3px #000, inset 1px 0 0 #3c3c3f, 0 3px 0 #000, 0 6px 10px #000; text-shadow: 0 1px 0 #000; }
+:where([data-theme='thorn']) button:hover { background: var(--scratch) 0 0 / 768px, linear-gradient(#55555a, #2c2c2f 48%, #161617); border-color: #5a1510; color: #fff; }
+:where([data-theme='thorn']) button:active { transform: translateY(3px); box-shadow: inset 0 3px 7px #000, 0 0 0 #000; background: linear-gradient(#141415, #202022); }
+[data-theme='thorn'] button.primary, [data-theme='thorn'] .big-play { background: var(--scratch) 0 0 / 768px, radial-gradient(ellipse at 50% 22%, #ff7a68 0%, #d8392d 38%, #8a140d 75%, #4a0805 100%); border: 1px solid #1a0302; color: #fff3ee; text-shadow: 0 1px 2px #5a0a05;
+  box-shadow: inset 0 1px 0 #ffb3a6, inset 0 0 0 2px #2a0604, inset 0 -3px 5px #4a0805, 0 3px 0 #000, 0 6px 10px #000, 0 0 22px #e0372b88; }
+[data-theme='thorn'] button.primary:active, [data-theme='thorn'] .big-play:active { transform: translateY(3px); box-shadow: inset 0 3px 8px #2a0402, inset 0 0 0 2px #2a0604, 0 0 28px #e0372bcc; }
+
+/* the player bar and nav */
+[data-theme='thorn'] .player { background: var(--scratch) 0 0 / 768px, var(--brushed) 0 0 / 768px, linear-gradient(#202022, #0e0e0f); border-top: 2px solid #000; box-shadow: inset 0 1px 0 #5a5a5e, 0 -6px 18px #000; }
+[data-theme='thorn'] .nav.on { background: linear-gradient(90deg, #4a100d, #1b0b0a); box-shadow: inset 3px 0 #e0554a, inset 0 1px 0 #6a1d17; }
+
+/* Stage controls: knurled aluminium knob with a red lamp, tick ring, metal fader caps, red-lamp switches */
+[data-theme='thorn'] .dial-cap { background: repeating-conic-gradient(from 0deg, #2a2a2c 0 2.5deg, #9a9a9e 2.5deg 4deg, #19191a 4deg 6.5deg); box-shadow: 0 10px 18px #000, 0 0 0 2px #000, inset 0 0 0 1px #6a6a6e; }
+[data-theme='thorn'] .dial-cap::before { inset: 11%; background: radial-gradient(circle at 36% 28%, #ffffff55, transparent 50%), conic-gradient(from 30deg, #dedee1, #86868a, #cfcfd2, #66666a, #dedee1); background-blend-mode: normal; box-shadow: inset 0 0 0 1px #000, inset 0 2px 3px #fff9, 0 2px 4px #000c; }
+[data-theme='thorn'] .dial-notch::after { top: 15%; width: 8px; height: 8px; margin-left: -4px; border-radius: 50%; background: #ff3b2e; box-shadow: 0 0 8px #ff3b2e, 0 0 2px #fff6; }
+[data-theme='thorn'] .led-seg { stroke: #55555a; stroke-width: 1.6; stroke-linecap: butt; }
+[data-theme='thorn'] .led-seg.on { stroke: #ff4a3c; filter: drop-shadow(0 0 3px #ff2a1c); }
+[data-theme='thorn'] .backlight { background: radial-gradient(circle, #e0372b55, transparent 64%); }
+[data-theme='thorn'] .vf-cap { background: repeating-linear-gradient(0deg, #8c8c90 0 2px, #2a2a2c 2px 4px); border: 1px solid #000; border-radius: 3px; box-shadow: 0 5px 8px #000, inset 0 1px 0 #d0d0d4; }
+[data-theme='thorn'] .vf-cap::after { background: #ff3b2e; box-shadow: 0 0 6px #ff3b2e; height: 3px; }
+[data-theme='thorn'] .tgl-track { background: linear-gradient(#030303, #111); box-shadow: inset 0 2px 4px #000, 0 1px 0 #3a3a3d; border-radius: 4px; }
+[data-theme='thorn'] .tgl-thumb { border-radius: 3px; background: repeating-linear-gradient(90deg, #a0a0a4 0 2px, #4a4a4d 2px 4px); box-shadow: 0 3px 5px #000, inset 0 1px 0 #e4e4e8; }

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, shell, protocol, Menu, Notification, nativeImage } from 'electron'
+import { app, BrowserWindow, shell, protocol, Menu, Notification } from 'electron'
 import { writeFileSync, unlinkSync } from 'fs'
 import { join } from 'path'
 import { createReadStream, statSync, mkdirSync } from 'fs'
@@ -12,39 +12,29 @@ import { Catalog } from './catalog'
 import { Sales } from './sales'
 import { Content } from './content'
 import { Sounds } from './sounds'
-import { exportKit } from './kitmaker'
 import { ProjectIndex } from './flpindex'
 import { Feedback } from './feedback'
 import { Sessions } from './sessions'
 import { wavToMp3, loopToMp3 } from './bounce'
 import { startInbox } from './inbox'
-import { writeExports } from './exporter'
-import { cleanupList, trashProjects } from './cleanup'
-import { listPlugins, scanPlugins } from './plugins'
-import { findPluginFiles } from './plugin-files'
-import { removePluginsMany, type RemoveItem } from './plugin-remove'
-import { getFinding, listFindings, runHealthChecks } from './plugin-health'
-import { applyFix, applyFixes, listDisabled, previewFix, realFixDeps, restoreDisabled } from './plugin-fix'
-import { VideoExporter, coverData, pickCover, vizFeatures } from './video'
+import { VideoExporter } from './video'
 import { YtAuth } from './ytauth'
 import { YtResearch } from './ytresearch'
 import { ImagePool } from './imagepool'
 import { YtPublisher } from './ytpublisher'
-import { setSecret } from './ytkv'
 import { Threads } from './assistant/threads'
 import { AssistantService } from './assistant/service'
 import { buildTools } from './assistant/tools'
-import type { PublishDraft, YtDraftEdits, YtPublishEdits } from '../shared/ytTypes'
-import type { Post, VideoOptions } from '../shared/types'
-import { splitSheetHtml, writePdf } from './splitsheet'
+import type { IpcCtx } from './ipc/context'
+import { registerLibraryIpc } from './ipc/library'
+import { registerPluginsIpc } from './ipc/plugins'
+import { registerFeedbackIpc } from './ipc/feedback'
+import { registerContentIpc } from './ipc/content'
+import { registerBusinessIpc } from './ipc/business'
+import { registerAppIpc } from './ipc/app'
 import { installFileLog } from './filelog'
-import { isAppUrl, isExternalUrl, isKnownPath } from './safe-path'
-import type { LogSaleInput, License, Sale, SplitRow } from '../shared/types'
-import type { SitePatch } from '../shared/types'
-import type { HealthFinding, RemoveManyResult, RemoveResult } from '../shared/types'
-import type { BeatPatch, Settings, TagKind, LogPitchInput, PackRequest, Template, Contact, PitchStatus, VaultKind } from '../shared/types'
+import { isAppUrl, isExternalUrl } from './safe-path'
 
-type FolderKind = 'watchFolders' | 'loopFolders' | 'projectFolders' | 'soundFolders'
 
 app.setName('Studio HQ')
 app.setPath('userData', join(app.getPath('appData'), 'Studio HQ'))
@@ -193,308 +183,33 @@ function checkFollowups(): void {
 }
 
 function registerIpc(): void {
-  const h = ipcMain.handle.bind(ipcMain)
-  h('beats:list', () => store.listBeats())
-  h('loops:list', () => store.listLoops())
-  h('beats:get', (_, id: number) => store.getBeat(id))
-  h('beats:update', (_, id: number, patch: BeatPatch) => store.updateBeat(id, patch))
-  h('beats:setTags', (_, id: number, tags: Record<TagKind, string[]>) => store.setTags(id, tags))
-  h('beats:allTags', (_, kind?: VaultKind) => store.allTags(kind === 'loop' ? 'loop' : 'beat'))
-  h('beats:reanalyze', (_, id: number) => store.reanalyze(id))
-  h('beats:reveal', (_, id: number) => { const p = store.pathOf(id); if (p) shell.showItemInFolder(p) })
-  h('beats:openProject', async (_, id: number) => {
-    const p = store.getBeat(id)?.projectPath
-    if (p) await shell.openPath(p)
-  })
-  h('beats:linkProject', async (_, id: number) => {
-    const r = await dialog.showOpenDialog(win!, {
-      title: 'Link FL Studio project', properties: ['openFile'], filters: [{ name: 'FL Studio project', extensions: ['flp'] }],
-      defaultPath: store.getSettings().projectFolders[0]
-    })
-    if (!r.canceled && r.filePaths[0]) store.updateBeat(id, { projectPath: r.filePaths[0] })
-  })
-  h('settings:get', () => store.getSettings())
-  h('settings:addFolder', async (_, kind: FolderKind) => {
-    const r = await dialog.showOpenDialog(win!, { properties: ['openDirectory', 'createDirectory'] })
-    if (r.canceled || !r.filePaths[0]) return
-    const s = store.getSettings()
-    if (!s[kind].includes(r.filePaths[0])) s[kind].push(r.filePaths[0])
-    store.saveSettings(s)
-    writeBridgeConfig()
-    await restartWatchers()
-  })
-  h('settings:removeFolder', async (_, kind: FolderKind, path: string) => {
-    const s = store.getSettings()
-    s[kind] = s[kind].filter((f) => f !== path)
-    store.saveSettings(s)
-    writeBridgeConfig()
-    await restartWatchers()
-  })
-  h('settings:set', async (_, patch: Partial<Settings>) => {
-    store.saveSettings({ ...store.getSettings(), ...patch })
-    if ('includeIdeas' in patch || 'ownHandles' in patch) await restartWatchers()
-    else sendCrm()
-  })
-
-  // ---- Sound Library ----
-  h('sounds:list', () => sounds.list(projectIndex.list()))
-  h('sounds:scan', () => scanLibrary())
-  h('kits:defaults', () => ({ outDir: join(app.getPath('home'), 'Desktop', '!DRUM KITS', '! MY KITS') }))
-  h('kits:pickFolder', async () => {
-    const r = await dialog.showOpenDialog(win!, { title: 'Where should the kit be saved?', properties: ['openDirectory', 'createDirectory'], buttonLabel: 'Save kits here' })
-    return r.canceled ? null : r.filePaths[0]
-  })
-  h('kits:export', async (_, req: { name: string; tag: string; outDir: string; files: { id: number; folder: string; name: string }[] }) => {
-    const files = req.files.map((f) => ({ from: sounds.pathOf(f.id), folder: f.folder, name: f.name })).filter((f): f is { from: string; folder: string; name: string } => !!f.from)
-    const r = await exportKit(files, req.outDir, req.name, join(app.getPath('userData'), 'kit-map.json'))
-    shell.showItemInFolder(r.dir)
-    scanLibrary().catch((e) => console.error('library scan failed', e))
-    return r
-  })
-  h('projects:reindex', () => reindexProjects())
-  h('cleanup:list', () => cleanupList(store.db, store.getSettings().projectFolders))
-  h('cleanup:trash', async (_, ids: number[], withBackups: boolean) => {
-    const r = await trashProjects(store.db, store.getSettings().projectFolders, (path) => (store.db.prepare('SELECT m.path FROM flp_midis m JOIN flp_projects p ON p.id=m.project_id WHERE p.path=?').all(path) as { path: string }[]).map((m) => m.path), ids.filter((n) => Number.isInteger(n)), !!withBackups)
-    store.bumpAll()
-    win?.webContents.send('sounds:changed')
-    return r
-  })
-  // ---- Plugin manager ----
-  const pluginHome = () => app.getPath('home')
-  const pluginExtraRoots = () => [join(pluginHome(), 'Documents'), ...store.getSettings().soundFolders]
-  h('plugins:list', () => listPlugins(store.db))
-  h('plugins:scan', () => scanPlugins(store.db, pluginHome()))
-  h('plugins:files', (_, id: number) => {
-    const p = listPlugins(store.db).find((x) => x.id === id)
-    return p ? findPluginFiles(p, pluginHome(), store.getSettings().soundFolders) : []
-  })
-  // The window is not trusted to name files: only paths the finder itself proposes for that plugin can be removed.
-  const removeMany = async (items: { id: number; paths: string[] }[]): Promise<RemoveManyResult> => {
-    const plan: RemoveItem[] = []
-    const rejected: string[] = []
-    const unknown: string[] = []
-    for (const it of items) {
-      if (!it || !Number.isInteger(it.id)) continue
-      const p = listPlugins(store.db).find((x) => x.id === it.id)
-      if (!p || !Array.isArray(it.paths)) { unknown.push(`Unknown plugin ${it.id}`); continue }
-      const proposed = new Set((await findPluginFiles(p, pluginHome(), store.getSettings().soundFolders)).map((f) => f.path))
-      const asked = it.paths.filter((x): x is string => typeof x === 'string')
-      plan.push({ plugin: p, paths: asked.filter((x) => proposed.has(x)) })
-      rejected.push(...asked.filter((x) => !proposed.has(x)))
-    }
-    // everything that needs administrator rights is moved in one batch: one password prompt, however many plugins
-    const r = await removePluginsMany(store.db, plan, pluginHome(), pluginExtraRoots())
-    r.skipped.push(...rejected); r.failed.push(...unknown)
-    await scanPlugins(store.db, pluginHome())
-    return r
+  const ctx: IpcCtx = {
+    get store() { return store },
+    get watcher() { return watcher },
+    get loopWatcher() { return loopWatcher },
+    get crm() { return crm },
+    get packs() { return packs },
+    get catalog() { return catalog },
+    get sales() { return sales },
+    get content() { return content },
+    get sounds() { return sounds },
+    get projectIndex() { return projectIndex },
+    get feedback() { return feedback },
+    get sessions() { return sessions },
+    get videos() { return videos },
+    get ytAuth() { return ytAuth },
+    get yt() { return yt },
+    get threads() { return threads },
+    get assistant() { return assistant },
+    get win() { return win },
+    restartWatchers, sendCrm, reindexProjects, scanLibrary, sendFeedback, syncFeedback, backupNow, writeBridgeConfig
   }
-  h('plugins:remove', async (_, id: number, paths: string[]): Promise<RemoveResult> => {
-    const r = await removeMany([{ id, paths }])
-    return { removed: r.removed, bytes: r.bytes, skipped: r.skipped, failed: r.failed, ...(r.declined ? { declined: true } : {}) }
-  })
-  h('plugins:removeMany', (_, items: { id: number; paths: string[] }[]) => removeMany(Array.isArray(items) ? items : []))
-  h('plugins:health', () => runHealthChecks(store.db, pluginHome()))
-  h('plugins:findings', () => listFindings(store.db))
-  h('plugins:fixPreview', (_, id: number) => { const f = getFinding(store.db, id); return f ? previewFix(f) : 'That finding is gone. Run the health check again.' })
-  h('plugins:fixApply', async (_, id: number) => {
-    const f = getFinding(store.db, id)
-    if (!f) return { error: 'That finding is gone. Run the health check again.' }
-    try {
-      await applyFix(store.db, realFixDeps(), f, pluginHome())
-      await scanPlugins(store.db, pluginHome())
-      await runHealthChecks(store.db, pluginHome())
-      return {}
-    } catch (e) { return { error: e instanceof Error ? e.message : String(e) } }
-  })
-  h('plugins:fixApplyMany', async (_, ids: number[]) => {
-    const fs = (Array.isArray(ids) ? ids : []).filter((n) => Number.isInteger(n)).map((n) => getFinding(store.db, n)).filter((f): f is HealthFinding => !!f)
-    const r = await applyFixes(store.db, realFixDeps(), fs, pluginHome())
-    await scanPlugins(store.db, pluginHome())
-    await runHealthChecks(store.db, pluginHome())
-    return r
-  })
-  h('plugins:disabled', () => listDisabled(store.db))
-  h('plugins:restore', async (_, ids: number[]) => {
-    const r = await restoreDisabled(store.db, realFixDeps(), (Array.isArray(ids) ? ids : []).filter((n) => Number.isInteger(n)))
-    await scanPlugins(store.db, pluginHome())
-    return r
-  })
-  // Reveal only plugin files the scan already found (or the Disabled Plugins folder), never an arbitrary renderer-supplied path.
-  h('plugins:reveal', (_, path: string) => {
-    if (typeof path !== 'string') return
-    const known = store.db.prepare('SELECT 1 FROM plugin_bundles WHERE path=? UNION SELECT 1 FROM plugin_files WHERE path=? UNION SELECT 1 FROM plugin_findings WHERE path=? LIMIT 1').get(path, path, path)
-    if (known || isKnownPath(path, [join(pluginHome(), 'Library/Application Support/Studio HQ')])) shell.showItemInFolder(path)
-  })
-  h('projects:open', (_, id: number) => { const p = (store.db.prepare('SELECT path FROM flp_projects WHERE id=?').get(id) as { path: string } | undefined)?.path; if (p) return shell.openPath(p) })
-  h('projects:reveal', (_, id: number) => { const p = (store.db.prepare('SELECT path FROM flp_projects WHERE id=?').get(id) as { path: string } | undefined)?.path; if (p) shell.showItemInFolder(p) })
-  h('sounds:tag', (_, ids: number[], add: string[], remove: string[]) => sounds.tag(ids, add, remove))
-  h('sounds:fav', (_, ids: number[], fav: boolean) => sounds.fav(ids, fav))
-  h('sounds:dupes', () => sounds.duplicates())
-  h('sounds:trash', (_, ids: number[]) => sounds.trash(ids))
-  h('sounds:reveal', (_, id: number) => { const p = sounds.pathOf(id); if (p) shell.showItemInFolder(p) })
-  ipcMain.on('app:startDrag', (e, kind: 'sound' | 'beat', ids: number[]) => {
-    const files = ids.slice(0, 60).map((id) => (kind === 'sound' ? sounds.pathOf(id) : store.pathOf(id))).filter((p): p is string => !!p)
-    if (!files.length) return
-    const px = Buffer.alloc(32 * 32 * 4)
-    for (let i = 0; i < 32 * 32; i++) { px[i * 4] = 0x3d; px[i * 4 + 1] = 0x6b; px[i * 4 + 2] = 0xff; px[i * 4 + 3] = 0xff } // BGRA accent square
-    e.sender.startDrag({ file: files[0], files, icon: nativeImage.createFromBitmap(px, { width: 32, height: 32 }) })
-  })
-
-  // ---- Feedback links ----
-  h('feedback:all', () => feedback.all())
-  h('feedback:build', async (_, r: { title: string; intro: string; beatIds: number[] }) => { const res = await packs.build({ contactId: null, title: r.title, intro: r.intro, beatIds: r.beatIds, deploy: !!packs.token_() }, { kind: 'feedback' }); sendFeedback(); return res })
-  h('feedback:sync', async () => syncFeedback(false))
-  h('feedback:update', (_, id: string, p: { seen?: boolean; resolved?: boolean }) => { feedback.update(id, p); sendFeedback() })
-  h('feedback:seenAll', () => { feedback.markAllSeen(); sendFeedback() })
-
-  // ---- Studio sessions ----
-  h('sessions:all', () => sessions.all())
-  h('sessions:start', () => { sessions.start(false); sendFeedback() })
-  h('sessions:stop', () => { sessions.stop(); sendFeedback() })
-
-  // ---- Content Machine ----
-  h('content:all', () => content.all())
-  h('content:savePost', (_, p: Post) => content.savePost(p))
-  h('content:deletePost', (_, id: number) => content.deletePost(id))
-  h('content:export', (_, o: VideoOptions) => videos.run(o, (p) => win?.webContents.send('video:progress', p)))
-  h('content:cancel', () => videos.cancel())
-  h('content:saveCover', (_, id: number, png: string) => {
-    const m = /^data:image\/png;base64,(.+)$/.exec(png)
-    if (!m) return false
-    const dir = join(app.getPath('userData'), 'covers')
-    mkdirSync(dir, { recursive: true })
-    const file = join(dir, `${id}-${Date.now()}.png`)
-    writeFileSync(file, Buffer.from(m[1], 'base64'))
-    store.db.prepare('UPDATE beats SET cover_path=? WHERE id=?').run(file, id)
-    store.bumpAll()
-    return true
-  })
-  h('content:coverData', (_, id: number) => coverData(store.db, id))
-  h('content:vizFeatures', (_, id: number, start: number, length: number) => vizFeatures(store.db, id, start, length))
-  h('content:chooseCover', async (_, id: number) => { const ok = await pickCover(store.db, win!, id); if (ok) store.bumpAll(); return ok })
-  h('content:clearCover', (_, id: number) => { store.db.prepare('UPDATE beats SET cover_path=NULL WHERE id=?').run(id); store.bumpAll() })
-  // ---- Finished videos ----
-  h('videos:list', () => content.videoFiles(store.getSettings().exportDir))
-  h('videos:open', async (_, id: number) => { const p = content.videoPath(id); if (p) await shell.openPath(p) })
-  h('videos:reveal', (_, id: number) => { const p = content.videoPath(id); if (p) shell.showItemInFolder(p) })
-  h('videos:trash', async (_, id: number) => {
-    const p = content.videoPath(id)
-    if (p) { try { await shell.trashItem(p) } catch { /* already gone */ } }
-    content.forgetVideo(id)
-  })
-
-  // ---- YouTube publisher ----
-  h('yt:status', () => yt.status())
-  h('yt:suggestArtists', (_, id: number) => yt.suggestArtists(id))
-  h('yt:prepare', (_, id: number, artists: string[]) => yt.prepare(id, artists, (label, pct) => win?.webContents.send('yt:progress', { label, pct })))
-  h('yt:publish', (_, draft: PublishDraft, edits: YtPublishEdits) => yt.publish(draft, edits, (label, pct) => win?.webContents.send('yt:progress', { label, pct })))
-  h('yt:loadDraft', (_, id: number) => yt.loadDraft(id))
-  h('yt:saveEdits', (_, id: number, edits: YtDraftEdits) => yt.saveEdits(id, edits))
-  h('yt:signIn', () => ytAuth.signIn())
-  h('yt:signOut', () => ytAuth.signOut())
-  h('yt:setSecret', (_, kind: 'google' | 'anthropic', value: string | null) => { if (kind === 'google') ytAuth.setClientSecret(value); else setSecret(store.db, 'anthropic_key', value) })
-  h('yt:chooseImageFolder', async () => {
-    const r = await dialog.showOpenDialog(win!, { title: 'Folder of images for YouTube videos', properties: ['openDirectory'] })
-    if (!r.canceled && r.filePaths[0]) store.saveSettings({ ...store.getSettings(), ytImageFolder: r.filePaths[0] })
-  })
-  h('yt:openStudio', (_, url: string) => { if (url.startsWith('https://studio.youtube.com/')) return shell.openExternal(url) })
-  // Reveal only files the app produced or tracks: exported videos, or anything inside the export, image or watched folders.
-  h('app:revealPath', (_, p: string) => {
-    if (typeof p !== 'string') return
-    const s = store.getSettings()
-    const roots = [s.exportDir, s.ytImageFolder, app.getPath('userData'), ...s.watchFolders, ...s.loopFolders, ...s.projectFolders, ...s.soundFolders].filter(Boolean)
-    const isVideo = !!store.db.prepare('SELECT 1 FROM videos WHERE path=?').get(p)
-    if (isVideo || isKnownPath(p, roots)) shell.showItemInFolder(p)
-  })
-  h('settings:chooseExportDir', async () => {
-    const r = await dialog.showOpenDialog(win!, { title: 'Where should videos be saved?', properties: ['openDirectory', 'createDirectory'] })
-    if (r.canceled || !r.filePaths[0]) return
-    store.saveSettings({ ...store.getSettings(), exportDir: r.filePaths[0] })
-    sendCrm()
-  })
-
-  // ---- Sales & Collabs ----
-  const sale = <A extends unknown[], R>(fn: (...a: A) => R) => (_: unknown, ...a: A): R => { const r = fn(...a); store.bumpAll(); sendCrm(); return r }
-  h('sales:all', () => sales.all())
-  h('sales:log', sale((i: LogSaleInput) => sales.log(i)))
-  h('sales:update', sale((id: number, p: Partial<Sale>) => sales.update(id, p)))
-  h('sales:delete', sale((id: number) => sales.delete(id)))
-  h('sales:saveLicense', (_, l: Partial<License> & { name: string; exclusive: boolean }) => sales.saveLicense(l))
-  h('sales:deleteLicense', (_, id: number) => sales.deleteLicense(id))
-  h('splits:get', (_, groupId: number) => ({ rows: sales.getSplits(groupId), known: sales.knownCollaborators() }))
-  h('splits:save', (_, groupId: number, rows: SplitRow[]) => sales.saveSplits(groupId, rows))
-  h('splits:pdf', async (_, groupId: number) => {
-    const rows = sales.getSplits(groupId)
-    const g = sales.all().groups.find((x) => x.groupId === groupId)
-    if (!g) throw new Error('Beat not found.')
-    if (rows.length < 2) throw new Error('Add at least two people to create a split sheet.')
-    if (Math.abs(rows.reduce((a, r) => a + r.pubPct, 0) - 100) > 0.01 || Math.abs(rows.reduce((a, r) => a + r.masterPct, 0) - 100) > 0.01) throw new Error('Publishing and master splits must each total 100% before you can create the sheet.')
-    const beat = store.getBeat(g.beatId)
-    const safe = g.title.replace(/[\\/:*?"<>|]/g, '').trim() || 'Beat'
-    let path = process.env.SHQ_TEST_SAVE_PATH ?? ''
-    if (!path) {
-      const r = await dialog.showSaveDialog(win!, { title: 'Save split sheet', defaultPath: join(app.getPath('documents'), `Split Sheet - ${safe}.pdf`), filters: [{ name: 'PDF', extensions: ['pdf'] }] })
-      if (r.canceled || !r.filePath) return null
-      path = r.filePath
-    }
-    await writePdf(splitSheetHtml({ title: g.title, bpm: beat?.bpm ?? null, key: beat?.key ?? null, producer: store.getSettings().producerName, rows, date: new Date() }), path)
-    sales.markSheet(groupId)
-    sendCrm()
-    if (!process.env.SHQ_TEST_SAVE_PATH) shell.showItemInFolder(path)
-    return path
-  })
-  h('sales:csv', async () => {
-    let path = process.env.SHQ_TEST_SAVE_PATH ?? ''
-    if (!path) {
-      const r = await dialog.showSaveDialog(win!, { title: 'Export sales', defaultPath: join(app.getPath('documents'), 'Studio HQ sales.csv'), filters: [{ name: 'CSV', extensions: ['csv'] }] })
-      if (r.canceled || !r.filePath) return null
-      path = r.filePath
-    }
-    writeFileSync(path, sales.csv())
-    return path
-  })
-
-  // ---- Pitch CRM ----
-  const mut = <A extends unknown[], R>(fn: (...a: A) => R) => (_: unknown, ...a: A): R => { const r = fn(...a); sendCrm(); return r }
-  h('crm:all', () => crm.all())
-  h('crm:saveContact', mut((c: Partial<Contact> & { name: string }) => crm.saveContact(c)))
-  h('crm:deleteContact', mut((id: number) => crm.deleteContact(id)))
-  h('crm:logPitch', mut((i: LogPitchInput) => crm.logPitch(i)))
-  h('crm:updatePitch', mut((id: number, p: { status?: PitchStatus; responseNote?: string; snoozeDays?: number }) => crm.updatePitch(id, p)))
-  h('crm:logFollowup', mut((id: number) => crm.logFollowup(id)))
-  h('crm:setBeatResponse', mut((pid: number, bid: number, r: '' | 'liked' | 'passed') => crm.setPitchBeatResponse(pid, bid, r)))
-  h('crm:deletePitch', mut((id: number) => crm.deletePitch(id)))
-  h('crm:saveTemplate', mut((t: Template) => crm.saveTemplate(t)))
-  h('crm:deleteTemplate', mut((id: number) => crm.deleteTemplate(id)))
-  h('packs:build', async (_, req: PackRequest) => packs.build(req))
-  h('packs:openLocal', (_, id: number) => { const p = packs.localIndex(id); if (p) return shell.openPath(p) })
-  h('netlify:status', () => packs.status())
-  // ---- public beat site ----
-  const step = (s: string) => win?.webContents.send('site:progress', s)
-  h('site:status', () => catalog.status())
-  h('site:add', (_, id: number) => catalog.add(id, step))
-  h('site:update', (_, id: number, p: SitePatch) => catalog.update(id, p))
-  h('site:remove', (_, id: number) => catalog.remove(id, step))
-  h('site:publish', () => catalog.publish(step))
-  h('netlify:setToken', (_, t: string | null) => packs.setToken(t))
-  h('app:openExternal', (_, url: string) => { if (/^(https?|mailto):/i.test(url)) return shell.openExternal(url) })
-  h('app:backup', backupNow)
-  h('app:export', async () => {
-    const r = await dialog.showOpenDialog(win!, { title: 'Export to folder', properties: ['openDirectory', 'createDirectory'], buttonLabel: 'Export here' })
-    if (r.canceled || !r.filePaths[0]) return null
-    const files = writeExports(r.filePaths[0], store.listBeats(), sales.all().sales)
-    shell.showItemInFolder(files[0])
-    return r.filePaths[0]
-  })
-  h('app:dataPath', () => app.getPath('userData'))
-
-  // ---- Assistant ----
-  h('assistant:threads', () => threads.list())
-  h('assistant:thread', (_, id: number) => threads.get(id))
-  h('assistant:new', () => threads.create())
-  h('assistant:send', (_, id: number, text: string) => assistant.send(id, String(text)))
-  h('assistant:stop', (_, id: number) => assistant.stop(id))
-  h('assistant:approve', (_, approvalId: string, approved: boolean) => assistant.approve(String(approvalId), approved === true))
+  registerLibraryIpc(ctx)
+  registerPluginsIpc(ctx)
+  registerFeedbackIpc(ctx)
+  registerContentIpc(ctx)
+  registerBusinessIpc(ctx)
+  registerAppIpc(ctx)
 }
 
 app.whenReady().then(async () => {

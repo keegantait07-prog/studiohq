@@ -9,6 +9,7 @@ import { keysCompatible, bpmCompatible } from '@shared/key'
 import { usePlayer, usePlayerTime, type PlayerClock } from './player'
 import { Thumb, Waveform } from './Waveform'
 import { useLevelDriver } from './motion'
+import { Ambient } from './Ambient'
 import { artUrl } from './genart'
 const Stage = lazy(() => import('./Stage').then((m) => ({ default: m.Stage })))
 const SonicMap = lazy(() => import('./SonicMap').then((m) => ({ default: m.SonicMap })))
@@ -420,6 +421,7 @@ export function App() {
   return (
     <div className="app">
       <Defs />
+      <Ambient />
       <div className="titlebar" />
       <nav className="side">
         <span className="nav-tick" ref={tickRef} aria-hidden />

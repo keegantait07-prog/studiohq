@@ -43,6 +43,9 @@ export function Defs() {
 export function BrandMark() {
   return (
     <span className="bm" aria-hidden>
+      <svg className="bm-koi" viewBox="0 0 22 22"><path d="M11 3c2.2 3.2 2.2 7.2 0 11.5-2.2-4.300-2.200-8.300 0-11.500z" className="pt" /><path d="M10.500 14.500C6.500 14 3.500 11 2.500 7.500c3.200.1 6.200 2.200 8 7z" className="pt" /><path d="M11.500 14.500c4-.5 7-3.500 8-7-3.200.1-6.200 2.200-8 7z" className="pt" /><path d="M3 18.500c2.500-1.500 5-1.500 8 0s5.500 1.500 8 0" className="wv" /></svg>
+      <svg className="bm-citypop" viewBox="0 0 22 22"><circle cx="11" cy="11" r="8.500" className="sun" /><path d="M2 13.500h18M3 16.500h16M5 19.500h12" className="cut" /></svg>
+      <svg className="bm-magma" viewBox="0 0 22 22"><path d="M11 2C6.600 2 4 5 4 9c0 2.400 1 4 2.500 5v3.500c0 .6.4 1 1 1H9V16h1v2.500h2V16h1v2.500h1.500c.6 0 1-.4 1-1V14C17 13 18 11.400 18 9c0-4-2.600-7-7-7z" className="sk" /><circle cx="8.200" cy="9.300" r="2" className="eye" /><circle cx="13.800" cy="9.300" r="2" className="eye" /><path d="M11 11.500l-1 2h2z" className="eye" /></svg>
       <svg className="bm-chrome" viewBox="0 0 22 22"><circle cx="11" cy="11" r="8.2" className="ring" /><path d="M4.4 15.6A8.2 8.2 0 1 1 17.6 15.6" className="arc" /><path d="M11 11L11 5.4" className="nt" /></svg>
       <svg className="bm-console" viewBox="0 0 22 22"><rect x="3" y="1" width="2" height="20" className="rail" /><rect x="10" y="1" width="2" height="20" className="rail" /><rect x="17" y="1" width="2" height="20" className="rail" /><rect x="0.5" y="13" width="7" height="4" className="cap c1" /><rect x="7.5" y="3" width="7" height="4" className="cap c2" /><rect x="14.5" y="10" width="7" height="4" className="cap c3" /></svg>
       <svg className="bm-signal" viewBox="0 0 22 20"><rect x="0" y="11" width="3.4" height="9" /><rect x="6" y="0" width="3.4" height="20" /><rect x="12" y="6" width="3.4" height="14" /><rect x="18" y="13" width="3.4" height="7" /></svg>

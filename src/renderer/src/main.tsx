@@ -27,5 +27,8 @@ if (location.hash === '#viz-worker') startVizWorker() // the hidden export windo
 else {
   applyTheme(getTheme())
   installDialogA11y()
-  createRoot(document.getElementById('root')!).render(<App />)
+  // a file dropped on the window must never navigate it (the Calendar's own drag and drop still works)
+for (const t of ['dragover', 'drop']) window.addEventListener(t, (e) => e.preventDefault())
+
+createRoot(document.getElementById('root')!).render(<App />)
 }

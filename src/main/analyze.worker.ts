@@ -2,6 +2,7 @@ import { parentPort } from 'worker_threads'
 import { spawn } from 'child_process'
 import { parseFile } from 'music-metadata'
 import ffmpegStatic from 'ffmpeg-static'
+import { keyConfidence, reconcileBpm } from './analyze-rules'
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { Essentia, EssentiaWASM } = require('essentia.js')
 
@@ -17,6 +18,7 @@ export interface AnalyzeResult {
   bpm?: number
   bpmConfidence?: 'high' | 'low'
   key?: string
+  keyConfidence?: 'high' | 'low'
   peaks?: number[]
   thumb?: number[]
 }
@@ -55,13 +57,6 @@ function peaksOf(pcm: Float32Array, n: number): number[] {
   return out.map((v) => Math.round(Math.sqrt(v / top) * 255))
 }
 
-const fold = (b: number) => {
-  while (b < 75) b *= 2
-  while (b >= 180) b /= 2
-  return b
-}
-const tidy = (b: number) => (Math.abs(b - Math.round(b)) < 0.15 ? Math.round(b) : Math.round(b * 10) / 10)
-
 async function analyze(req: AnalyzeRequest): Promise<AnalyzeResult> {
   const meta = await parseFile(req.path, { duration: true }).catch(() => null)
   let duration = meta?.format.duration ?? 0
@@ -82,23 +77,21 @@ async function analyze(req: AnalyzeRequest): Promise<AnalyzeResult> {
   try {
     const perc = essentia.PercivalBpmEstimator(vec).bpm as number
     const rhythm = essentia.RhythmExtractor2013(vec)
-    const a = fold(perc)
-    const b = fold(rhythm.bpm as number)
-    if (Math.abs(a - b) / a < 0.03) {
-      bpm = tidy(b)
-      bpmConfidence = 'high'
-    } else {
-      bpm = tidy(a)
-    }
+    const r = reconcileBpm(perc, rhythm.bpm as number)
+    bpm = r.bpm
+    bpmConfidence = r.confidence
   } catch { /* leave bpm unset */ }
 
   let key: string | undefined
+  let keyConf: 'high' | 'low' | undefined
   try {
-    const k = essentia.KeyExtractor(vec)
+    // the 'edmm' profile matched 81% of filename keys on real trap beats, against 61% for the default
+    const k = essentia.KeyExtractor(vec, true, 4096, 4096, 12, 3500, 60, 25, 0.2, 'edmm', 44100, 0.0001, 440, 'cosine', 'hann')
     key = `${k.key} ${k.scale}`
+    keyConf = keyConfidence(k.strength as number)
   } catch { /* leave key unset */ }
   vec.delete?.()
-  return { id: req.id, ok: true, duration, bpm, bpmConfidence, key, peaks, thumb }
+  return { id: req.id, ok: true, duration, bpm, bpmConfidence, key, keyConfidence: keyConf, peaks, thumb }
 }
 
 parentPort!.on('message', async (req: AnalyzeRequest) => {

@@ -23,7 +23,7 @@ export function suggest(beats: Beat[], content: ContentData, sales: Sale[], plat
     const posts = beats.filter((x) => x.groupId === b.groupId).flatMap((x) => byBeat.get(x.id) ?? [])
     const posted = posts.filter((p) => p.status === 'posted')
     const here = posted.filter((p) => p.platform === platform)
-    const planned = posts.some((p) => p.status === 'planned' && p.platform === platform)
+    const planned = posts.some((p) => p.status !== 'posted' && p.platform === platform)
     if (planned) continue
     if (here.some((p) => now - p.date < 14 * DAY)) continue
     let score = 0

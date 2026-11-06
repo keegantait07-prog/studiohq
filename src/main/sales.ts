@@ -23,8 +23,8 @@ export class Sales {
          (SELECT id FROM beats WHERE group_id=g.id AND missing=0 ORDER BY mtime DESC LIMIT 1) beatId,
          (SELECT title FROM beats WHERE group_id=g.id AND missing=0 ORDER BY mtime DESC LIMIT 1) title,
          (SELECT COUNT(*) FROM beats WHERE group_id=g.id AND missing=0) count,
-         COALESCE((SELECT SUM(pub_pct) FROM beat_splits WHERE group_id=g.id),0) pubTotal,
-         COALESCE((SELECT SUM(master_pct) FROM beat_splits WHERE group_id=g.id),0) masterTotal,
+         ROUND(COALESCE((SELECT SUM(pub_pct) FROM beat_splits WHERE group_id=g.id),0),2) pubTotal,
+         ROUND(COALESCE((SELECT SUM(master_pct) FROM beat_splits WHERE group_id=g.id),0),2) masterTotal,
          (SELECT COUNT(*) FROM beat_splits WHERE group_id=g.id) parties
        FROM groups g WHERE beatId IS NOT NULL ORDER BY title COLLATE NOCASE`
     ).all() as Row[]).map((r): SplitGroup => ({ groupId: r.groupId, beatId: r.beatId, title: r.title, count: r.count, parties: r.parties, pubTotal: r.pubTotal, masterTotal: r.masterTotal, sheetAt: r.sheetAt }))
@@ -68,8 +68,16 @@ export class Sales {
     const price = p.price ?? cur.price, fee = p.fee ?? cur.fee
     if (!(price >= 0) || fee < 0 || fee > price) throw new Error('The fee must be between 0 and the price.')
     if (p.buyer !== undefined && !p.buyer.trim()) throw new Error('Enter who bought it.')
+    const soldAt = p.soldAt ?? cur.sold_at
+    if (cur.exclusive) {
+      const later = this.db.prepare('SELECT buyer FROM sales WHERE group_id=? AND exclusive=0 AND sold_at>=? LIMIT 1').get(cur.group_id, soldAt) as Row | undefined
+      if (later) throw new Error(`There is a lease to ${later.buyer} on or after that date, so the exclusive can't move before it.`)
+    } else {
+      const lock = this.exclusiveFor(cur.group_id)
+      if (lock && lock.sold_at <= soldAt) throw new Error(`This beat was sold exclusively to ${lock.buyer} on ${dateStr(lock.sold_at)}, so a lease can't be dated on or after that.`)
+    }
     this.db.prepare('UPDATE sales SET buyer=?, buyer_email=?, price=?, fee=?, source=?, sold_at=?, notes=? WHERE id=?').run(
-      (p.buyer ?? cur.buyer).trim(), p.buyerEmail ?? cur.buyer_email, price, fee, p.source ?? cur.source, p.soldAt ?? cur.sold_at, p.notes ?? cur.notes, id
+      (p.buyer ?? cur.buyer).trim(), p.buyerEmail ?? cur.buyer_email, price, fee, p.source ?? cur.source, soldAt, p.notes ?? cur.notes, id
     )
   }
 

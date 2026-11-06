@@ -11,6 +11,7 @@ writeFileSync(video, Buffer.alloc(10, 7))
 writeFileSync(thumb, Buffer.alloc(5, 1))
 const auth = { accessToken: async () => 'tok' } as unknown as YtAuth
 const SESSION = 'https://upload.example/session/1'
+const base = { auth, videoPath: video, thumbPath: thumb, metadata: {}, chunkSize: 4 }
 
 interface Call { url: string; method: string; headers: Record<string, string>; len: number }
 
@@ -68,5 +69,44 @@ describe('uploadVideo', () => {
   it('asks to sign in again on a 401', async () => {
     const { f } = fake({ initStatus: 401 })
     await expect(uploadVideo({ auth, videoPath: video, thumbPath: thumb, metadata: {} }, () => {}, f)).rejects.toThrow(/Sign in again/)
+  })
+
+  it('resumes a saved session from where the server got to, without starting a new one', async () => {
+    const { f, calls } = fake()
+    const started: string[] = []
+    const r = await uploadVideo({ ...base, session: SESSION, onSession: (u) => started.push(u) }, () => {}, f)
+    expect(r.videoId).toBe('abc')
+    expect(started).toEqual([])
+    expect(calls.filter((c) => c.url.includes('uploadType=resumable')).length).toBe(0)
+  })
+
+  it('an expired saved session starts a fresh one', async () => {
+    const { f } = fake()
+    const started: string[] = []
+    const gone: typeof fetch = async (u, i) => (String(u) === 'https://old.test/' ? new Response(null, { status: 404 }) : f(u, i))
+    const r = await uploadVideo({ ...base, session: 'https://old.test/', onSession: (u) => started.push(u) }, () => {}, gone)
+    expect(r.videoId).toBe('abc')
+    expect(started).toEqual([SESSION])
+  })
+
+  it('reports the video id before the thumbnail, so a crash there cannot duplicate it', async () => {
+    const { f } = fake()
+    const order: string[] = []
+    const spy: typeof fetch = async (u, i) => { if (String(u).includes('thumbnails/set')) order.push('thumbnail'); return f(u, i) }
+    await uploadVideo({ ...base, onUploaded: (id) => order.push(id) }, () => {}, spy)
+    expect(order).toEqual(['abc', 'thumbnail'])
+  })
+
+  it('rate limits are retried with a wait, quota errors are not', async () => {
+    const { f } = fake()
+    let first = true
+    const waits: number[] = []
+    const limited: typeof fetch = async (u, i) => {
+      if (first && String(u).includes('uploadType=resumable')) { first = false; return new Response('{}', { status: 429 }) }
+      return f(u, i)
+    }
+    const r = await uploadVideo({ ...base, wait: async (ms) => { waits.push(ms) } }, () => {}, limited)
+    expect(r.videoId).toBe('abc')
+    expect(waits).toEqual([1000])
   })
 })

@@ -75,7 +75,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
         </section>
         <section>
           <h3>Studio Assistant</h3>
-          <div className="field"><label>Claude CLI path</label><input defaultValue={s.claudePath} placeholder="/usr/local/bin/claude" onBlur={(e) => window.api.setSetting({ claudePath: e.target.value.trim() })} /></div>
+          <div className="field"><label>Claude CLI path</label><div className="draft-actions" style={{ margin: 0 }}><span className="dim">{s.claudePath || 'Found automatically'}</span><button onClick={async () => { await window.api.chooseClaudePath(); load() }}>Choose…</button>{s.claudePath && <button onClick={async () => { await window.api.chooseClaudePath(true); load() }}>Clear</button>}</div></div>
           <p className="help">Leave blank to find <code>claude</code> automatically</p>
         </section>
         <YouTubeSettings s={s} reload={load} />

@@ -20,6 +20,7 @@ export interface Beat {
   bpm: number | null
   bpmSource: 'analysis' | 'filename' | 'user' | null
   bpmConfidence: 'high' | 'low' | null
+  keyConfidence: 'high' | 'low' | null
   key: string | null
   keySource: 'analysis' | 'filename' | 'user' | null
   status: Status
@@ -168,7 +169,7 @@ export const PLATFORMS: { id: Platform; label: string; color: string }[] = [
   { id: 'shorts', label: 'YouTube Shorts', color: '#eda100' },
   { id: 'other', label: 'Other', color: '#8b8f98' }
 ]
-export interface Post { id: number; beatId: number; platform: Platform; status: 'planned' | 'posted'; date: number; url: string; caption: string }
+export interface Post { id: number; beatId: number; platform: Platform; status: 'planned' | 'private' | 'posted'; date: number; url: string; caption: string }
 export type VideoFormat = 'vertical' | 'horizontal'
 export type VizStyle = 'lab' | 'tape' | 'riso' | 'cover' | 'vinyl' | 'ridge' | 'phosphor' | 'score' | 'led' | 'ink' | 'typewriter' | 'bauhaus'
 /** How the whole frame moves behind the visualizer. */
@@ -260,10 +261,12 @@ export type PitchStatus = 'sent' | 'listened' | 'replied' | 'liked' | 'passed' |
 export const PITCH_STATUSES: PitchStatus[] = ['sent', 'listened', 'replied', 'liked', 'passed', 'placed']
 /** statuses where we are still waiting to hear back */
 export const AWAITING: PitchStatus[] = ['sent', 'listened']
-export interface PitchBeat { beatId: number; title: string; bpm: number | null; key: string | null; status: Status; response: '' | 'liked' | 'passed' }
+export interface PitchBeat { beatId: number; groupId: number; title: string; bpm: number | null; key: string | null; status: Status; response: '' | 'liked' | 'passed' }
 export interface Pitch {
   id: number
   contactId: number
+  /** kept here so history still reads properly after a contact is removed */
+  contactName: string
   packId: number | null
   subject: string
   channel: 'email' | 'dm' | 'other'
@@ -318,7 +321,8 @@ export interface Api {
   getSettings(): Promise<Settings>
   addFolder(kind: 'watchFolders' | 'loopFolders' | 'projectFolders' | 'soundFolders'): Promise<void>
   removeFolder(kind: 'watchFolders' | 'loopFolders' | 'projectFolders' | 'soundFolders', path: string): Promise<void>
-  setSetting(patch: Partial<Pick<Settings, 'includeIdeas' | 'ownHandles' | 'producerName' | 'followupDays' | 'notify' | 'storeUrl' | 'contactEmail' | 'hashtags' | 'goalBeats' | 'goalPitches' | 'goalPosts' | 'autoTrackFL' | 'includeMidiPacks' | 'projectBeatDays' | 'ytSeedChannels' | 'ytImageFolder' | 'ytClientId' | 'claudePath'>>): Promise<void>
+  setSetting(patch: Partial<Pick<Settings, 'includeIdeas' | 'ownHandles' | 'producerName' | 'followupDays' | 'notify' | 'storeUrl' | 'contactEmail' | 'hashtags' | 'goalBeats' | 'goalPitches' | 'goalPosts' | 'autoTrackFL' | 'includeMidiPacks' | 'projectBeatDays' | 'ytSeedChannels' | 'ytClientId'>>): Promise<void>
+  chooseClaudePath(clear?: boolean): Promise<string>
   backup(): Promise<string>
   exportCsv(): Promise<string | null>
   dataPath(): Promise<string>
@@ -381,7 +385,7 @@ export interface Api {
   // ---- YouTube publisher ----
   ytStatus(): Promise<YtStatus>
   ytSuggestArtists(beatId: number): Promise<string[]>
-  ytPrepare(beatId: number, artists: string[]): Promise<PublishDraft>
+  ytPrepare(beatId: number, artists: string[], reuseVideoId?: number): Promise<PublishDraft>
   ytPublish(draft: PublishDraft, edits: YtPublishEdits): Promise<YtPublishResult>
   ytLoadDraft(videoId: number): Promise<SavedDraft>
   ytSaveEdits(videoId: number, edits: YtDraftEdits): Promise<void>

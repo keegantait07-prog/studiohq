@@ -46,7 +46,7 @@ export function registerContentIpc(c: IpcCtx): void {
   // ---- YouTube publisher ----
   h('yt:status', () => c.yt.status())
   h('yt:suggestArtists', (_, id: number) => c.yt.suggestArtists(id))
-  h('yt:prepare', (_, id: number, artists: string[]) => c.yt.prepare(id, artists, (label, pct) => c.win?.webContents.send('yt:progress', { label, pct })))
+  h('yt:prepare', (_, id: number, artists: string[], reuseVideoId?: number) => c.yt.prepare(id, artists, (label, pct) => c.win?.webContents.send('yt:progress', { label, pct }), reuseVideoId))
   h('yt:publish', (_, draft: PublishDraft, edits: YtPublishEdits) => c.yt.publish(draft, edits, (label, pct) => c.win?.webContents.send('yt:progress', { label, pct })))
   h('yt:loadDraft', (_, id: number) => c.yt.loadDraft(id))
   h('yt:saveEdits', (_, id: number, edits: YtDraftEdits) => c.yt.saveEdits(id, edits))
@@ -63,11 +63,11 @@ export function registerContentIpc(c: IpcCtx): void {
     if (typeof p !== 'string') return
     const s = c.store.getSettings()
     const roots = [s.exportDir, s.ytImageFolder, app.getPath('userData'), ...s.watchFolders, ...s.loopFolders, ...s.projectFolders, ...s.soundFolders].filter(Boolean)
-    const isVideo = !!c.store.db.prepare('SELECT 1 FROM c.videos WHERE path=?').get(p)
+    const isVideo = !!c.store.db.prepare('SELECT 1 FROM videos WHERE path=?').get(p)
     if (isVideo || isKnownPath(p, roots)) shell.showItemInFolder(p)
   })
   h('settings:chooseExportDir', async () => {
-    const r = await dialog.showOpenDialog(c.win!, { title: 'Where should c.videos be saved?', properties: ['openDirectory', 'createDirectory'] })
+    const r = await dialog.showOpenDialog(c.win!, { title: 'Where should videos be saved?', properties: ['openDirectory', 'createDirectory'] })
     if (r.canceled || !r.filePaths[0]) return
     c.store.saveSettings({ ...c.store.getSettings(), exportDir: r.filePaths[0] })
     c.sendCrm()

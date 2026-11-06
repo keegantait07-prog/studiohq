@@ -3,7 +3,7 @@ import { writeFileSync } from 'fs'
 import type { SplitRow } from '../shared/types'
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
-const p2 = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0+$/, '')) + '%'
+export const p2 = (n: number) => n.toFixed(2).replace(/\.?0+$/, '') + '%'
 
 export interface SheetData {
   title: string
@@ -16,8 +16,8 @@ export interface SheetData {
 
 export function splitSheetHtml(d: SheetData): string {
   const date = d.date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
-  const pub = d.rows.reduce((a, r) => a + r.pubPct, 0)
-  const master = d.rows.reduce((a, r) => a + r.masterPct, 0)
+  const pub = Math.round(d.rows.reduce((a, r) => a + r.pubPct, 0) * 100) / 100
+  const master = Math.round(d.rows.reduce((a, r) => a + r.masterPct, 0) * 100) / 100
   const meta = [d.bpm ? `${Math.round(d.bpm)} BPM` : '', d.key ?? ''].filter(Boolean).join(' · ')
   return `<!doctype html><html><head><meta charset="utf-8"><style>
 @page{size:Letter}

@@ -20,7 +20,13 @@ export function isExternalUrl(url: string): boolean {
 }
 
 /** The window may only ever show the app's own renderer (dev server or bundled file). */
-export function isAppUrl(url: string, devUrl: string | undefined): boolean {
+export function isAppUrl(url: string, devUrl: string | undefined, indexUrl?: string): boolean {
   if (devUrl) return url === devUrl || url.startsWith(devUrl.endsWith('/') ? devUrl : devUrl + '/')
-  return url.startsWith('file://')
+  // exactly our page: an HTML file dragged in from a sample pack must not load with the app's bridge attached
+  return !!indexUrl && url.split(/[?#]/)[0] === indexUrl
+}
+
+/** True when `path` sits in any of these folders. */
+export function isUnder(path: string, dirs: string[]): boolean {
+  return dirs.some((d) => isInside(path, d))
 }

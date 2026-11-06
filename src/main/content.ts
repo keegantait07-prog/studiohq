@@ -11,6 +11,8 @@ export class Content {
   constructor(private db: Database.Database) {}
 
   all(): ContentData {
+    // a scheduled upload has a link and goes live on its date, so it isn't overdue
+    this.db.prepare(`UPDATE posts SET status='posted' WHERE status='planned' AND url!='' AND date<=?`).run(Date.now())
     const posts = (this.db.prepare('SELECT * FROM posts ORDER BY date DESC, id DESC').all() as Row[]).map((r): Post => ({
       id: r.id, beatId: r.beat_id, platform: r.platform, status: r.status, date: r.date, url: r.url, caption: r.caption
     }))

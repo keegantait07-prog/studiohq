@@ -146,7 +146,7 @@ export class Catalog {
   private async doPublish(onStep?: (s: string) => void): Promise<string> {
     const token = this.token()
     if (!token) throw new Error('Add your Netlify token in Settings first, so Studio HQ can publish the site.')
-    const rows = this.db.prepare('SELECT s.*, b.path, b.mtime, b.duration, b.bpm, b.key, b.peaks AS env, b.missing FROM site_beats s JOIN beats b ON b.id=s.beat_id ORDER BY s.position').all() as Row[]
+    const rows = this.db.prepare('SELECT s.*, b.path, b.mtime, b.duration, b.bpm, b.key, b.peaks AS env, b.missing FROM site_beats s JOIN beats b ON b.id=s.beat_id WHERE NOT EXISTS (SELECT 1 FROM sales x WHERE x.group_id=b.group_id AND x.exclusive=1) ORDER BY s.position').all() as Row[] // an exclusively sold beat comes off the site
     const now = Date.now(), beats: Row[] = [], keep = new Set<string>()
     let i = 0
     for (const r of rows) {

@@ -28,4 +28,8 @@ export interface YtPublishResult { videoId: string; studioUrl: string; thumbnail
 
 /** The form as the producer left it, kept so the review screen can be reopened later */
 export interface YtDraftEdits { title: string; description: string; tags: string; hashtags: string; link: string }
-export interface SavedDraft { draft: PublishDraft; edits: YtDraftEdits | null; uploaded: YtPublishResult | null }
+export interface SavedDraft {
+  draft: PublishDraft; edits: YtDraftEdits | null; uploaded: YtPublishResult | null
+  /** an upload in progress: resumable after a crash as long as the details haven't changed */
+  session?: { uri: string; key: string } | null
+}

@@ -101,7 +101,10 @@ export async function trashProjects(db: Database.Database, roots: string[], midi
     db.prepare(`UPDATE beats SET project_path=NULL, project_confidence=NULL WHERE project_path=? AND ext!='flp'`).run(p.path)
     const beat = db.prepare(`SELECT id FROM beats WHERE ext='flp' AND path=?`).get(p.path) as Row | undefined
     if (beat) {
-      try { db.prepare('DELETE FROM beats WHERE id=?').run(beat.id) } catch { db.prepare('UPDATE beats SET missing=1 WHERE id=?').run(beat.id) } // a sale points at it: keep the record, hide it
+      // anything with a history is hidden, not deleted, so pitches, posts and videos aren't erased with it
+      const used = db.prepare('SELECT EXISTS(SELECT 1 FROM pitch_beats WHERE beat_id=?1) OR EXISTS(SELECT 1 FROM posts WHERE beat_id=?1) OR EXISTS(SELECT 1 FROM videos WHERE beat_id=?1) OR EXISTS(SELECT 1 FROM sales WHERE beat_id=?1) u').get(beat.id) as Row
+      if (used.u) db.prepare('UPDATE beats SET missing=1 WHERE id=?').run(beat.id)
+      else db.prepare('DELETE FROM beats WHERE id=?').run(beat.id)
     }
   }
   return res

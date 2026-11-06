@@ -116,7 +116,7 @@ export function Detail({ beat, kind, allTags, onSelect, onPlay, refresh, pitched
           </div>
         </div>
         <div className="field">
-          <label>Key {camelot(beat.key) && <span className="cam" style={{ background: keyColor(beat.key) }} title="Camelot wheel code">{camelot(beat.key)}</span>} {beat.keySource && <span className="src">{beat.keySource}</span>}</label>
+          <label>Key {camelot(beat.key) && <span className="cam" style={{ background: keyColor(beat.key) }} title="Camelot wheel code">{camelot(beat.key)}</span>} {beat.keySource && <span className="src">{beat.keySource}{beat.keyConfidence === 'low' ? ' · low confidence' : ''}</span>}</label>
           <input value={key} placeholder="e.g. Cm, F#" onChange={(e) => setKey(e.target.value)} onBlur={() => key !== displayKey(beat.key) && save({ key })} />
         </div>
       </div>

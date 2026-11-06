@@ -3,6 +3,7 @@ import { promises as fs, existsSync } from 'fs'
 import { homedir } from 'os'
 import { basename, dirname, extname, join } from 'path'
 import { parseFlp } from './flp'
+import { isUnder } from './safe-path'
 import { writeMidi } from './midi'
 import type { Sounds } from './sounds'
 import type { ProjectSection } from '../shared/types'
@@ -30,11 +31,12 @@ export class ProjectIndex {
     return base[m[1]] ? join(base[m[1]], rest) : ref
   }
 
-  private async findFlps(): Promise<string[]> {
+  private async findFlps(): Promise<{ files: string[]; unreadable: string[] }> {
     const out: string[] = []
+    const unreadable: string[] = []
     const walk = async (dir: string, depth: number): Promise<void> => {
       let es
-      try { es = await fs.readdir(dir, { withFileTypes: true }) } catch { return }
+      try { es = await fs.readdir(dir, { withFileTypes: true }) } catch { unreadable.push(dir); return }
       for (const e of es) {
         if (e.name.startsWith('.') || e.name === 'Backup' || e.name === '__MACOSX') continue
         const p = join(dir, e.name)
@@ -42,7 +44,7 @@ export class ProjectIndex {
       }
     }
     for (const r of this.roots()) await walk(r, 0)
-    return [...new Set(out)]
+    return { files: [...new Set(out)], unreadable }
   }
 
   /** Returns true when MIDI files were added or removed, so the caller should rescan the library. */
@@ -52,10 +54,11 @@ export class ProjectIndex {
     let midiChanged = false
     try {
       await fs.mkdir(this.midiDir, { recursive: true })
-      const files = await this.findFlps()
+      const { files, unreadable } = await this.findFlps()
       const known = new Map((this.db.prepare('SELECT id,path,mtime,size FROM flp_projects').all() as Row[]).map((r) => [r.path as string, r]))
       const present = new Set(files)
-      for (const [p, r] of known) if (!present.has(p)) { this.removeProject(r.id); midiChanged = true }
+      // a folder we couldn't read (an unplugged drive) says nothing about what's on it, so those projects stay
+      for (const [p, r] of known) if (!present.has(p) && !isUnder(p, unreadable)) { this.removeProject(r.id); midiChanged = true }
 
       const byName = new Map<string, { id: number; path: string }[]>()
       for (const r of this.db.prepare(`SELECT id,path,name,ext FROM sounds WHERE missing=0 AND kind!='midi'`).all() as Row[]) {
@@ -98,7 +101,7 @@ export class ProjectIndex {
   private store(path: string, st: { size: number; mtimeMs: number }, parsed: ReturnType<typeof parseFlp> | null, error: string | null, byName: Map<string, { id: number; path: string }[]>, byPath: Map<string, number>): void {
     const name = basename(path, '.flp')
     const ex = this.db.prepare('SELECT id FROM flp_projects WHERE path=?').get(path) as Row | undefined
-    if (ex) this.db.prepare('DELETE FROM flp_projects WHERE id=?').run(ex.id)
+    if (ex) this.removeProject(ex.id) // its MIDI folder is named after the old id
     const id = Number(this.db.prepare('INSERT INTO flp_projects(path,name,mtime,size,ppq,partial,error,parsed_at) VALUES(?,?,?,?,?,?,?,?)').run(path, name, st.mtimeMs, st.size, parsed?.ppq ?? null, parsed?.partial ? 1 : 0, error, Date.now()).lastInsertRowid)
     if (!parsed) return
 

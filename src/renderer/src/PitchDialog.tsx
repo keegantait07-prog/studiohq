@@ -40,9 +40,9 @@ export function PitchDialog({ beats, crm, myName, hasToken, contactId: c0, beatI
 
   const sentBefore = useMemo(() => {
     const s = new Set<number>()
-    if (contactId) for (const p of crm.pitches) if (p.contactId === contactId) p.beats.forEach((b) => s.add(b.beatId))
+    if (contactId) for (const p of crm.pitches) if (p.contactId === contactId) p.beats.forEach((b) => { s.add(b.beatId); for (const x of beats) if (x.groupId === b.groupId) s.add(x.id) })
     return s
-  }, [crm.pitches, contactId])
+  }, [crm.pitches, contactId, beats])
 
   const parsed = useMemo(() => parseQuery(query), [query])
   const list = useMemo(() => {
@@ -81,7 +81,7 @@ export function PitchDialog({ beats, crm, myName, hasToken, contactId: c0, beatI
       ? pack.deployError ? `Page built, but publishing failed: ${pack.deployError}` : 'Page built locally. Add a Netlify token in Settings to publish it and get a link.'
       : undefined
     return (
-      <div className="overlay" onMouseDown={onClose}>
+      <div className="overlay">
         <div className="modal wide-modal" onMouseDown={(e) => e.stopPropagation()}>
           <header><h2>Pitch to {contact.name}</h2><button onClick={onClose}>Close</button></header>
           <DraftPanel
@@ -100,7 +100,7 @@ export function PitchDialog({ beats, crm, myName, hasToken, contactId: c0, beatI
   }
 
   return (
-    <div className="overlay" onMouseDown={onClose}>
+    <div className="overlay" onMouseDown={() => { if (!picked.length) onClose() }}>
       <div className="modal wide-modal pitch" onMouseDown={(e) => e.stopPropagation()}>
         <header><h2>New pitch</h2><button onClick={onClose}>Cancel</button></header>
         <div className="pitch-grid">

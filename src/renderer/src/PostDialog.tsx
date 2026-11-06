@@ -38,10 +38,10 @@ export function PostDialog({ beats, post, beatId: b0, platform: p0, date: d0, st
         <div className="field"><label>Beat</label><BeatPicker beats={beats} value={beatId} onChange={setBeatId} /></div>
         <div className="three">
           <div className="field"><label>Platform</label><select value={platform} onChange={(e) => setPlatform(e.target.value as Platform)}>{PLATFORMS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}</select></div>
-          <div className="field"><label>Status</label><select value={status} onChange={(e) => setStatus(e.target.value as Post['status'])}><option value="planned">Planned</option><option value="posted">Posted</option></select></div>
+          <div className="field"><label>Status</label><select value={status} onChange={(e) => setStatus(e.target.value as Post['status'])}><option value="planned">Planned</option><option value="private">Private on YouTube</option><option value="posted">Posted</option></select></div>
           <div className="field"><label>Date</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
         </div>
-        {status === 'posted' && <div className="field"><label>Link to the post (optional)</label><input value={url} placeholder="https://…" onChange={(e) => setUrl(e.target.value)} /></div>}
+        {status !== 'planned' && <div className="field"><label>Link to the post (optional)</label><input value={url} placeholder="https://…" onChange={(e) => setUrl(e.target.value)} /></div>}
         <div className="field"><label>Caption / notes</label><textarea rows={4} value={caption} onChange={(e) => setCaption(e.target.value)} /></div>
         {error && <div className="notice err">{error}</div>}
         <div className="draft-actions">

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { Beat, Settings } from '@shared/types'
+import type { Beat, Settings, VideoFile } from '@shared/types'
 import { validateBeatstarsUrl } from '@shared/ytPackage'
 import type { PublishDraft, YtPublishResult, YtStatus } from '@shared/ytTypes'
 
@@ -23,9 +23,13 @@ export function YouTubePublish({ beat, settings, toast, reload, reloadBeats, ope
   const [schedule, setSchedule] = useState(false)
   const [when, setWhen] = useState('')
   const [result, setResult] = useState<YtPublishResult | null>(null)
+  const [exports, setExports] = useState<VideoFile[]>([])
+  const [reuse, setReuse] = useState<number | undefined>(undefined)
 
   useEffect(() => { window.api.ytStatus().then(setSt) }, [settings?.ytImageFolder, settings?.ytClientId])
   useEffect(() => { if (!beat.tags.artist.length) window.api.ytSuggestArtists(beat.id).then(setSuggested); return window.api.onYtProgress(setProgress) }, [beat.id])
+
+  useEffect(() => { window.api.videosList().then((v) => setExports(v.filter((x) => x.beatId === beat.id && x.format === 'horizontal' && x.exists))) }, [beat.id])
 
   // reopen a saved video: its details come back exactly as they were left
   useEffect(() => {
@@ -57,7 +61,7 @@ export function YouTubePublish({ beat, settings, toast, reload, reloadBeats, ope
   const prepare = async () => {
     setErr(''); setStep('preparing'); setProgress({ label: 'Starting', pct: 0 })
     try {
-      const d = await window.api.ytPrepare(beat.id, artists)
+      const d = await window.api.ytPrepare(beat.id, artists, reuse)
       setDraft(d); setTitle(d.package.titles[0] ?? ''); setDescription(d.package.description)
       setTags(d.package.tags.join(', ')); setHashtags(d.package.hashtags.join(' '))
       reloadBeats(); setStep('review')
@@ -133,6 +137,15 @@ export function YouTubePublish({ beat, settings, toast, reload, reloadBeats, ope
         <input value={artist} placeholder="e.g. future, gunna" onChange={(e) => setArtist(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addArtist(artist) } }} />
       </div>
       {!artists.length && suggested.length > 0 && <p className="help">Sounds like: {suggested.map((a) => <button key={a} className="ghost" onClick={() => addArtist(a)}>+ {a}</button>)}</p>}
+      {exports.length > 0 && (
+        <div className="field">
+          <label>Video to upload</label>
+          <select value={reuse ?? ''} onChange={(e) => setReuse(e.target.value ? Number(e.target.value) : undefined)}>
+            <option value="">New video from a still image</option>
+            {exports.map((v) => <option key={v.id} value={v.id}>Your export from {new Date(v.createdAt).toLocaleDateString()}</option>)}
+          </select>
+        </div>
+      )}
       {!artists.length && <p className="help">Add 1–2 artists this beat sounds like. The research is done on them.</p>}
       {st?.imagesLeft != null && st.imagesLeft > 0 && st.imagesLeft < 5 && <p className="help warn">Only {st.imagesLeft} unused image{st.imagesLeft === 1 ? '' : 's'} left in your image folder.</p>}
       {blocker && <p className="help warn">{blocker}</p>}

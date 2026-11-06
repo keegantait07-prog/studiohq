@@ -24,27 +24,76 @@ const nextOffset = (res: Response): number => {
   return m ? Number(m[1]) + 1 : 0
 }
 
+/** Worth trying again: Google's own errors and rate limits. Quota and permission errors are not. */
+async function retryable(res: Response): Promise<boolean> {
+  if (res.status >= 500 || res.status === 429) return true
+  if (res.status !== 403) return false
+  try {
+    const j = (await res.clone().json()) as { error?: { errors?: { reason?: string }[] } }
+    return /rateLimitExceeded/i.test(j.error?.errors?.[0]?.reason ?? '')
+  } catch { return false }
+}
+
+const backoff = (n: number) => Math.min(1000 * 2 ** (n - 1), 30000)
+
 export async function uploadVideo(
-  o: { auth: YtAuth; videoPath: string; thumbPath: string; metadata: object; chunkSize?: number },
+  o: {
+    auth: YtAuth; videoPath: string; thumbPath: string; metadata: object; chunkSize?: number
+    /** a session saved by an earlier run, so a crash resumes instead of starting again */
+    session?: string | null
+    /** called as soon as a new session exists, before any bytes are sent */
+    onSession?: (uri: string) => void
+    /** called the moment YouTube has the video, before the thumbnail */
+    onUploaded?: (videoId: string) => void
+    wait?: (ms: number) => Promise<void>
+  },
   onProgress: (pct: number) => void,
   fetchFn: typeof fetch = fetch
 ): Promise<{ videoId: string; studioUrl: string; thumbnailError?: string }> {
-  const token = await o.auth.accessToken(fetchFn)
   const size = statSync(o.videoPath).size
   const chunk = o.chunkSize ?? 8 * 1024 * 1024
-  const init = await fetchFn(INIT_URL, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json; charset=UTF-8', 'X-Upload-Content-Length': String(size), 'X-Upload-Content-Type': 'video/mp4' },
-    body: JSON.stringify(o.metadata)
-  })
-  if (!init.ok) throw await apiError(init)
-  const session = init.headers.get('Location')
-  if (!session) throw new Error('YouTube did not start the upload.')
+  const wait = o.wait ?? sleep
 
-  const fd = openSync(o.videoPath, 'r')
-  let offset = 0, failures = 0
+  const begin = async (): Promise<string> => {
+    const token = await o.auth.accessToken(fetchFn)
+    for (let attempt = 1; ; attempt++) {
+      let init: Response | null = null
+      try {
+        init = await fetchFn(INIT_URL, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json; charset=UTF-8', 'X-Upload-Content-Length': String(size), 'X-Upload-Content-Type': 'video/mp4' },
+          body: JSON.stringify(o.metadata)
+        })
+      } catch { /* network error: try again below */ }
+      if (init?.ok) {
+        const uri = init.headers.get('Location')
+        if (!uri) throw new Error('YouTube did not start the upload.')
+        o.onSession?.(uri)
+        return uri
+      }
+      if (init && !(await retryable(init))) throw await apiError(init)
+      if (attempt >= MAX_FAILURES) throw init ? await apiError(init) : new Error('Could not reach YouTube. Check your connection and try again.')
+      await wait(backoff(attempt))
+    }
+  }
+
   const got = { id: null as string | null }
   const done = async (res: Response) => { got.id = ((await res.json()) as { id: string }).id }
+  const askWhere = (uri: string) => fetchFn(uri, { method: 'PUT', headers: { 'Content-Length': '0', 'Content-Range': `bytes */${size}` } })
+
+  let session = o.session ?? null
+  let offset = 0, failures = 0, restarts = 0
+  if (session) {
+    try {
+      const q = await askWhere(session)
+      if (q.status === 200 || q.status === 201) await done(q)
+      else if (q.status === 308) offset = nextOffset(q)
+      else session = null // expired: sessions last about a week
+    } catch { session = null }
+  }
+  if (!got.id && !session) session = await begin()
+
+  const fd = openSync(o.videoPath, 'r')
   try {
     while (!got.id) {
       const end = Math.min(offset + chunk, size)
@@ -52,26 +101,30 @@ export async function uploadVideo(
       readSync(fd, buf, 0, buf.length, offset)
       let res: Response | null = null
       try {
-        res = await fetchFn(session, { method: 'PUT', headers: { 'Content-Length': String(buf.length), 'Content-Range': `bytes ${offset}-${end - 1}/${size}` }, body: buf })
+        res = await fetchFn(session!, { method: 'PUT', headers: { 'Content-Length': String(buf.length), 'Content-Range': `bytes ${offset}-${end - 1}/${size}` }, body: buf })
       } catch { /* network error: ask the server where it got to */ }
       if (res && (res.status === 200 || res.status === 201)) { await done(res); break }
       if (res?.status === 308) { offset = nextOffset(res); failures = 0; onProgress(Math.min(0.95, (offset / size) * 0.95)); continue }
-      if (res && res.status < 500) throw await apiError(res)
+      if ((res?.status === 404 || res?.status === 410) && restarts++ < 1) { session = await begin(); offset = 0; continue }
+      if (res && !(await retryable(res))) throw await apiError(res)
       if (++failures > MAX_FAILURES) throw new Error('The upload keeps failing. Check your connection and try again.')
+      await wait(backoff(failures))
       try {
-        const q = await fetchFn(session, { method: 'PUT', headers: { 'Content-Length': '0', 'Content-Range': `bytes */${size}` } })
+        const q = await askWhere(session!)
         if (q.status === 200 || q.status === 201) await done(q)
         else if (q.status === 308) offset = nextOffset(q)
-      } catch { await sleep(Math.min(1000 * failures, 5000)) }
+      } catch { /* the next pass counts as another failure */ }
     }
   } finally {
     closeSync(fd)
   }
 
   const id = got.id as string
+  o.onUploaded?.(id)
   onProgress(0.97)
   let thumbnailError: string | undefined
   try {
+    const token = await o.auth.accessToken(fetchFn) // a long upload can outlive the first token
     const t = await fetchFn(`https://www.googleapis.com/upload/youtube/v3/thumbnails/set?videoId=${id}&uploadType=media`, {
       method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'image/jpeg' }, body: readFileSync(o.thumbPath)
     })

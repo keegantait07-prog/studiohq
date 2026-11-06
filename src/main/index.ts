@@ -1,9 +1,10 @@
-import { app, BrowserWindow, shell, protocol, Menu, Notification } from 'electron'
+import { app, BrowserWindow, dialog, shell, protocol, Menu, Notification } from 'electron'
 import { writeFileSync, unlinkSync } from 'fs'
+import { pathToFileURL } from 'url'
 import { join } from 'path'
 import { createReadStream, statSync, mkdirSync } from 'fs'
 import { Readable } from 'stream'
-import { openDb } from './db'
+import { applyPendingRestore, autoBackupTarget, openDb, stageRestore } from './db'
 import { Store } from './store'
 import { Watcher } from './watcher'
 import { Crm } from './crm'
@@ -39,6 +40,10 @@ import { isAppUrl, isExternalUrl } from './safe-path'
 app.setName('Studio HQ')
 app.setPath('userData', join(app.getPath('appData'), 'Studio HQ'))
 
+// One copy at a time: two would both write the database and both watch the same folders.
+if (!app.requestSingleInstanceLock()) app.exit(0)
+app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus() } })
+
 protocol.registerSchemesAsPrivileged([
   { scheme: 'shqa', privileges: { stream: true, supportFetchAPI: true, standard: true, secure: true, corsEnabled: true } }
 ])
@@ -70,7 +75,7 @@ function createWindow(): void {
   win = new BrowserWindow({
     width: 1440, height: 900, minWidth: 1000, minHeight: 640,
     backgroundColor: '#0d0e11', titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 16, y: 14 },
-    webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false, contextIsolation: true }
+    webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: true, contextIsolation: true }
   })
   if (process.env['ELECTRON_RENDERER_URL']) win.loadURL(process.env['ELECTRON_RENDERER_URL'])
   else win.loadFile(join(__dirname, '../renderer/index.html'))
@@ -80,7 +85,7 @@ function createWindow(): void {
     return { action: 'deny' }
   })
   win.webContents.on('will-navigate', (e, url) => {
-    if (isAppUrl(url, process.env['ELECTRON_RENDERER_URL'])) return
+    if (isAppUrl(url, process.env['ELECTRON_RENDERER_URL'], pathToFileURL(join(__dirname, '../renderer/index.html')).href)) return
     e.preventDefault()
     if (isExternalUrl(url)) void shell.openExternal(url)
   })
@@ -118,6 +123,22 @@ function backupNow(): Promise<string> {
   const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
   const dest = join(dir, `studio-hq-${stamp}.db`)
   return store.db.backup(dest).then(() => dest)
+}
+
+/** Daily safety net: a consistent snapshot, the newest 5 kept. */
+function autoBackup(): void {
+  const dest = autoBackupTarget(join(app.getPath('userData'), 'backups'), new Date())
+  if (dest) store.db.backup(dest).catch((e) => console.error('auto backup failed', e))
+}
+
+async function restoreFromBackup(): Promise<void> {
+  const r = await dialog.showOpenDialog({ title: 'Restore a backup', defaultPath: join(app.getPath('userData'), 'backups'), properties: ['openFile'], filters: [{ name: 'Studio HQ backup', extensions: ['db'] }] })
+  if (r.canceled || !r.filePaths[0]) return
+  const ok = await dialog.showMessageBox({ type: 'warning', buttons: ['Restore and Restart', 'Cancel'], defaultId: 1, cancelId: 1, message: 'Replace your library with this backup?', detail: 'Studio HQ restarts to do this. Your current library is saved to the backups folder first. Your audio files are not touched.' })
+  if (ok.response !== 0) return
+  try { stageRestore(app.getPath('userData'), r.filePaths[0]) } catch (e) { dialog.showErrorBox('Restore failed', (e as Error).message); return }
+  app.relaunch()
+  app.quit()
 }
 
 /** Lets the FL Studio plugin default to the folder this app watches for beats. */
@@ -215,6 +236,7 @@ function registerIpc(): void {
 app.whenReady().then(async () => {
   installFileLog(join(app.getPath('userData'), 'logs'))
   protocol.handle('shqa', serveAudio)
+  try { if (applyPendingRestore(app.getPath('userData'))) console.log('library restored from backup') } catch (e) { console.error('restore failed', e) }
   const db = openDb(app.getPath('userData'))
   const send = (ch: string, ...a: unknown[]) => win?.webContents.send(ch, ...a)
   store = new Store(db, (ids) => send('beats:changed', ids), (s) => send('scan:status', s))
@@ -254,13 +276,13 @@ app.whenReady().then(async () => {
   try { await assistant.start() } catch (e) { console.error('assistant failed to start', e) }
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     { role: 'appMenu' },
-    { label: 'File', submenu: [{ label: 'Back Up Database Now', click: () => backupNow() }, { role: 'close' }] },
+    { label: 'File', submenu: [{ label: 'Back Up Database Now', click: () => backupNow() }, { label: 'Restore From Backup…', click: () => { void restoreFromBackup() } }, { role: 'close' }] },
     { role: 'editMenu' }, { role: 'viewMenu' }, { role: 'windowMenu' }
   ]))
   createWindow()
   writeBridgeConfig()
   startInbox(join(app.getPath('userData'), 'inbox'), (d) => {
-    if (d.kind === 'bounce' && d.wav) { wavToMp3(d.wav).then((mp3) => { if (!mp3) console.error('bounce conversion failed', d.wav); else win?.webContents.send('beats:changed', [-1]) }); return }
+    if (d.kind === 'bounce' && d.wav) { wavToMp3(d.wav, join(app.getPath('userData'), 'WAV masters')).then((mp3) => { if (!mp3) console.error('bounce conversion failed', d.wav); else win?.webContents.send('beats:changed', [-1]) }); return }
     if (d.kind === 'loop' && d.wav) {
       const wav = d.wav
       loopQueue = loopQueue.then(async () => {
@@ -279,6 +301,8 @@ app.whenReady().then(async () => {
   watcher.restart()
   loopWatcher.restart()
   setTimeout(() => { scanLibrary().catch((e) => console.error('library scan failed', e)) }, 3000)
+  setTimeout(autoBackup, 60000)
+  timers.push(setInterval(autoBackup, 6 * 60 * 60 * 1000))
   timers.push(setInterval(() => { reindexProjects().catch((e) => console.error('reindex failed', e)) }, 3 * 60 * 1000))
   setTimeout(() => { if (feedback.hasPublished()) syncFeedback(true) }, 9000)
   timers.push(setInterval(() => { if (feedback.hasPublished()) syncFeedback(true) }, 5 * 60 * 1000))
@@ -289,6 +313,8 @@ app.whenReady().then(async () => {
 })
 
 app.on('window-all-closed', () => app.quit())
+// Fold the write-ahead log into the main file, so studio-hq.db alone is the whole library after quitting.
+app.on('will-quit', () => { try { store?.db.pragma('wal_checkpoint(TRUNCATE)') } catch (e) { console.error('checkpoint failed', e) } })
 let quitting = false
 app.on('before-quit', (e) => {
   timers.forEach(clearInterval)

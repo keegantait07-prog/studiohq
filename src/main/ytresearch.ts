@@ -11,6 +11,8 @@ const WEEK = 7 * 86_400_000
 const API = 'https://www.googleapis.com/youtube/v3/'
 export const QUOTA_MESSAGE = 'Research quota for today is used up. Cached research still works.'
 
+export interface SmallChannel { channelId: string; title: string; subs: number | null; description: string; lastUploadAt: number | null; url: string }
+
 export class YtResearch {
   constructor(private db: Database.Database, private auth: YtAuth, private seeds: () => string[], private fetchFn: typeof fetch = fetch) {}
 
@@ -60,6 +62,28 @@ export class YtResearch {
     const vids = rankByVelocity(await this.details((s.items as Row[]).map((i) => i.id.videoId)), now).slice(0, 15)
     this.store(key, vids, now)
     return vids
+  }
+
+  /** Channels matching a search whose subscriber count is under maxSubs (or hidden). One search plus one channels.list, cached for a week. */
+  async smallChannels(query: string, maxSubs: number, now = Date.now()): Promise<SmallChannel[]> {
+    const key = `small:${query.toLowerCase()}:${maxSubs}`
+    const hit = this.cached<SmallChannel[]>(key, WEEK, now)
+    if (hit) return hit
+    const s = await this.api('search', { part: 'snippet', q: query, type: 'channel', maxResults: '25' }, COST.search)
+    const ids = [...new Set(((s.items ?? []) as Row[]).map((i) => i.id?.channelId as string | undefined).filter((x): x is string => !!x))]
+    let out: SmallChannel[] = []
+    if (ids.length) {
+      const c = await this.api('channels', { part: 'snippet,statistics', id: ids.join(',') }, COST.list)
+      out = ((c.items ?? []) as Row[])
+        .map((i): SmallChannel => ({
+          channelId: i.id, title: i.snippet?.title ?? '', description: i.snippet?.description ?? '', lastUploadAt: null,
+          subs: i.statistics?.hiddenSubscriberCount ? null : Number(i.statistics?.subscriberCount ?? 0),
+          url: `https://www.youtube.com/channel/${i.id}`
+        }))
+        .filter((ch) => ch.subs === null || ch.subs < maxSubs)
+    }
+    this.store(key, out, now)
+    return out
   }
 
   /** A name, @handle, YouTube URL or channel ID to a channel ID. Resolved once, then remembered. */

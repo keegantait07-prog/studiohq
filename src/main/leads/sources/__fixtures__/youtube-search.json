@@ -1,0 +1,18 @@
+{
+  "search": {
+    "kind": "youtube#searchListResponse",
+    "items": [
+      { "kind": "youtube#searchResult", "id": { "kind": "youtube#channel", "channelId": "UCaaaaaaaaaaaaaaaaaaaaaa" }, "snippet": { "channelTitle": "Nova Kid", "title": "Nova Kid" } },
+      { "kind": "youtube#searchResult", "id": { "kind": "youtube#channel", "channelId": "UCbbbbbbbbbbbbbbbbbbbbbb" }, "snippet": { "channelTitle": "Big Name", "title": "Big Name" } },
+      { "kind": "youtube#searchResult", "id": { "kind": "youtube#channel", "channelId": "UCcccccccccccccccccccccc" }, "snippet": { "channelTitle": "Hidden Subs", "title": "Hidden Subs" } }
+    ]
+  },
+  "channels": {
+    "kind": "youtube#channelListResponse",
+    "items": [
+      { "id": "UCaaaaaaaaaaaaaaaaaaaaaa", "snippet": { "title": "Nova Kid", "description": "Trap rapper from Atlanta. Looking for beats! Business: nova@novakid.com" }, "statistics": { "subscriberCount": "1800", "hiddenSubscriberCount": false } },
+      { "id": "UCbbbbbbbbbbbbbbbbbbbbbb", "snippet": { "title": "Big Name", "description": "Major artist. bookings@bigname.com" }, "statistics": { "subscriberCount": "2500000", "hiddenSubscriberCount": false } },
+      { "id": "UCcccccccccccccccccccccc", "snippet": { "title": "Hidden Subs", "description": "New drill artist. DM on socials." }, "statistics": { "hiddenSubscriberCount": true } }
+    ]
+  }
+}

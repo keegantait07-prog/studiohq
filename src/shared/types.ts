@@ -424,6 +424,7 @@ export interface Api {
   crmAll(): Promise<CrmData>
   leadsList(filter?: { source?: LeadSource; minScore?: number; hasEmail?: boolean; status?: LeadStatus }): Promise<Lead[]>
   leadsImport(text: string, kind: 'handles' | 'csv'): Promise<{ added: number; duplicates: number }>
+  leadsSearch(source: LeadSource, query: string): Promise<{ added: number; duplicates: number } | { error: string }>
   leadsPromote(id: number): Promise<number>
   leadsSkip(ids: number[]): Promise<void>
   leadsSave(ids: number[]): Promise<void>

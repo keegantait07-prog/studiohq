@@ -127,6 +127,7 @@ const api: Api = {
   deleteTemplate: (id) => ipcRenderer.invoke('crm:deleteTemplate', id),
   leadsList: (f) => ipcRenderer.invoke('leads:list', f),
   leadsImport: (text, kind) => ipcRenderer.invoke('leads:import', text, kind),
+  leadsSearch: (source, query) => ipcRenderer.invoke('leads:search', source, query),
   leadsPromote: (id) => ipcRenderer.invoke('leads:promote', id),
   leadsSkip: (ids) => ipcRenderer.invoke('leads:skip', ids),
   leadsSave: (ids) => ipcRenderer.invoke('leads:save', ids),

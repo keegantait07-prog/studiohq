@@ -22,6 +22,8 @@ import { startInbox } from './inbox'
 import { VideoExporter } from './video'
 import { YtAuth } from './ytauth'
 import { YtResearch } from './ytresearch'
+import { registerSource } from './leads/sources'
+import { youtubeSource } from './leads/sources/youtube'
 import { ImagePool } from './imagepool'
 import { YtPublisher } from './ytpublisher'
 import { Threads } from './assistant/threads'
@@ -56,6 +58,7 @@ let watcher: Watcher
 let loopWatcher: Watcher
 let crm: Crm
 let leads: Leads
+let ytResearch: YtResearch
 let packs: Packs
 let catalog: Catalog
 let sales: Sales
@@ -262,7 +265,9 @@ app.whenReady().then(async () => {
   videos = new VideoExporter(db, () => store.getSettings().exportDir)
   packs = new Packs(db, () => store.getSettings().producerName)
   ytAuth = new YtAuth(db, () => store.getSettings().ytClientId)
-  yt = new YtPublisher(db, store, content, ytAuth, new YtResearch(db, ytAuth, () => store.getSettings().ytSeedChannels), new ImagePool(db, () => store.getSettings().ytImageFolder))
+  ytResearch = new YtResearch(db, ytAuth, () => store.getSettings().ytSeedChannels)
+  registerSource(youtubeSource(ytResearch))
+  yt = new YtPublisher(db, store, content, ytAuth, ytResearch, new ImagePool(db, () => store.getSettings().ytImageFolder))
   catalog = new Catalog(db, () => packs.token_(), () => store.getSettings().storeUrl, () => store.getSettings().ownHandles)
   registerIpc()
   threads = new Threads(db)

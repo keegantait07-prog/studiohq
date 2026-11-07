@@ -8,6 +8,8 @@ import type { LogPitchInput, Template, Contact, PitchStatus } from '../../shared
 import type { Lead, LeadSource, LeadStatus } from '../../shared/leads'
 import { lookupContact } from '../leads/contact-lookup'
 import { importCandidates } from '../leads/import'
+import { SOURCES } from '../leads/sources'
+import { SourceError } from '../leads/sources/types'
 import { assertContactNotSuppressed, assertPitchNotSuppressed } from '../leads'
 import type { IpcCtx } from './context'
 
@@ -71,6 +73,17 @@ export function registerBusinessIpc(c: IpcCtx): void {
 
   h('leads:list', (_, f?: { source?: LeadSource; minScore?: number; hasEmail?: boolean; status?: LeadStatus }): Lead[] => c.leads.list(f))
   h('leads:import', mut((text: string, kind: 'handles' | 'csv') => c.leads.addCandidates(importCandidates(text, kind))))
+  h('leads:search', mut(async (source: LeadSource, query: string): Promise<{ added: number; duplicates: number } | { error: string }> => {
+    const mod = SOURCES[source]
+    if (!mod) return { error: 'That source is not available yet.' }
+    try {
+      return c.leads.addCandidates(await mod.search(query, { fetchFn: fetch, getKey: () => null, now: Date.now() }))
+    } catch (e) {
+      if (e instanceof SourceError) return { error: e.message }
+      console.error('leads:search failed', source, e)
+      return { error: 'Search failed.' }
+    }
+  }))
   h('leads:promote', mut((id: number) => c.leads.promote(id)))
   h('leads:skip', mut((ids: number[]) => { for (const id of ids) c.leads.setStatus(id, 'skipped') }))
   h('leads:save', mut((ids: number[]) => { for (const id of ids) c.leads.setStatus(id, 'saved') }))

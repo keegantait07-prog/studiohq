@@ -55,4 +55,9 @@ describe('leadsUtils', () => {
     const all = [lead(1, 'new'), lead(2, 'in_crm'), lead(3, 'saved'), lead(4, 'new')]
     expect(toPromote(all, new Set([1, 2, 3])).map((l) => l.id)).toEqual([1, 3])
   })
+
+  it('never promotes a lead that already has a contact, whatever its status', () => {
+    const skipped = { ...lead(5, 'skipped'), contactId: 12 }
+    expect(toPromote([lead(1, 'new'), skipped], new Set([1, 5])).map((l) => l.id)).toEqual([1])
+  })
 })

@@ -53,5 +53,5 @@ export function emailSourceLabel(email: string, src: string): string {
   }
 }
 
-/** Selected leads that still need a contact. Leads already in the CRM are never promoted again. */
-export const toPromote = (leads: Lead[], ids: Set<number>) => leads.filter((l) => ids.has(l.id) && l.status !== 'in_crm')
+/** Selected leads that still need a contact. Leads already in the CRM, or already linked to a contact, are never promoted again. */
+export const toPromote = (leads: Lead[], ids: Set<number>) => leads.filter((l) => ids.has(l.id) && l.status !== 'in_crm' && l.contactId == null)

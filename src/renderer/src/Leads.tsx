@@ -81,12 +81,8 @@ export function Leads({ onPitch }: { onPitch: (contactId: number) => void }) {
     setNotice(''); setError('')
     if (!l.email) { setNotice(`${l.name} has no email yet. Add an email before pitching.`); return }
     try {
-      let id = l.status === 'in_crm' ? l.contactId : null
-      if (id == null) {
-        if (l.status === 'in_crm') { setError(`${l.name} is marked in CRM but has no contact. Open Pitch CRM to pitch them.`); return }
-        id = await window.api.leadsPromote(l.id)
-      }
-      onPitch(id)
+      // promote is idempotent: it returns the linked live contact, or re-links one if that contact was archived
+      onPitch(await window.api.leadsPromote(l.id))
     } catch (e) {
       setError(`Could not open the pitch: ${errMsg(e)}`)
     }

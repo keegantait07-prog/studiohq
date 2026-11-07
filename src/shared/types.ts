@@ -428,7 +428,7 @@ export interface Api {
   leadsPromote(id: number): Promise<number>
   leadsSkip(ids: number[]): Promise<void>
   leadsSave(ids: number[]): Promise<void>
-  leadsSuppress(email: string, reason: string): Promise<void>
+  leadsSuppress(email: string, reason: string): Promise<string[]>
   leadsIsSuppressed(email: string): Promise<boolean>
   leadsSetKey(name: 'soundcloud' | 'audiomack' | 'x', value: string | null): Promise<void>
   leadsKeyStatus(): Promise<{ soundcloud: boolean; audiomack: boolean; x: boolean }>

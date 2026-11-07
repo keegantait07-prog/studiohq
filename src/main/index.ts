@@ -9,6 +9,7 @@ import { Store } from './store'
 import { Watcher } from './watcher'
 import { Crm } from './crm'
 import { Leads } from './leads'
+import { producerGenres } from './leads/genres'
 import { Packs } from './packs'
 import { Catalog } from './catalog'
 import { Sales } from './sales'
@@ -249,7 +250,7 @@ app.whenReady().then(async () => {
   watcher = new Watcher(store)
   loopWatcher = new Watcher(store, 'loop')
   crm = new Crm(db, () => store.getSettings().followupDays, () => store.bumpAll())
-  leads = new Leads(db, crm, () => [])
+  leads = new Leads(db, crm, () => producerGenres(db))
   sales = new Sales(db)
   content = new Content(db)
   const midiDir = join(app.getPath('userData'), 'FL project MIDI')

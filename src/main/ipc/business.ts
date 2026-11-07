@@ -11,7 +11,6 @@ import { importCandidates } from '../leads/import'
 import { SOURCES } from '../leads/sources'
 import { SourceError } from '../leads/sources/types'
 import { getKv, getSecret, setSecret } from '../ytkv'
-import { assertContactNotSuppressed, assertPitchNotSuppressed } from '../leads'
 import type { IpcCtx } from './context'
 
 export function registerBusinessIpc(c: IpcCtx): void {
@@ -61,12 +60,10 @@ export function registerBusinessIpc(c: IpcCtx): void {
   h('crm:all', () => c.crm.all())
   h('crm:saveContact', mut((contact: Partial<Contact> & { name: string }) => c.crm.saveContact(contact)))
   h('crm:deleteContact', mut((id: number) => c.crm.deleteContact(id)))
-  h('crm:logPitch', mut((i: LogPitchInput) => {
-    assertContactNotSuppressed(c.leads, c.crm, i.contactId)
-    return c.crm.logPitch(i)
-  }))
+  // Crm.logPitch / logFollowup run the opt-out guard themselves (set by Leads), so every caller is covered
+  h('crm:logPitch', mut((i: LogPitchInput) => c.crm.logPitch(i)))
   h('crm:updatePitch', mut((id: number, p: { status?: PitchStatus; responseNote?: string; snoozeDays?: number }) => c.crm.updatePitch(id, p)))
-  h('crm:logFollowup', mut((id: number) => { assertPitchNotSuppressed(c.leads, c.crm, id); c.crm.logFollowup(id) }))
+  h('crm:logFollowup', mut((id: number) => c.crm.logFollowup(id)))
   h('crm:setBeatResponse', mut((pid: number, bid: number, r: '' | 'liked' | 'passed') => c.crm.setPitchBeatResponse(pid, bid, r)))
   h('crm:deletePitch', mut((id: number) => c.crm.deletePitch(id)))
   h('crm:saveTemplate', mut((t: Template) => c.crm.saveTemplate(t)))
@@ -99,7 +96,7 @@ export function registerBusinessIpc(c: IpcCtx): void {
   h('leads:promote', mut((id: number) => c.leads.promote(id)))
   h('leads:skip', mut((ids: number[]) => { for (const id of ids) c.leads.setStatus(id, 'skipped') }))
   h('leads:save', mut((ids: number[]) => { for (const id of ids) c.leads.setStatus(id, 'saved') }))
-  h('leads:suppress', mut((email: string, reason: string) => c.leads.suppress(email, reason)))
+  h('leads:suppress', mut((email: string, reason: string): string[] => c.leads.suppress(email, reason)))
   let lookingUp = false
   h('leads:lookupContact', mut(async (id: number): Promise<{ found: true; email: string; sourceUrl: string } | { found: false; reason: string }> => {
     if (lookingUp) return { found: false, reason: 'Another lookup is running. Try again in a moment.' }

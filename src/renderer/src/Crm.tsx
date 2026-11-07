@@ -5,6 +5,7 @@ import { firstName, renderTemplate } from '@shared/template'
 import { ContactForm } from './ContactForm'
 import { DraftPanel } from './DraftPanel'
 import { OptOutGate } from './OptOutGate'
+import { errMsg } from './salesUtils'
 import { withOptOut } from '@shared/leads'
 import { Templates } from './Templates'
 import { DAY, copy, daysSince, dueLabel, fmtDate, isAwaiting, isDue, varsFor } from './crmUtils'
@@ -175,14 +176,22 @@ function ContactView({ c, pitches, defaultDays, onEdit, onPitch, onDelete, onOpe
   c: Contact; pitches: Pitch[]; defaultDays: number; onEdit: () => void; onPitch: () => void; onDelete: () => void; onOpenBeat: (id: number) => void; onDraft: (p: Pitch) => void; reload: () => void
 }) {
   const [optedOut, setOptedOut] = useState(false)
+  const [optErr, setOptErr] = useState('')
   useEffect(() => {
     setOptedOut(false)
+    setOptErr('')
     if (c.email) window.api.leadsIsSuppressed(c.email).then(setOptedOut, () => {})
   }, [c.email])
   const optOut = async () => {
     if (!confirm(`Mark ${c.name} as opted out? You will not be able to pitch ${c.email} again.`)) return
-    await window.api.leadsSuppress(c.email, 'opted out')
-    setOptedOut(true)
+    setOptErr('')
+    try {
+      await window.api.leadsSuppress(c.email, 'opted out')
+      // the chip shows what the server stored, never what we hoped it stored
+      setOptedOut(await window.api.leadsIsSuppressed(c.email))
+    } catch (e) {
+      setOptErr(errMsg(e))
+    }
   }
   return (
     <div className="cview">
@@ -190,6 +199,7 @@ function ContactView({ c, pitches, defaultDays, onEdit, onPitch, onDelete, onOpe
         <div>
           <h2>{c.name} <span className="chip">{c.role}</span></h2>
           {optedOut && <span className="chip">opted out</span>}
+          {optErr && <div className="notice err">{optErr}</div>}
           {c.email && <a onClick={() => window.api.openExternal(`mailto:${c.email}`)}>{c.email}</a>}
         </div>
         <div className="actions"><button onClick={onEdit}>Edit</button>{c.email && !optedOut && <button onClick={optOut}>Mark opted out</button>}<button onClick={onDelete}>Delete</button><button className="primary" onClick={onPitch}>Pitch beats</button></div>

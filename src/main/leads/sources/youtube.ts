@@ -1,10 +1,9 @@
 // YouTube: small channels whose public description matches the search. Only emails written in the description are used.
-import { extractEmails, type LeadCandidate } from '../../../shared/leads'
+import { asksForBeats, extractEmails, type LeadCandidate } from '../../../shared/leads'
 import { QUOTA_MESSAGE, type YtResearch } from '../../ytresearch'
 import { SourceError, type LeadSourceModule, type SourceCtx } from './types'
 
 const MAX_SUBS = 50_000
-const ASKS = /need(ing)? beats|looking for (a )?(producer|beats)/i
 
 export function youtubeSource(research: Pick<YtResearch, 'smallChannels'>): LeadSourceModule {
   return {
@@ -23,7 +22,7 @@ export function youtubeSource(research: Pick<YtResearch, 'smallChannels'>): Lead
       return channels.map((c) => ({
         source: 'youtube' as const, sourceId: c.channelId, name: c.title, url: c.url,
         followers: c.subs, lastActiveAt: c.lastUploadAt, genre: '', bio: c.description.slice(0, 300),
-        signals: ASKS.test(c.description) ? ['asks_for_beats'] : [],
+        signals: asksForBeats(c.description) ? ['asks_for_beats'] : [],
         email: extractEmails(c.description)[0] ?? '', emailSourceUrl: extractEmails(c.description).length ? c.url : ''
       }))
     }

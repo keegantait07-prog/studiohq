@@ -40,18 +40,39 @@ export function normalizeEmail(s: string): string | null {
   return EMAIL_RE.test(v) ? v : null
 }
 
-export function extractEmails(text: string): string[] {
-  const found = text.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/g) ?? []
+const EMAIL_SCAN = /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/g
+/** Free text longer than this is cut before scanning; the scan regex is slow on huge inputs. */
+const MAX_FREE_TEXT = 500
+
+function scanEmails(text: string): string[] {
   const out: string[] = []
-  for (const raw of found) {
+  for (const raw of text.match(EMAIL_SCAN) ?? []) {
     const e = normalizeEmail(raw)
-    if (!e) continue
-    const domain = e.split('@')[1]
-    const tld = domain.split('.').pop() as string
-    if (JUNK_TLDS.has(tld) || JUNK_DOMAINS.has(domain)) continue
-    if (!out.includes(e)) out.push(e)
+    if (e && !out.includes(e)) out.push(e)
   }
   return out
+}
+
+/** Every address written in a short free-text field such as a contact's email ("Ada <ada@x.com>", "a@x.com, b@y.com"). */
+export function emailsIn(text: string): string[] {
+  return scanEmails(text.slice(0, MAX_FREE_TEXT))
+}
+
+/** Addresses found on a public page or bio, without placeholders and file names that look like emails. */
+export function extractEmails(text: string): string[] {
+  return scanEmails(text).filter((e) => {
+    const domain = e.split('@')[1]
+    const tld = domain.split('.').pop() as string
+    return !JUNK_TLDS.has(tld) && !JUNK_DOMAINS.has(domain)
+  })
+}
+
+const ASKS_FOR_BEATS =
+  /\bneed(?:ing)? (?:some |new )?beats\b|\blooking for (?:a |some )?(?:producers?|beats)\b|\bsend (?:me )?(?:your |some )?beats\b|\bneed (?:a )?producers?\b|\bdm (?:me )?(?:for )?beats\b|\bbeats wanted\b/i
+
+/** True when a public bio asks for beats or a producer ("need beats", "looking for a producer", "send me beats", "dm for beats"). */
+export function asksForBeats(text: string): boolean {
+  return ASKS_FOR_BEATS.test(text.slice(0, 2000).replace(/\s+/g, ' '))
 }
 
 export function scoreLead(

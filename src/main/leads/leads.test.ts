@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import type Database from 'better-sqlite3'
-import { afterAll, beforeEach, describe, expect, test } from 'vitest'
+import { afterAll, beforeEach, describe, expect, test, vi } from 'vitest'
 import type { LeadCandidate } from '../../shared/leads'
 import { Crm } from '../crm'
 import { openDb } from '../db'
@@ -125,5 +125,67 @@ describe('Leads store', () => {
     const list = leads.suppressedList()
     expect(list).toHaveLength(1)
     expect(list[0]).toMatchObject({ email: 'foo@x.com', reason: 'asked to stop', createdAt: NOW })
+  })
+
+  test('skip and save never move a lead out of in_crm', () => {
+    leads.addCandidates([cand()])
+    const id = leads.list()[0].id
+    const cid = leads.promote(id)
+    leads.setStatus(id, 'skipped')
+    leads.setStatus(id, 'saved')
+    expect(leads.get(id)).toMatchObject({ status: 'in_crm', contactId: cid })
+  })
+
+  test('promoting an email-less lead twice returns the same contact', () => {
+    leads.addCandidates([cand()])
+    const id = leads.list()[0].id
+    const cid = leads.promote(id)
+    expect(leads.promote(id)).toBe(cid)
+    expect(crm.all().contacts).toHaveLength(1)
+  })
+
+  test('a lead linked to a live contact but no longer in_crm reuses that contact', () => {
+    leads.addCandidates([cand()])
+    const id = leads.list()[0].id
+    const cid = leads.promote(id)
+    db.prepare("UPDATE leads SET status='skipped' WHERE id=?").run(id) // as older builds could do
+    expect(leads.promote(id)).toBe(cid)
+    expect(crm.all().contacts).toHaveLength(1)
+    expect(leads.get(id)?.status).toBe('in_crm')
+  })
+
+  test('a lead whose contact was archived is linked to a live contact again', () => {
+    leads.addCandidates([cand()])
+    const id = leads.list()[0].id
+    const old = leads.promote(id)
+    crm.deleteContact(old)
+    const cid = leads.promote(id)
+    expect(cid).not.toBe(old)
+    expect(crm.all().contacts.map((c) => c.id)).toEqual([cid])
+    expect(leads.get(id)).toMatchObject({ status: 'in_crm', contactId: cid })
+  })
+
+  test('promote is atomic: a failure after the contact is made leaves nothing behind', () => {
+    leads.addCandidates([cand()])
+    const id = leads.list()[0].id
+    const real = crm.saveContact.bind(crm)
+    const spy = vi.spyOn(crm, 'saveContact').mockImplementation((c) => { real(c); throw new Error('boom') })
+    expect(() => leads.promote(id)).toThrow('boom')
+    spy.mockRestore()
+    expect(crm.all().contacts).toHaveLength(0)
+    expect(leads.get(id)).toMatchObject({ status: 'new', contactId: null })
+  })
+
+  test('a bio that asks for beats adds the asks_for_beats signal once, from any source', () => {
+    leads.addCandidates([
+      cand({ source: 'soundcloud', sourceId: 's', bio: 'Rapper from Leeds, need beats!' }),
+      cand({ source: 'manual', sourceId: 'm', bio: 'looking for a producer', signals: ['asks_for_beats'] }),
+      cand({ source: 'audiomack', sourceId: 'q', bio: 'I make my own beats' })
+    ])
+    const by = (sid: string) => leads.list().find((l) => l.sourceId === sid)!
+    expect(by('s').signals).toEqual(['asks_for_beats'])
+    expect(by('s').reasons.some((r) => r.startsWith('Asks for beats'))).toBe(true)
+    expect(by('m').signals).toEqual(['asks_for_beats'])
+    expect(by('q').signals).toEqual([])
   })
 })

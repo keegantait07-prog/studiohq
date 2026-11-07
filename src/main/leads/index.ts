@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3'
-import { normalizeEmail, scoreLead, type Lead, type LeadCandidate, type LeadSource, type LeadStatus } from '../../shared/leads'
+import { asksForBeats, emailsIn, normalizeEmail, scoreLead, type Lead, type LeadCandidate, type LeadSource, type LeadStatus } from '../../shared/leads'
 import type { Crm } from '../crm'
 
 type Row = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -22,7 +22,14 @@ export class Leads {
     private crm: Crm,
     private genres: () => string[],
     private now: () => number = Date.now
-  ) {}
+  ) {
+    // every pitch and follow-up the CRM logs, from any caller, is checked against the opt-out list
+    crm.setPitchGuard({
+      contact: (id) => assertContactNotSuppressed(this, crm, id),
+      pitch: (id) => assertPitchNotSuppressed(this, crm, id),
+      suppressed: (email) => this.isSuppressed(email)
+    })
+  }
 
   private toLead(r: Row): Lead {
     return {
@@ -66,9 +73,10 @@ export class Leads {
           duplicates++
           continue
         }
-        const { score, reasons } = scoreLead(c, { producerGenres, now })
+        const signals = !c.signals.includes('asks_for_beats') && asksForBeats(c.bio) ? [...c.signals, 'asks_for_beats'] : c.signals
+        const { score, reasons } = scoreLead({ ...c, signals }, { producerGenres, now })
         ins.run(
-          c.source, c.sourceId, c.name, c.url, c.followers, c.lastActiveAt, c.genre, c.bio, JSON.stringify(c.signals), score, JSON.stringify(reasons),
+          c.source, c.sourceId, c.name, c.url, c.followers, c.lastActiveAt, c.genre, c.bio, JSON.stringify(signals), score, JSON.stringify(reasons),
           email, email ? c.emailSourceUrl.trim() || ADDED_BY_YOU : '', now
         )
         added++
@@ -77,8 +85,9 @@ export class Leads {
     return { added, duplicates }
   }
 
+  /** A lead already in the CRM keeps that status, so a later Add to CRM can never make a second contact. */
   setStatus(id: number, s: 'saved' | 'skipped'): void {
-    this.db.prepare('UPDATE leads SET status=? WHERE id=?').run(s, id)
+    this.db.prepare("UPDATE leads SET status=? WHERE id=? AND status!='in_crm'").run(s, id)
   }
 
   setEmail(id: number, email: string, sourceUrl: string): void {
@@ -86,36 +95,57 @@ export class Leads {
     this.db.prepare('UPDATE leads SET email=?, email_source_url=? WHERE id=?').run(e, e ? sourceUrl.trim() || ADDED_BY_YOU : '', id)
   }
 
-  /** Puts the lead in the CRM and returns the contact id, reusing a live contact that already has the same email. */
+  /**
+   * Puts the lead in the CRM and returns the contact id. Idempotent: a lead already linked to a live contact returns it;
+   * otherwise a live contact with the same email is reused, else one is created. Runs as one transaction.
+   */
   promote(id: number): number {
-    const r = this.db.prepare('SELECT * FROM leads WHERE id=?').get(id) as Row | undefined
-    if (!r) throw new Error('That lead no longer exists.')
-    const lead = this.toLead(r)
-    let contactId: number | undefined
-    if (lead.email) {
-      const hit = this.db.prepare("SELECT id FROM contacts WHERE archived_at IS NULL AND lower(trim(email))=? ORDER BY id LIMIT 1").get(lead.email) as Row | undefined
-      contactId = hit?.id
-    }
-    contactId ??= this.crm.saveContact({
-      name: lead.name,
-      role: 'artist',
-      email: lead.email,
-      sound: lead.genre,
-      links: lead.url ? [{ label: lead.source, url: lead.url }] : []
-    })
-    this.db.prepare("UPDATE leads SET status='in_crm', contact_id=? WHERE id=?").run(contactId, id)
-    return contactId
+    return this.db.transaction((): number => {
+      const r = this.db.prepare('SELECT * FROM leads WHERE id=?').get(id) as Row | undefined
+      if (!r) throw new Error('That lead no longer exists.')
+      const lead = this.toLead(r)
+      const live = (cid: number | null): boolean =>
+        cid != null && !!this.db.prepare('SELECT 1 FROM contacts WHERE id=? AND archived_at IS NULL').get(cid)
+      let contactId: number | undefined = live(lead.contactId) ? (lead.contactId as number) : undefined
+      if (contactId === undefined && lead.email) {
+        const hit = this.db.prepare('SELECT id FROM contacts WHERE archived_at IS NULL AND lower(trim(email))=? ORDER BY id LIMIT 1').get(lead.email) as Row | undefined
+        contactId = hit?.id
+      }
+      contactId ??= this.crm.saveContact({
+        name: lead.name,
+        role: 'artist',
+        email: lead.email,
+        sound: lead.genre,
+        links: lead.url ? [{ label: lead.source, url: lead.url }] : []
+      })
+      this.db.prepare("UPDATE leads SET status='in_crm', contact_id=? WHERE id=?").run(contactId, id)
+      return contactId
+    })()
   }
 
-  suppress(email: string, reason: string): void {
-    const e = normalizeEmail(email)
-    if (!e) return
-    this.db.prepare('INSERT INTO suppressed(email,reason,created_at) VALUES(?,?,?) ON CONFLICT(email) DO NOTHING').run(e, reason, this.now())
+  /**
+   * Adds every address written in `text` (a contact's free-text email) to the opt-out list and stops follow-ups to them.
+   * Throws when the text holds no address, so the caller can never believe an opt-out was stored when it was not.
+   */
+  suppress(text: string, reason: string): string[] {
+    const emails = emailsIn(text)
+    if (!emails.length) throw new Error('Add a valid email address to this contact first.')
+    this.db.transaction(() => {
+      const ins = this.db.prepare('INSERT INTO suppressed(email,reason,created_at) VALUES(?,?,?) ON CONFLICT(email) DO NOTHING')
+      for (const e of emails) ins.run(e, reason, this.now())
+      const open = this.db.prepare(
+        `SELECT p.id, c.email FROM pitches p JOIN contacts c ON c.id=p.contact_id WHERE p.status IN ('sent','listened') AND p.next_followup_at IS NOT NULL`
+      ).all() as Row[]
+      const stop = this.db.prepare('UPDATE pitches SET next_followup_at=NULL WHERE id=?')
+      for (const p of open) if (emailsIn(p.email).some((e) => emails.includes(e))) stop.run(p.id)
+    })()
+    return emails
   }
 
-  isSuppressed(email: string): boolean {
-    const e = normalizeEmail(email)
-    return !!e && !!this.db.prepare('SELECT 1 FROM suppressed WHERE email=?').get(e)
+  /** True when any address written in `text` opted out. */
+  isSuppressed(text: string): boolean {
+    const q = this.db.prepare('SELECT 1 FROM suppressed WHERE email=?')
+    return emailsIn(text).some((e) => !!q.get(e))
   }
 
   suppressedList(): { email: string; reason: string; createdAt: number }[] {

@@ -4,7 +4,26 @@ import { AWAITING, type Contact, type CrmData, type LogPitchInput, type Pitch, t
 type Row = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 const DAY = 86400000
 
+/** Opt-out checks the CRM runs before any pitch or follow-up, whoever calls it (IPC, assistant). Set by Leads, which is built after Crm. */
+export interface PitchGuard {
+  /** Throws if this contact cannot be pitched (opted out) or does not exist. */
+  contact(contactId: number): void
+  /** Throws if the contact of this pitch cannot be pitched or the pitch does not exist. */
+  pitch(pitchId: number): void
+  /** True when any address in this free-text email opted out. */
+  suppressed(email: string): boolean
+}
+
 export class Crm {
+  private guard: PitchGuard | null = null
+  setPitchGuard(g: PitchGuard): void {
+    this.guard = g
+  }
+  private optedOut(contactId: number): boolean {
+    const email = this.contactEmail(contactId)
+    return !!email && !!this.guard?.suppressed(email)
+  }
+
   constructor(
     private db: Database.Database,
     private defaultDays: () => number,
@@ -66,6 +85,7 @@ export class Crm {
     return r?.d ?? this.defaultDays()
   }
   private retimeOpen(contactId: number): void {
+    if (this.optedOut(contactId)) return
     const days = this.daysFor(contactId)
     const open = this.db.prepare(`SELECT id, sent_at, last_followup_at FROM pitches WHERE contact_id=? AND status IN ('sent','listened')`).all(contactId) as Row[]
     const upd = this.db.prepare('UPDATE pitches SET next_followup_at=? WHERE id=?')
@@ -73,6 +93,7 @@ export class Crm {
   }
 
   logPitch(i: LogPitchInput): number {
+    this.guard?.contact(i.contactId)
     const now = Date.now()
     const sold = i.beatIds.length ? this.db.prepare(`SELECT title FROM beats WHERE status='sold' AND id IN (${i.beatIds.map(() => '?').join(',')})`).all(...i.beatIds) as { title: string }[] : []
     if (sold.length) throw new Error(`Already sold: ${sold.map((b) => b.title).join(', ')}. Remove ${sold.length > 1 ? 'them' : 'it'} from the pitch.`)
@@ -101,18 +122,19 @@ export class Crm {
     if (p.status) {
       if (AWAITING.includes(p.status)) {
         const base = cur.last_followup_at ?? cur.sent_at
-        const next = Math.max(now + DAY, base + this.daysFor(cur.contact_id) * DAY)
+        const next = this.optedOut(cur.contact_id) ? null : Math.max(now + DAY, base + this.daysFor(cur.contact_id) * DAY)
         this.db.prepare('UPDATE pitches SET status=?, responded_at=NULL, next_followup_at=? WHERE id=?').run(p.status, cur.status === p.status ? cur.next_followup_at : next, id)
       } else {
         this.db.prepare('UPDATE pitches SET status=?, responded_at=COALESCE(responded_at, ?), next_followup_at=NULL WHERE id=?').run(p.status, now, id)
       }
     }
-    if (p.snoozeDays && AWAITING.includes((p.status ?? cur.status) as PitchStatus)) {
+    if (p.snoozeDays && !this.optedOut(cur.contact_id) && AWAITING.includes((p.status ?? cur.status) as PitchStatus)) {
       this.db.prepare('UPDATE pitches SET next_followup_at=? WHERE id=?').run(now + p.snoozeDays * DAY, id)
     }
   }
 
   logFollowup(id: number): void {
+    this.guard?.pitch(id)
     const cur = this.db.prepare('SELECT contact_id FROM pitches WHERE id=?').get(id) as Row | undefined
     if (!cur) return
     const now = Date.now()
@@ -139,9 +161,10 @@ export class Crm {
 
   /** Pitches still waiting whose follow-up date has arrived. */
   due(): { pitchId: number; contact: string }[] {
-    return this.db.prepare(
-      `SELECT p.id pitchId, c.name contact FROM pitches p JOIN contacts c ON c.id=p.contact_id
+    const rows = this.db.prepare(
+      `SELECT p.id pitchId, c.name contact, c.email email FROM pitches p JOIN contacts c ON c.id=p.contact_id
        WHERE p.status IN ('sent','listened') AND p.next_followup_at IS NOT NULL AND p.next_followup_at <= ? ORDER BY p.next_followup_at`
-    ).all(Date.now()) as { pitchId: number; contact: string }[]
+    ).all(Date.now()) as { pitchId: number; contact: string; email: string }[]
+    return rows.filter((r) => !(r.email && this.guard?.suppressed(r.email))).map(({ pitchId, contact }) => ({ pitchId, contact }))
   }
 }

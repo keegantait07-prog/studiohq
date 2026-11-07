@@ -147,3 +147,35 @@ describe('withOptOut', () => {
     expect(once.split(OPT_OUT_LINE)).toHaveLength(2)
   })
 })
+
+describe('asksForBeats', () => {
+  it('matches public requests for beats or a producer', async () => {
+    const { asksForBeats } = await import('./leads')
+    for (const t of ['I NEED BEATS asap', 'needing beats for my tape', 'Looking for a producer', 'looking for beats!', 'send me beats', 'Send me your beats', 'need a producer', 'need producers', 'DM for beats', 'dm me beats', 'beats wanted', 'looking for producers']) {
+      expect(asksForBeats(t), t).toBe(true)
+    }
+  })
+  it('ignores bios that do not ask', async () => {
+    const { asksForBeats } = await import('./leads')
+    for (const t of ['', 'I make beats', 'beats by me', 'producer and rapper', 'no beats needed', 'Buy my beats at shop.com', 'Dm for features']) {
+      expect(asksForBeats(t), t).toBe(false)
+    }
+  })
+  it('stays fast on very long text', async () => {
+    const { asksForBeats } = await import('./leads')
+    const t0 = Date.now()
+    expect(asksForBeats('need '.repeat(200_000))).toBe(false)
+    expect(Date.now() - t0).toBeLessThan(500)
+  })
+})
+
+describe('emailsIn', () => {
+  it('pulls every address out of free text, normalised, with no junk filter', async () => {
+    const { emailsIn } = await import('./leads')
+    expect(emailsIn('Ada <Ada@Example.com>')).toEqual(['ada@example.com'])
+    expect(emailsIn('a@x.com, b@y.com; A@X.com')).toEqual(['a@x.com', 'b@y.com'])
+    expect(emailsIn('mailto:foo@x.com')).toEqual(['foo@x.com'])
+    expect(emailsIn('no address here')).toEqual([])
+    expect(emailsIn('')).toEqual([])
+  })
+})

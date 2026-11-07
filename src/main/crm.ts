@@ -52,6 +52,15 @@ export class Crm {
     this.db.prepare('UPDATE pitches SET next_followup_at=NULL WHERE contact_id=?').run(id)
   }
 
+  /** Email of a contact, archived or not; undefined when the contact does not exist. */
+  contactEmail(contactId: number): string | undefined {
+    return (this.db.prepare('SELECT email FROM contacts WHERE id=?').get(contactId) as Row | undefined)?.email
+  }
+  /** Email of the contact a pitch was sent to; undefined when the pitch does not exist. */
+  pitchContactEmail(pitchId: number): string | undefined {
+    return (this.db.prepare('SELECT c.email FROM pitches p JOIN contacts c ON c.id=p.contact_id WHERE p.id=?').get(pitchId) as Row | undefined)?.email
+  }
+
   private daysFor(contactId: number): number {
     const r = this.db.prepare('SELECT followup_days d FROM contacts WHERE id=?').get(contactId) as Row | undefined
     return r?.d ?? this.defaultDays()

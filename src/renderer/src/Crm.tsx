@@ -4,6 +4,8 @@ import { clickable } from './a11y'
 import { firstName, renderTemplate } from '@shared/template'
 import { ContactForm } from './ContactForm'
 import { DraftPanel } from './DraftPanel'
+import { OptOutGate } from './OptOutGate'
+import { withOptOut } from '@shared/leads'
 import { Templates } from './Templates'
 import { DAY, copy, daysSince, dueLabel, fmtDate, isAwaiting, isDue, varsFor } from './crmUtils'
 
@@ -112,11 +114,13 @@ export function Crm({ crm, myName, selected, onSelect, onPitch, onOpenBeat, relo
           <div className="overlay" onMouseDown={() => setDraft(null)}>
             <div className="modal wide-modal" onMouseDown={(e) => e.stopPropagation()}>
               <header><h2>Follow up with {firstName(c.name)}</h2><button onClick={() => setDraft(null)}>Close</button></header>
+              <OptOutGate email={c.email} name={c.name}>
               <DraftPanel
-                to={c.email} subject={renderTemplate(followTpl?.subject ?? 'Re: {{subject}}', v)} body={renderTemplate(followTpl?.body ?? 'Hey {{name}}, just following up.', v)} link={p.link || undefined}
+                to={c.email} subject={renderTemplate(followTpl?.subject ?? 'Re: {{subject}}', v)} body={withOptOut(renderTemplate(followTpl?.body ?? 'Hey {{name}}, just following up.', v))} link={p.link || undefined}
                 confirmLabel="I sent it · log follow-up"
                 onConfirm={async () => { await window.api.logFollowup(p.id); setDraft(null); reload() }}
               />
+              </OptOutGate>
               <p className="help">Logging resets the timer to {c.followupDays ?? crm.defaultFollowupDays} days from now.</p>
             </div>
           </div>

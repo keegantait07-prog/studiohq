@@ -124,3 +124,16 @@ export class Leads {
 export function assertNotSuppressed(leads: Pick<Leads, 'isSuppressed'>, email: string): void {
   if (email && leads.isSuppressed(email)) throw new Error(`${email} opted out and cannot be pitched.`)
 }
+
+/** Fail closed: an unknown contact throws; a contact with an email is checked whatever the channel. */
+export function assertContactNotSuppressed(leads: Pick<Leads, 'isSuppressed'>, crm: Pick<Crm, 'contactEmail'>, contactId: number): void {
+  const email = crm.contactEmail(contactId)
+  if (email === undefined) throw new Error('Contact not found.')
+  assertNotSuppressed(leads, email)
+}
+
+export function assertPitchNotSuppressed(leads: Pick<Leads, 'isSuppressed'>, crm: Pick<Crm, 'pitchContactEmail'>, pitchId: number): void {
+  const email = crm.pitchContactEmail(pitchId)
+  if (email === undefined) throw new Error('Pitch not found.')
+  assertNotSuppressed(leads, email)
+}

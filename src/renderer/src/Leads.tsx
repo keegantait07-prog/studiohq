@@ -18,6 +18,7 @@ export function Leads({ onPitch }: { onPitch: (contactId: number) => void }) {
   const [leads, setLeads] = useState<Lead[] | null>(null)
   const [sel, setSel] = useState<Set<number>>(new Set())
   const [error, setError] = useState('')
+  const [loadError, setLoadError] = useState('')
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
   const [importing, setImporting] = useState(false)
@@ -31,9 +32,9 @@ export function Leads({ onPitch }: { onPitch: (contactId: number) => void }) {
       const all = visibleLeads(await window.api.leadsList(apiFilter(filter)), filter)
       setLeads(all)
       setSel((s) => new Set([...s].filter((id) => all.some((l) => l.id === id))))
-      setError('')
+      setLoadError('')
     } catch (e) {
-      setError(`Could not load leads: ${errMsg(e)}`)
+      setLoadError(`Could not load leads: ${errMsg(e)}`)
     }
   }, [filter])
 
@@ -49,7 +50,7 @@ export function Leads({ onPitch }: { onPitch: (contactId: number) => void }) {
 
   const addToCrm = async () => {
     const todo = toPromote(rows, sel)
-    setBusy(true); setNotice('')
+    setBusy(true); setNotice(''); setError('')
     let done = 0
     try {
       for (const l of todo) { await window.api.leadsPromote(l.id); done++ }
@@ -64,7 +65,7 @@ export function Leads({ onPitch }: { onPitch: (contactId: number) => void }) {
   }
 
   const skip = async () => {
-    setBusy(true); setNotice('')
+    setBusy(true); setNotice(''); setError('')
     try {
       await window.api.leadsSkip([...sel])
       setNotice(`Skipped ${sel.size}.`)
@@ -77,7 +78,7 @@ export function Leads({ onPitch }: { onPitch: (contactId: number) => void }) {
   }
 
   const pitch = async (l: Lead) => {
-    setNotice('')
+    setNotice(''); setError('')
     if (!l.email) { setNotice(`${l.name} has no email yet. Add an email before pitching.`); return }
     try {
       let id = l.status === 'in_crm' ? l.contactId : null
@@ -160,10 +161,10 @@ export function Leads({ onPitch }: { onPitch: (contactId: number) => void }) {
           <span className="dim" aria-live="polite">{leads ? `${rows.length} lead${rows.length === 1 ? '' : 's'}` : ''}</span>
         </div>
 
-        {error && <div className="notice err" role="alert">{error} <a onClick={() => { setError(''); load() }}>Try again</a></div>}
+        {(error || loadError) && <div className="notice err" role="alert">{error || loadError} <a onClick={() => { setError(''); setLoadError(''); load() }}>Try again</a></div>}
         {notice && <div className="notice" role="status">{notice}</div>}
 
-        {leads === null && !error && <p className="help">Loading leads…</p>}
+        {leads === null && !error && !loadError && <p className="help">Loading leads…</p>}
         {empty && isDefaultFilter(filter) && (
           <div className="empty">
             <p>Import your first leads. Paste handles or profile links, or bring in a CSV, and Studio HQ ranks them by how well they fit your beats.</p>

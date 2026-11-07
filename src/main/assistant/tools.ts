@@ -21,7 +21,7 @@ export interface ToolDef {
 
 export interface ToolDeps {
   store: Pick<Store, 'listBeats' | 'getBeat' | 'updateBeat' | 'setTags'>
-  crm: Pick<Crm, 'all' | 'due' | 'saveContact' | 'logPitch' | 'logFollowup'>
+  crm: Pick<Crm, 'all' | 'due' | 'saveContact' | 'deleteContact' | 'logPitch' | 'logFollowup'>
   sales: Pick<Sales, 'all' | 'log'>
   content: Pick<Content, 'all' | 'savePost'>
   feedback: Pick<Feedback, 'all'>
@@ -33,6 +33,8 @@ const MAX_BEATS = 50
 const RECENT_SALES = 5
 const SHOW_LEN = 80
 const MAX_LIMIT = 500
+const MAX_REMOVE = 100
+const SHOW_REMOVE = 12
 
 const noArgs = { type: 'object' as const, properties: {} }
 
@@ -118,6 +120,17 @@ export function buildTools(d: ToolDeps): ToolDef[] {
     return { tags: merged }
   }
 
+  /** The contacts a remove_contacts call would hide: a clean, de-duplicated id list that must all exist (all or nothing). */
+  const removeInput = (a: Record<string, any>): { ids: number[]; names: string[] } | { error: string } => { // eslint-disable-line @typescript-eslint/no-explicit-any
+    if (!Array.isArray(a.ids) || !a.ids.length) return { error: 'ids must be a non-empty list of contact ids' }
+    const ids = [...new Set(a.ids.map(Number))]
+    if (ids.some((n) => !Number.isInteger(n) || n <= 0)) return { error: 'ids must be whole contact ids' }
+    if (ids.length > MAX_REMOVE) return { error: `Remove at most ${MAX_REMOVE} contacts at a time` }
+    const byId = new Map(d.crm.all().contacts.map((c) => [c.id, c]))
+    const missing = ids.find((n) => !byId.has(n))
+    if (missing !== undefined) return { error: `No contact with id ${missing}` }
+    return { ids, names: ids.map((n) => byId.get(n)!.name) }
+  }
   const contactInput = (a: A): Fail | { input: Parameters<ToolDeps['crm']['saveContact']>[0] } => {
     if (!str(a.name).trim()) return { error: 'Name is required' }
     if (a.role !== undefined && !(CONTACT_ROLES as string[]).includes(a.role)) return { error: `Role must be one of: ${CONTACT_ROLES.join(', ')}` }
@@ -321,6 +334,26 @@ export function buildTools(d: ToolDeps): ToolDef[] {
         return { ok: true, id: d.crm.saveContact(r.input) }
       },
       (a) => { const r = contactInput(a); return 'error' in r ? r.error : null }),
+
+    write('remove_contacts', 'Remove contacts from the pitch CRM. They are hidden, their follow-ups stop, and the record of what was pitched to them is kept. Only use this for contacts the user asked to remove, and tell the user which contacts and why before you call it. Pass every contact to remove in one call.',
+      { type: 'object', properties: { ids: { type: 'array', items: { type: 'number' }, description: `Ids of the contacts to remove (at most ${MAX_REMOVE})` } }, required: ['ids'] },
+      (a) => {
+        const ids = Array.isArray(a.ids) ? [...new Set(a.ids.map(Number))] : []
+        const byId = new Map(d.crm.all().contacts.map((c) => [c.id, c]))
+        const shown = ids.slice(0, SHOW_REMOVE).map((id) => {
+          const c = byId.get(id)
+          return c ? `${show(c.name)}${c.email ? ` (${c.email})` : ''}` : `contact ${id}`
+        })
+        const more = ids.length > SHOW_REMOVE ? `, and ${ids.length - SHOW_REMOVE} more` : ''
+        return `Remove ${ids.length} contact${ids.length === 1 ? '' : 's'} from the pitch CRM: ${shown.join(', ')}${more}. Their follow-ups stop and past pitches stay on record.`
+      },
+      (a) => {
+        const r = removeInput(a)
+        if ('error' in r) return { error: r.error }
+        for (const id of r.ids) d.crm.deleteContact(id)
+        return { ok: true, removed: r.ids.length, names: r.names }
+      },
+      (a) => { const r = removeInput(a); return 'error' in r ? r.error : null }),
 
     write('log_pitch', 'Record that beats were pitched to a contact, or (with followUpPitchId) that you followed up on an existing pitch. Beats still at idea, wip or finished move to sent.',
       { type: 'object', properties: { contactId: { type: 'number' }, beatIds: { type: 'array', items: { type: 'number' } }, subject: { type: 'string' }, channel: { type: 'string', enum: ['email', 'dm', 'other'] }, link: { type: 'string' }, followUpPitchId: { type: 'number', description: 'Log a follow-up on this pitch instead of a new pitch' } } },

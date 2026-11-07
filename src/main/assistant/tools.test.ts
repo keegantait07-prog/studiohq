@@ -129,7 +129,7 @@ describe('list tool limits', () => {
 describe('write tools', () => {
   let wt: Record<string, ToolDef>
   let store: { updateBeat: ReturnType<typeof vi.fn>; setTags: ReturnType<typeof vi.fn> }
-  let crm: { saveContact: ReturnType<typeof vi.fn>; logPitch: ReturnType<typeof vi.fn>; logFollowup: ReturnType<typeof vi.fn> }
+  let crm: { saveContact: ReturnType<typeof vi.fn>; logPitch: ReturnType<typeof vi.fn>; logFollowup: ReturnType<typeof vi.fn>; deleteContact: ReturnType<typeof vi.fn> }
   let sales: { log: ReturnType<typeof vi.fn> }
   let content: { savePost: ReturnType<typeof vi.fn> }
   let yt: { prepare: ReturnType<typeof vi.fn> }
@@ -138,7 +138,7 @@ describe('write tools', () => {
   beforeEach(() => {
     beats = [beat(1, { title: 'Midnight Run' })]
     store = { updateBeat: vi.fn(), setTags: vi.fn() }
-    crm = { saveContact: vi.fn(() => 5), logPitch: vi.fn(() => 9), logFollowup: vi.fn() }
+    crm = { saveContact: vi.fn(() => 5), logPitch: vi.fn(() => 9), logFollowup: vi.fn(), deleteContact: vi.fn() }
     sales = { log: vi.fn(() => 3) }
     content = { savePost: vi.fn(() => 4) }
     yt = { prepare: vi.fn(async () => ({ videoId: 12, beatId: 1, artists: ['A'], previewData: 'xxx' })) }
@@ -155,8 +155,8 @@ describe('write tools', () => {
     wt = Object.fromEntries(buildTools(deps).map((t) => [t.name, t]))
   })
 
-  it('marks all seven as write', () => {
-    for (const n of ['update_beat', 'set_tags', 'save_contact', 'log_pitch', 'log_sale', 'save_post', 'prepare_youtube_draft']) expect(wt[n]?.kind, n).toBe('write')
+  it('marks all eight as write', () => {
+    for (const n of ['update_beat', 'set_tags', 'save_contact', 'remove_contacts', 'log_pitch', 'log_sale', 'save_post', 'prepare_youtube_draft']) expect(wt[n]?.kind, n).toBe('write')
   })
 
   it('update_beat writes the patch, calls afterWrite once and describes it', async () => {
@@ -214,6 +214,46 @@ describe('write tools', () => {
     expect(await wt.save_contact.run({ id: 99, name: 'Zed' })).toEqual({ error: 'No contact with id 99' })
     expect(crm.saveContact).not.toHaveBeenCalled()
     expect(afterWrite).not.toHaveBeenCalled()
+  })
+
+  it('remove_contacts hides each contact once, calls afterWrite once and reports who went', async () => {
+    expect(await wt.remove_contacts.run({ ids: [2, 3, 3] })).toEqual({ ok: true, removed: 2, names: ['Zoe', 'Dan'] })
+    expect(crm.deleteContact.mock.calls).toEqual([[2], [3]])
+    expect(afterWrite).toHaveBeenCalledTimes(1)
+  })
+
+  it('remove_contacts is all-or-nothing: one unknown id removes nobody', async () => {
+    expect(await wt.remove_contacts.run({ ids: [2, 99] })).toEqual({ error: 'No contact with id 99' })
+    expect(crm.deleteContact).not.toHaveBeenCalled()
+    expect(afterWrite).not.toHaveBeenCalled()
+  })
+
+  it('remove_contacts rejects missing, empty, non-numeric and oversize id lists', async () => {
+    for (const ids of [undefined, [], 'all', [0], [-1], [1.5], ['abc'], [null], Array.from({ length: 101 }, (_, i) => i + 1)]) {
+      expect(await wt.remove_contacts.run({ ids }), JSON.stringify(ids)?.slice(0, 40)).toHaveProperty('error')
+    }
+    expect(crm.deleteContact).not.toHaveBeenCalled()
+    expect(afterWrite).not.toHaveBeenCalled()
+  })
+
+  it('remove_contacts validate gives the same reason without writing', () => {
+    expect(wt.remove_contacts.validate!({ ids: [99] })).toMatch(/No contact with id 99/)
+    expect(wt.remove_contacts.validate!({ ids: [] })).toMatch(/non-empty/)
+    expect(wt.remove_contacts.validate!({ ids: [2, 3] })).toBeNull()
+    expect(crm.deleteContact).not.toHaveBeenCalled()
+  })
+
+  it('remove_contacts describes who goes, caps a long list, and says what is kept', () => {
+    const d = wt.remove_contacts.describe({ ids: [2, 3] })
+    expect(d).toContain('Remove 2 contacts')
+    expect(d).toContain('"Zoe"')
+    expect(d).toContain('"Dan" (d@x.com)')
+    expect(d).toMatch(/follow-ups stop/)
+    expect(d).toMatch(/pitches stay/)
+    const long = wt.remove_contacts.describe({ ids: Array.from({ length: 40 }, (_, i) => i + 100) })
+    expect(long).toContain('Remove 40 contacts')
+    expect(long).toContain('and 28 more')
+    expect(long.length).toBeLessThan(900)
   })
 
   it('save_post with an unknown id errors and writes nothing', async () => {

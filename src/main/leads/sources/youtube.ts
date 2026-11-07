@@ -15,7 +15,7 @@ export function youtubeSource(research: Pick<YtResearch, 'smallChannels'>): Lead
     async search(query: string, ctx: SourceCtx): Promise<LeadCandidate[]> {
       let channels: Awaited<ReturnType<YtResearch['smallChannels']>>
       try {
-        channels = await research.smallChannels(query.trim() || 'rapper', MAX_SUBS, ctx.now)
+        channels = await research.smallChannels(query.trim() || 'rapper', ctx.opts?.maxSubs ?? MAX_SUBS, ctx.now, ctx.opts?.days ?? 180)
       } catch (e) {
         const m = e instanceof Error ? e.message : ''
         if (m === QUOTA_MESSAGE || m.startsWith('YouTube said:')) throw new SourceError(m)

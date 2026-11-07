@@ -9,6 +9,7 @@ import type { Lead, LeadSource, LeadStatus } from '../../shared/leads'
 import { lookupContact } from '../leads/contact-lookup'
 import { importCandidates } from '../leads/import'
 import { SOURCES } from '../leads/sources'
+import { cleanSearchOpts } from '../leads/search-opts'
 import { SourceError } from '../leads/sources/types'
 import { getKv, getSecret, setSecret } from '../ytkv'
 import type { IpcCtx } from './context'
@@ -82,11 +83,11 @@ export function registerBusinessIpc(c: IpcCtx): void {
   h('leads:keyStatus', (): { soundcloud: boolean; audiomack: boolean; x: boolean } => ({
     soundcloud: !!getKv(c.store.db, 'lead_key_soundcloud'), audiomack: !!getKv(c.store.db, 'lead_key_audiomack'), x: !!getKv(c.store.db, 'lead_key_x')
   }))
-  h('leads:search', mut(async (source: LeadSource, query: string): Promise<{ added: number; duplicates: number } | { error: string }> => {
+  h('leads:search', mut(async (source: LeadSource, query: string, opts?: unknown): Promise<{ added: number; duplicates: number } | { error: string }> => {
     const mod = SOURCES[source]
     if (!mod) return { error: 'That source is not available yet.' }
     try {
-      return c.leads.addCandidates(await mod.search(query, { fetchFn: fetch, getKey: readLeadKey, now: Date.now() }))
+      return c.leads.addCandidates(await mod.search(query, { fetchFn: fetch, getKey: readLeadKey, now: Date.now(), opts: cleanSearchOpts(opts) }))
     } catch (e) {
       if (e instanceof SourceError) return { error: e.message }
       console.error('leads:search failed', source, e)

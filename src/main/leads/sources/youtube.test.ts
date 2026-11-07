@@ -33,6 +33,17 @@ describe('youtubeSource', () => {
   })
 })
 
+describe('youtubeSource options', () => {
+  it('passes the preset subscriber cap and recency window to the search', async () => {
+    const seen: unknown[][] = []
+    const src = youtubeSource({ smallChannels: async (...a: unknown[]) => { seen.push(a); return [] } } as never)
+    await src.search('uk drill rapper freestyle', { ...ctx, opts: { maxSubs: 10_000, days: 90 } })
+    expect(seen[0]).toEqual(['uk drill rapper freestyle', 10_000, ctx.now, 90])
+    await src.search('x', ctx)
+    expect(seen[1]).toEqual(['x', 50_000, ctx.now, 180])
+  })
+})
+
 describe('YtResearch.smallChannels', () => {
   const make = (calls: string[]) => {
     const db = openDb(mkdtempSync(join(tmpdir(), 'shq-yt-')))
@@ -66,6 +77,21 @@ describe('YtResearch.smallChannels', () => {
     expect(q).toContain('drill rapper london')
     expect(q).toMatch(/-"?type beat"?/)
     expect(q).toMatch(/-beats?\b/)
+  })
+  it('honours the recency window and subscriber cap, and keeps them apart in the cache', async () => {
+    const calls: string[] = []
+    const r = make(calls)
+    const out = await r.smallChannels('drill', 1000, NOW, 90)
+    expect(new URL(calls[0]).searchParams.get('publishedAfter')).toBe(new Date(NOW - 90 * 86_400_000).toISOString())
+    expect(out.map((c) => c.channelId)).toEqual(['UCcccccccccccccccccccccc'])
+    await r.smallChannels('drill', 1000, NOW, 30)
+    expect(calls).toHaveLength(4)
+  })
+  it('excludes reaction, review and podcast uploads as well as beats', async () => {
+    const calls: string[] = []
+    await make(calls).smallChannels('drill', 50_000, NOW)
+    const q = new URL(calls[0]).searchParams.get('q') ?? ''
+    for (const w of ['-reaction', '-review', '-podcast']) expect(q).toContain(w)
   })
   it('never looks up channels whose only matching video is a beat upload, and reports the latest upload', async () => {
     const calls: string[] = []

@@ -1,3 +1,4 @@
+import { presetGroups, type LeadPreset } from '@shared/leadPresets'
 import { useCallback, useEffect, useState } from 'react'
 import type { Lead, LeadSource, LeadStatus } from '@shared/leads'
 import { clickable } from './a11y'
@@ -25,6 +26,7 @@ export function Leads({ onPitch }: { onPitch: (contactId: number) => void }) {
   const [looking, setLooking] = useState<number | null>(null)
   const [searchSource, setSearchSource] = useState<LeadSource>('youtube')
   const [query, setQuery] = useState('')
+  const [preset, setPreset] = useState<LeadPreset | null>(null)
   const [searching, setSearching] = useState(false)
 
   const load = useCallback(async () => {
@@ -104,7 +106,8 @@ export function Leads({ onPitch }: { onPitch: (contactId: number) => void }) {
   const search = async () => {
     setSearching(true); setNotice(''); setError('')
     try {
-      const r = await window.api.leadsSearch(searchSource, query)
+      const opts = preset && preset.source === 'youtube' && query === preset.query ? { maxSubs: preset.maxSubs, days: preset.days } : undefined
+      const r = await window.api.leadsSearch(searchSource, query, opts)
       if ('error' in r) setError(r.error)
       else if (!r.added && !r.duplicates) setNotice('No new artists found.')
       else setNotice(`Added ${r.added} lead${r.added === 1 ? '' : 's'}${r.duplicates ? `, ${r.duplicates} already in your list` : ''}.`)
@@ -121,7 +124,22 @@ export function Leads({ onPitch }: { onPitch: (contactId: number) => void }) {
       <div className="sales-head">
         <h2>Leads</h2>
         <div className="grow" />
-        <select className="grp" aria-label="Search source" value={searchSource} onChange={(e) => setSearchSource(e.target.value as LeadSource)}>
+        <select
+          className="grp" aria-label="Search presets" value={preset?.id ?? ''}
+          onChange={(e) => {
+            const p = presetGroups().flatMap((g) => g.presets).find((x) => x.id === e.target.value) ?? null
+            setPreset(p)
+            if (p) { setSearchSource(p.source); setQuery(p.query) }
+          }}
+        >
+          <option value="">Presets…</option>
+          {presetGroups().map((g) => (
+            <optgroup key={g.group} label={g.group}>
+              {g.presets.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+            </optgroup>
+          ))}
+        </select>
+        <select className="grp" aria-label="Search source" value={searchSource} onChange={(e) => { setSearchSource(e.target.value as LeadSource); setPreset(null) }}>
           <option value="youtube">{SOURCE_LABEL.youtube}</option>
           <option value="reddit">{SOURCE_LABEL.reddit}</option>
           <option value="soundcloud">{SOURCE_LABEL.soundcloud}</option>
@@ -130,12 +148,18 @@ export function Leads({ onPitch }: { onPitch: (contactId: number) => void }) {
         </select>
         <input
           aria-label="Search for artists" placeholder={searchSource === 'reddit' || searchSource === 'x' ? 'looking for beats' : 'trap rapper'} value={query}
-          onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !searching) search() }}
+          onChange={(e) => { setQuery(e.target.value); if (preset && e.target.value !== preset.query) setPreset(null) }} onKeyDown={(e) => { if (e.key === 'Enter' && !searching) search() }}
         />
         <button disabled={searching} onClick={search}>{searching ? 'Searching…' : 'Search'}</button>
         <button className="primary" onClick={() => setImporting(true)}>Paste or import</button>
       </div>
       <div className="sales-body">
+        {preset && (
+          <p className="help" style={{ margin: '0 0 10px' }}>
+            {preset.note}
+            {preset.source === 'youtube' && ` Under ${(preset.maxSubs ?? 0).toLocaleString()} subscribers, uploaded in the last ${preset.days} days. A search uses about 100 of your daily YouTube quota.`}
+          </p>
+        )}
         <div className="subbar" style={{ padding: '0 0 10px', flexWrap: 'wrap' }}>
           <label className="check small">Source
             <select className="grp" value={filter.source} onChange={(e) => set('source', e.target.value as LeadFilterUi['source'])}>

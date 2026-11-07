@@ -67,14 +67,14 @@ export class YtResearch {
 
   /** Channels matching a search whose subscriber count is under maxSubs (or hidden). One search plus one channels.list, cached for a week. */
   /** Small artist channels, found through recent music videos (rappers upload videos; text-matching channel search mostly returns beat channels). */
-  async smallChannels(query: string, maxSubs: number, now = Date.now()): Promise<SmallChannel[]> {
-    const key = `small2:${query.toLowerCase()}:${maxSubs}`
+  async smallChannels(query: string, maxSubs: number, now = Date.now(), days = 180): Promise<SmallChannel[]> {
+    const key = `small2:${query.toLowerCase()}:${maxSubs}:${days}`
     const hit = this.cached<SmallChannel[]>(key, WEEK, now)
     if (hit) return hit
-    const q = `${query.trim()} -beat -beats -instrumental -"type beat"`
+    const q = `${query.trim()} -beat -beats -instrumental -"type beat" -reaction -review -podcast`
     const s = await this.api('search', {
       part: 'snippet', q, type: 'video', videoCategoryId: '10', order: 'relevance', maxResults: '50',
-      publishedAfter: new Date(now - 180 * 86_400_000).toISOString()
+      publishedAfter: new Date(now - days * 86_400_000).toISOString()
     }, COST.search)
     const latest = new Map<string, number>()
     for (const i of (s.items ?? []) as Row[]) {

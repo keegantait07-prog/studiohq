@@ -5,6 +5,8 @@ export interface SourceCtx {
   fetchFn: typeof fetch
   getKey(name: string): string | null
   now: number
+  /** Optional per-search limits from a preset (YouTube uses both). */
+  opts?: { maxSubs?: number; days?: number }
 }
 
 export interface LeadSourceModule {

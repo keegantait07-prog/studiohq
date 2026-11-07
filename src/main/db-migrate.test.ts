@@ -35,4 +35,18 @@ describe('db migrations', () => {
     openDb(dir).close()
     expect(() => readdirSync(join(dir, 'backups'))).toThrow()
   })
+
+  test('a database at the version before Lead Finder upgrades and gains both tables', () => {
+    const dir = join(tmp, 'pre-leads')
+    openDb(dir).close()
+    const raw = new Database(join(dir, 'studio-hq.db'))
+    raw.exec('DROP TABLE leads; DROP TABLE suppressed')
+    raw.pragma('user_version = 3')
+    raw.close()
+    const db = openDb(dir)
+    expect(db.pragma('user_version', { simple: true })).toBeGreaterThanOrEqual(4)
+    const names = (db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('leads','suppressed')").all() as { name: string }[]).map((r) => r.name).sort()
+    expect(names).toEqual(['leads', 'suppressed'])
+    db.close()
+  })
 })

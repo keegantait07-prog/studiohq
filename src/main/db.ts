@@ -18,7 +18,7 @@ export function openDb(dir: string): Database.Database {
  * Add new changes as a new entry at the END; never edit an old one. The first two are written to be
  * safe on databases that already have everything (they predate version numbers).
  */
-const MIGRATIONS: ((db: Database.Database) => void)[] = [createTables, addColumns, integrityAndIndexes]
+const MIGRATIONS: ((db: Database.Database) => void)[] = [createTables, addColumns, integrityAndIndexes, addLeadTables]
 
 function migrate(db: Database.Database, file: string): void {
   const from = db.pragma('user_version', { simple: true }) as number
@@ -364,6 +364,38 @@ function integrityAndIndexes(db: Database.Database): void {
   const doubled = db.prepare('SELECT 1 FROM sales WHERE exclusive=1 GROUP BY group_id HAVING COUNT(*)>1 LIMIT 1').get()
   if (!doubled) db.exec('CREATE UNIQUE INDEX IF NOT EXISTS sales_one_exclusive ON sales(group_id) WHERE exclusive=1')
   db.exec(`UPDATE beats SET analyzed_at=NULL WHERE ext!='flp' AND (bpm_source='analysis' OR key_source='analysis')`)
+}
+
+/** Lead Finder: prospects found or added by the producer, and addresses that must never be emailed again. */
+function addLeadTables(db: Database.Database): void {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS leads (
+      id INTEGER PRIMARY KEY,
+      source TEXT NOT NULL,
+      source_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      url TEXT NOT NULL DEFAULT '',
+      followers INTEGER,
+      last_active_at INTEGER,
+      genre TEXT NOT NULL DEFAULT '',
+      bio TEXT NOT NULL DEFAULT '',
+      signals TEXT NOT NULL DEFAULT '[]',
+      score INTEGER NOT NULL DEFAULT 0,
+      reasons TEXT NOT NULL DEFAULT '[]',
+      email TEXT NOT NULL DEFAULT '',
+      email_source_url TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'new',
+      contact_id INTEGER REFERENCES contacts(id) ON DELETE SET NULL,
+      created_at INTEGER NOT NULL,
+      UNIQUE(source, source_id)
+    );
+    CREATE INDEX IF NOT EXISTS leads_score ON leads(score);
+    CREATE TABLE IF NOT EXISTS suppressed (
+      email TEXT PRIMARY KEY,
+      reason TEXT NOT NULL DEFAULT '',
+      created_at INTEGER NOT NULL
+    );
+  `)
 }
 
 /** Refuses anything that isn't a healthy Studio HQ database. */

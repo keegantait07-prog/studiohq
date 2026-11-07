@@ -132,6 +132,7 @@ const api: Api = {
   leadsSave: (ids) => ipcRenderer.invoke('leads:save', ids),
   leadsSuppress: (email, reason) => ipcRenderer.invoke('leads:suppress', email, reason),
   leadsIsSuppressed: (email) => ipcRenderer.invoke('leads:isSuppressed', email),
+  leadsLookupContact: (id) => ipcRenderer.invoke('leads:lookupContact', id),
   buildPack: (r) => ipcRenderer.invoke('packs:build', r),
   openPackLocal: (id) => ipcRenderer.invoke('packs:openLocal', id),
   netlifyStatus: () => ipcRenderer.invoke('netlify:status'),

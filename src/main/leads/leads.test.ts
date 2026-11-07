@@ -66,6 +66,13 @@ describe('Leads store', () => {
     expect(leads.list().find((l) => l.id === b.id)!.emailSourceUrl).toBe('https://x.com/contact')
   })
 
+  test('get returns one lead or undefined', () => {
+    leads.addCandidates([cand({ sourceId: 'g', name: 'Gee' })])
+    const id = leads.list()[0].id
+    expect(leads.get(id)?.name).toBe('Gee')
+    expect(leads.get(id + 99)).toBeUndefined()
+  })
+
   test('list sorts by score descending and filters', () => {
     leads.addCandidates([
       cand({ sourceId: 'low', followers: 150_000, lastActiveAt: null, genre: '' }),

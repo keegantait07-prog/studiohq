@@ -32,6 +32,11 @@ export class Leads {
     }
   }
 
+  get(id: number): Lead | undefined {
+    const r = this.db.prepare('SELECT * FROM leads WHERE id=?').get(id) as Row | undefined
+    return r ? this.toLead(r) : undefined
+  }
+
   list(f: { source?: LeadSource; minScore?: number; hasEmail?: boolean; status?: LeadStatus } = {}): Lead[] {
     const where: string[] = []
     const args: unknown[] = []

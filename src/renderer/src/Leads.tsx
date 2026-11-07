@@ -21,6 +21,7 @@ export function Leads({ onPitch }: { onPitch: (contactId: number) => void }) {
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
   const [importing, setImporting] = useState(false)
+  const [looking, setLooking] = useState<number | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -85,6 +86,19 @@ export function Leads({ onPitch }: { onPitch: (contactId: number) => void }) {
     } catch (e) {
       setError(`Could not open the pitch: ${errMsg(e)}`)
     }
+  }
+
+  const findEmail = async (l: Lead) => {
+    setLooking(l.id); setNotice(''); setError('')
+    try {
+      const r = await window.api.leadsLookupContact(l.id)
+      if (r.found) setNotice(`Found ${r.email} for ${l.name}.`)
+      else setNotice(r.reason)
+    } catch (e) {
+      setError(`Could not look up an email: ${errMsg(e)}`)
+    }
+    setLooking(null)
+    load()
   }
 
   const empty = leads !== null && !rows.length
@@ -160,7 +174,11 @@ export function Leads({ onPitch }: { onPitch: (contactId: number) => void }) {
                         <div className="sub dim" title={l.emailSourceUrl}>{emailSourceLabel(l.email, l.emailSourceUrl)}</div>
                       </>
                     ) : (
-                      <button disabled title="Email lookup arrives in a later step" onClick={(e) => e.stopPropagation()}>Find email</button>
+                      <button
+                        disabled={looking !== null}
+                        title={l.url ? 'Look for a public email on their page and contact pages' : 'Add a profile or website link first'}
+                        onClick={(e) => { e.stopPropagation(); findEmail(l) }}
+                      >{looking === l.id ? 'Looking…' : 'Find email'}</button>
                     )}
                   </div>
                   <div className="sact"><button onClick={(e) => { e.stopPropagation(); pitch(l) }}>Pitch</button></div>

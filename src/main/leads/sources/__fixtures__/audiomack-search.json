@@ -1,0 +1,5 @@
+{ "results": [
+  { "id": "10", "url_slug": "kiddrift", "name": "Kid Drift", "followers_count": 900, "genre": "hip-hop", "bio": "Reach me at drift@kiddrift.com" },
+  { "id": "11", "url_slug": "megastar", "name": "Mega Star", "followers_count": 900000, "genre": "rap", "bio": "" },
+  { "id": "12", "url_slug": "lowkey", "name": "Lowkey", "followers_count": 55, "genre": "rnb", "bio": "new music weekly" }
+] }

@@ -10,6 +10,7 @@ import { lookupContact } from '../leads/contact-lookup'
 import { importCandidates } from '../leads/import'
 import { SOURCES } from '../leads/sources'
 import { SourceError } from '../leads/sources/types'
+import { getKv, getSecret, setSecret } from '../ytkv'
 import { assertContactNotSuppressed, assertPitchNotSuppressed } from '../leads'
 import type { IpcCtx } from './context'
 
@@ -73,11 +74,22 @@ export function registerBusinessIpc(c: IpcCtx): void {
 
   h('leads:list', (_, f?: { source?: LeadSource; minScore?: number; hasEmail?: boolean; status?: LeadStatus }): Lead[] => c.leads.list(f))
   h('leads:import', mut((text: string, kind: 'handles' | 'csv') => c.leads.addCandidates(importCandidates(text, kind))))
+  const LEAD_KEYS = ['soundcloud', 'audiomack', 'x'] as const
+  const readLeadKey = (name: string): string | null => {
+    try { return getSecret(c.store.db, name) } catch { return null }
+  }
+  h('leads:setKey', mut((name: string, value: string | null): void => {
+    if (!(LEAD_KEYS as readonly string[]).includes(name)) throw new Error('Unknown lead source.')
+    setSecret(c.store.db, `lead_key_${name}`, value)
+  }))
+  h('leads:keyStatus', (): { soundcloud: boolean; audiomack: boolean; x: boolean } => ({
+    soundcloud: !!getKv(c.store.db, 'lead_key_soundcloud'), audiomack: !!getKv(c.store.db, 'lead_key_audiomack'), x: !!getKv(c.store.db, 'lead_key_x')
+  }))
   h('leads:search', mut(async (source: LeadSource, query: string): Promise<{ added: number; duplicates: number } | { error: string }> => {
     const mod = SOURCES[source]
     if (!mod) return { error: 'That source is not available yet.' }
     try {
-      return c.leads.addCandidates(await mod.search(query, { fetchFn: fetch, getKey: () => null, now: Date.now() }))
+      return c.leads.addCandidates(await mod.search(query, { fetchFn: fetch, getKey: readLeadKey, now: Date.now() }))
     } catch (e) {
       if (e instanceof SourceError) return { error: e.message }
       console.error('leads:search failed', source, e)

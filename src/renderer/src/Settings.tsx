@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { NetlifyStatus, Settings as S, SiteStatus } from '@shared/types'
 import { YouTubeSettings } from './YouTubeSettings'
+import { LeadSourceSettings } from './LeadSourceSettings'
 
 export function Settings({ onClose }: { onClose: () => void }) {
   const [s, setS] = useState<S | null>(null)
@@ -79,6 +80,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
           <p className="help">Leave blank to find <code>claude</code> automatically</p>
         </section>
         <YouTubeSettings s={s} reload={load} />
+        <LeadSourceSettings />
         <section>
           <h3>Netlify (private pitch pages)</h3>
           <p className="help">Pages and audio previews are published to your own Netlify site, under unguessable links. Create a personal access token in Netlify → User settings → Applications, and paste it here. It is stored encrypted with the macOS Keychain.</p>

@@ -430,6 +430,8 @@ export interface Api {
   leadsSave(ids: number[]): Promise<void>
   leadsSuppress(email: string, reason: string): Promise<void>
   leadsIsSuppressed(email: string): Promise<boolean>
+  leadsSetKey(name: 'soundcloud' | 'audiomack' | 'x', value: string | null): Promise<void>
+  leadsKeyStatus(): Promise<{ soundcloud: boolean; audiomack: boolean; x: boolean }>
   leadsLookupContact(id: number): Promise<{ found: true; email: string; sourceUrl: string } | { found: false; reason: string }>
   saveContact(c: Partial<Contact> & { name: string }): Promise<number>
   deleteContact(id: number): Promise<void>

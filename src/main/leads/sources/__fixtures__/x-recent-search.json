@@ -1,0 +1,11 @@
+{
+  "data": [
+    { "id": "1", "author_id": "u1", "text": "need beats for my next ep, dm me", "created_at": "2026-11-05T10:00:00Z" },
+    { "id": "2", "author_id": "u1", "text": "still looking for a producer", "created_at": "2026-11-05T11:00:00Z" },
+    { "id": "3", "author_id": "u2", "text": "looking for a producer who does drill", "created_at": "2026-11-06T09:00:00Z" }
+  ],
+  "includes": { "users": [
+    { "id": "u1", "username": "lilnova", "name": "Lil Nova", "description": "rapper. biz: nova@lilnova.com", "public_metrics": { "followers_count": 1200 } },
+    { "id": "u2", "username": "drillgirl", "name": "Drill Girl", "description": "drill artist" }
+  ] }
+}

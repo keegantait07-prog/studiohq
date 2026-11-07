@@ -23,7 +23,7 @@ export function Leads({ onPitch }: { onPitch: (contactId: number) => void }) {
   const [busy, setBusy] = useState(false)
   const [importing, setImporting] = useState(false)
   const [looking, setLooking] = useState<number | null>(null)
-  const [searchSource, setSearchSource] = useState<'youtube' | 'reddit'>('youtube')
+  const [searchSource, setSearchSource] = useState<LeadSource>('youtube')
   const [query, setQuery] = useState('')
   const [searching, setSearching] = useState(false)
 
@@ -125,12 +125,15 @@ export function Leads({ onPitch }: { onPitch: (contactId: number) => void }) {
       <div className="sales-head">
         <h2>Leads</h2>
         <div className="grow" />
-        <select className="grp" aria-label="Search source" value={searchSource} onChange={(e) => setSearchSource(e.target.value as 'youtube' | 'reddit')}>
+        <select className="grp" aria-label="Search source" value={searchSource} onChange={(e) => setSearchSource(e.target.value as LeadSource)}>
           <option value="youtube">{SOURCE_LABEL.youtube}</option>
           <option value="reddit">{SOURCE_LABEL.reddit}</option>
+          <option value="soundcloud">{SOURCE_LABEL.soundcloud}</option>
+          <option value="audiomack">{SOURCE_LABEL.audiomack}</option>
+          <option value="x">{SOURCE_LABEL.x}</option>
         </select>
         <input
-          aria-label="Search for artists" placeholder={searchSource === 'youtube' ? 'trap rapper' : 'looking for beats'} value={query}
+          aria-label="Search for artists" placeholder={searchSource === 'reddit' || searchSource === 'x' ? 'looking for beats' : 'trap rapper'} value={query}
           onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !searching) search() }}
         />
         <button disabled={searching} onClick={search}>{searching ? 'Searching…' : 'Search'}</button>

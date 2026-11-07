@@ -7,6 +7,7 @@ import type { LogSaleInput, License, Sale, SplitRow } from '../../shared/types'
 import type { LogPitchInput, Template, Contact, PitchStatus } from '../../shared/types'
 import type { Lead, LeadSource, LeadStatus } from '../../shared/leads'
 import { importCandidates } from '../leads/import'
+import { assertNotSuppressed } from '../leads'
 import type { IpcCtx } from './context'
 
 export function registerBusinessIpc(c: IpcCtx): void {
@@ -56,7 +57,10 @@ export function registerBusinessIpc(c: IpcCtx): void {
   h('crm:all', () => c.crm.all())
   h('crm:saveContact', mut((contact: Partial<Contact> & { name: string }) => c.crm.saveContact(contact)))
   h('crm:deleteContact', mut((id: number) => c.crm.deleteContact(id)))
-  h('crm:logPitch', mut((i: LogPitchInput) => c.crm.logPitch(i)))
+  h('crm:logPitch', mut((i: LogPitchInput) => {
+    if (i.channel === 'email') assertNotSuppressed(c.leads, c.crm.all().contacts.find((x) => x.id === i.contactId)?.email ?? '')
+    return c.crm.logPitch(i)
+  }))
   h('crm:updatePitch', mut((id: number, p: { status?: PitchStatus; responseNote?: string; snoozeDays?: number }) => c.crm.updatePitch(id, p)))
   h('crm:logFollowup', mut((id: number) => c.crm.logFollowup(id)))
   h('crm:setBeatResponse', mut((pid: number, bid: number, r: '' | 'liked' | 'passed') => c.crm.setPitchBeatResponse(pid, bid, r)))

@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Beat, CrmData, PackResult } from '@shared/types'
 import { displayKey } from '@shared/key'
 import { firstName, renderTemplate } from '@shared/template'
+import { withOptOut } from '@shared/leads'
 import { parseQuery } from './query'
 import { fmtBpm } from './format'
 import { DraftPanel } from './DraftPanel'
@@ -34,6 +35,15 @@ export function PitchDialog({ beats, crm, myName, hasToken, contactId: c0, beatI
   const [error, setError] = useState('')
 
   const contact = crm.contacts.find((c) => c.id === contactId)
+  // undefined = still checking; treated as not allowed until it resolves
+  const [optedOut, setOptedOut] = useState<boolean | undefined>(undefined)
+  useEffect(() => {
+    setOptedOut(undefined)
+    if (!contact?.email) { setOptedOut(false); return }
+    let live = true
+    window.api.leadsIsSuppressed(contact.email).then((v) => { if (live) setOptedOut(v) }, () => { if (live) setOptedOut(true) })
+    return () => { live = false }
+  }, [contact?.email])
   const name = contact ? firstName(contact.name) : 'there'
   const title = pageTitle || `Beats for ${name}`
   const introText = introTouched ? intro : `Hey ${name}, here ${picked.length === 1 ? 'is a beat' : `are ${picked.length || 'a few'} beats`} I think fit your sound.`
@@ -84,15 +94,17 @@ export function PitchDialog({ beats, crm, myName, hasToken, contactId: c0, beatI
       <div className="overlay">
         <div className="modal wide-modal" onMouseDown={(e) => e.stopPropagation()}>
           <header><h2>Pitch to {contact.name}</h2><button onClick={onClose}>Close</button></header>
-          <DraftPanel
-            to={contact.email} subject={subject} body={renderTemplate(tpl?.body ?? '', v)} link={link || undefined} notice={notice}
+          {optedOut === undefined && <div className="notice">Checking opt-out list…</div>}
+          {optedOut && <div className="notice err">{contact.name} opted out and cannot be pitched.</div>}
+          {optedOut === false && <DraftPanel
+            to={contact.email} subject={subject} body={withOptOut(renderTemplate(tpl?.body ?? '', v))} link={link || undefined} notice={notice}
             onLocalPreview={pack ? () => window.api.openPackLocal(pack.packId) : undefined}
             confirmLabel="I sent it · log pitch"
             onConfirm={async (subj) => {
               await window.api.logPitch({ contactId: contact.id, beatIds: picked, channel, subject: subj, link, packId: pack?.packId ?? null })
               onLogged(contact.id)
             }}
-          />
+          />}
           <p className="help">Logging marks these beats as “sent” in your Vault and starts the follow-up timer.</p>
         </div>
       </div>

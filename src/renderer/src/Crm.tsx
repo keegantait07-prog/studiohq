@@ -170,14 +170,25 @@ function Overview({ crm, contactName, onSelect, onDraft, onPitch, reload }: { cr
 function ContactView({ c, pitches, defaultDays, onEdit, onPitch, onDelete, onOpenBeat, onDraft, reload }: {
   c: Contact; pitches: Pitch[]; defaultDays: number; onEdit: () => void; onPitch: () => void; onDelete: () => void; onOpenBeat: (id: number) => void; onDraft: (p: Pitch) => void; reload: () => void
 }) {
+  const [optedOut, setOptedOut] = useState(false)
+  useEffect(() => {
+    setOptedOut(false)
+    if (c.email) window.api.leadsIsSuppressed(c.email).then(setOptedOut, () => {})
+  }, [c.email])
+  const optOut = async () => {
+    if (!confirm(`Mark ${c.name} as opted out? You will not be able to pitch ${c.email} again.`)) return
+    await window.api.leadsSuppress(c.email, 'opted out')
+    setOptedOut(true)
+  }
   return (
     <div className="cview">
       <div className="cv-head">
         <div>
           <h2>{c.name} <span className="chip">{c.role}</span></h2>
+          {optedOut && <span className="chip">opted out</span>}
           {c.email && <a onClick={() => window.api.openExternal(`mailto:${c.email}`)}>{c.email}</a>}
         </div>
-        <div className="actions"><button onClick={onEdit}>Edit</button><button onClick={onDelete}>Delete</button><button className="primary" onClick={onPitch}>Pitch beats</button></div>
+        <div className="actions"><button onClick={onEdit}>Edit</button>{c.email && !optedOut && <button onClick={optOut}>Mark opted out</button>}<button onClick={onDelete}>Delete</button><button className="primary" onClick={onPitch}>Pitch beats</button></div>
       </div>
       {c.links.length > 0 && <div className="chips">{c.links.map((l) => <span key={l.url} className="chip artist" style={{ cursor: 'pointer' }} onClick={() => window.api.openExternal(l.url)}>{l.label} ↗</span>)}</div>}
       {c.sound && <div className="field"><label>Their sound</label><div>{c.sound}</div></div>}

@@ -119,3 +119,8 @@ export class Leads {
     }))
   }
 }
+
+/** Throws if the address opted out. The raw email goes to the store, which normalises it. */
+export function assertNotSuppressed(leads: Pick<Leads, 'isSuppressed'>, email: string): void {
+  if (email && leads.isSuppressed(email)) throw new Error(`${email} opted out and cannot be pitched.`)
+}

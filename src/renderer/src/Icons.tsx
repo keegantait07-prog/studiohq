@@ -6,6 +6,7 @@ const G: Record<string, ReactNode> = {
   vault: <><path className="f" d="M3.5 8.5h17v11h-17z" /><path d="M8.5 8.5v-4h7v4M3.5 13h17" /></>,
   loops: <><path className="f" d="M3.5 9.5h17v6h-17z" /><path d="M7 9.5c0-3 10-3 10 0M7 15.5c0 3 10 3 10 0" /></>,
   map: <><circle className="f" cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="3" /><path d="M12 3.5v3M12 17.5v3M3.5 12h3M17.5 12h3" /></>,
+  leads: <><circle className="f" cx="10.5" cy="10.5" r="6.5" /><path d="M15.2 15.2l5.3 5.3M10.5 7.5v6M7.5 10.5h6" /></>,
   crm: <><rect className="f" x="3.5" y="5.5" width="17" height="13" /><path d="M3.5 7l8.5 6.5L20.5 7" /></>,
   sales: <><circle className="f" cx="12" cy="12" r="8.5" /><path d="M12 7v10M9.5 9.8c0-1.2 1.1-1.8 2.5-1.8s2.5.6 2.5 1.8-1.1 1.5-2.5 1.9-2.5.7-2.5 1.9 1.1 1.8 2.5 1.8 2.5-.6 2.5-1.8" /></>,
   content: <><rect className="f" x="3.5" y="5" width="17" height="14" /><path d="M10 9.2v5.6l4.8-2.8z" /></>,

@@ -29,6 +29,7 @@ import { startOfDay } from './suggest'
 const SoundLibrary = lazy(() => import('./SoundLibrary').then((m) => ({ default: m.SoundLibrary })))
 import { groupRows, type GroupBy } from '@shared/loopGroups'
 const KitMaker = lazy(() => import('./KitMaker').then((m) => ({ default: m.KitMaker })))
+const Leads = lazy(() => import('./Leads').then((m) => ({ default: m.Leads })))
 const Plugins = lazy(() => import('./Plugins').then((m) => ({ default: m.Plugins })))
 import { FeedbackView } from './FeedbackView'
 import { FeedbackDialog } from './FeedbackDialog'
@@ -70,7 +71,7 @@ function SessionPill({ startedAt, onClick }: { startedAt: number; onClick: () =>
 export function App() {
   const [beats, setBeats] = useState<Beat[]>([])
   const [loaded, setLoaded] = useState(false)
-  const [view, setView] = useState<'dashboard' | 'vault' | 'loops' | 'map' | 'crm' | 'sales' | 'content' | 'sounds' | 'kits' | 'plugins' | 'feedback' | 'themes'>('dashboard')
+  const [view, setView] = useState<'dashboard' | 'vault' | 'loops' | 'map' | 'crm' | 'leads' | 'sales' | 'content' | 'sounds' | 'kits' | 'plugins' | 'feedback' | 'themes'>('dashboard')
   // the Beat Vault and the Loop Vault each keep their own search, status tab and selection
   const vaultKind: VaultKind = view === 'loops' ? 'loop' : 'beat'
   const isLoop = vaultKind === 'loop'
@@ -415,6 +416,7 @@ export function App() {
         </div>
         <a className={`nav ${view === 'map' ? 'on' : ''}`} {...clickable(() => setView('map'))}><em className="nl"><Icon name="map" />Sonic Map</em> <span>◎</span></a>
         <a className={`nav ${view === 'crm' ? 'on' : ''}`} {...clickable(() => setView('crm'))}><em className="nl"><Icon name="crm" />Pitch CRM</em> {dueCount > 0 ? <span className="badge">{dueCount}</span> : <span>{crm?.contacts.length ?? 0}</span>}</a>
+        <a className={`nav ${view === 'leads' ? 'on' : ''}`} {...clickable(() => setView('leads'))}><em className="nl"><Icon name="leads" />Leads</em> <span></span></a>
         <a className={`nav ${view === 'sales' ? 'on' : ''}`} {...clickable(() => setView('sales'))}><em className="nl"><Icon name="sales" />Sales & Collabs</em> <span>{salesData.sales.length}</span></a>
         <a className={`nav ${view === 'content' ? 'on' : ''}`} {...clickable(() => setView('content'))}><em className="nl"><Icon name="content" />Content</em> {overduePosts > 0 ? <span className="badge">{overduePosts}</span> : <span>{content.posts.filter((p) => p.status === 'posted').length}</span>}</a>
         <a className={`nav ${view === 'sounds' ? 'on' : ''}`} {...clickable(() => setView('sounds'))}><em className="nl"><Icon name="sounds" />Sound Library</em> <span>{sounds ? sounds.items.length.toLocaleString() : ''}</span></a>
@@ -444,6 +446,8 @@ export function App() {
         <ViewGuard name="Sonic Map"><SonicMap beats={beats} onQuery={openCollection} onPlay={(id) => { setSelectedId(id); safePlay(id) }} onOpen={(id) => openItem(id)} /></ViewGuard>
       ) : view === 'sounds' ? (
         <ViewGuard name="Sound Library"><SoundLibrary data={sounds} roots={appSettings?.soundFolders ?? []} status={soundStatus} query={soundQuery} onQuery={setSoundQuery} projectSel={soundProject} onProjectSel={setSoundProject} onReload={reloadSounds} onPauseMain={() => { if (player.playing) player.toggle() }} toast={toast} /></ViewGuard>
+      ) : view === 'leads' ? (
+        <ViewGuard name="Leads"><Leads onPitch={async (id) => { await reloadCrm(); setPitchDlg({ contactId: id }) }} /></ViewGuard>
       ) : view === 'kits' ? (
         <ViewGuard name="Kit Maker"><KitMaker data={sounds} onPauseMain={() => { if (player.playing) player.toggle() }} toast={toast} /></ViewGuard>
       ) : view === 'plugins' ? (

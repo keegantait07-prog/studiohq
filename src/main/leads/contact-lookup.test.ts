@@ -151,4 +151,50 @@ describe('lookupContact', () => {
     const fetchFn = ((_u: unknown, init?: RequestInit) => new Promise((_, rej) => { init?.signal?.addEventListener('abort', () => rej(new Error('aborted'))) })) as typeof fetch
     expect(await lookupContact('https://a.com/', { fetchFn, sleep: noSleep, timeoutMs: 20 })).toBeNull()
   })
+
+  test('treats a host and its www twin as the same site, both directions, but not other hosts', async () => {
+    const up = stub({ 'https://a.com/': { status: 301, location: 'https://www.a.com/' }, 'https://www.a.com/': { body: 'x@a.com' } })
+    expect(await lookupContact('https://a.com/', { fetchFn: up.fetchFn, sleep: noSleep })).toEqual({ email: 'x@a.com', sourceUrl: 'https://www.a.com/' })
+    const down = stub({ 'https://www.a.com/': { status: 301, location: 'https://a.com/' }, 'https://a.com/': { body: 'x@a.com' } })
+    expect((await lookupContact('https://www.a.com/', { fetchFn: down.fetchFn, sleep: noSleep }))?.email).toBe('x@a.com')
+    const link = stub({ 'https://www.a.com/': { body: '<a href="https://a.com/contact">c</a>' }, 'https://a.com/contact': { body: 'y@a.com' } })
+    expect((await lookupContact('https://www.a.com/', { fetchFn: link.fetchFn, sleep: noSleep }))?.sourceUrl).toBe('https://a.com/contact')
+    const other = stub({ 'https://a.com/': { status: 302, location: 'https://wwwa.com/' }, 'https://wwwa.com/': { body: 'z@a.com' } })
+    expect(await lookupContact('https://a.com/', { fetchFn: other.fetchFn, sleep: noSleep })).toBeNull()
+    expect(other.calls).not.toContain('https://wwwa.com/')
+  })
+})
+
+describe('hostile pages finish in linear time', () => {
+  const MB = 1_048_576
+  const hostile: Record<string, string> = {
+    'run of <': '<'.repeat(MB),
+    'run of <script>': '<script>'.repeat(Math.ceil(MB / 8)),
+    'run of unclosed <!--': '<!--'.repeat(Math.ceil(MB / 4)),
+    'run of unclosed <a ': '<a '.repeat(Math.ceil(MB / 3)),
+    'run of <a href=" unclosed': '<a href="contact'.repeat(Math.ceil(MB / 17)),
+    'run of <a> then late >': '<a '.repeat(Math.ceil(MB / 3) - 1) + '>',
+    'run of mailto:': 'mailto:'.repeat(Math.ceil(MB / 7)),
+    'run of @': '@'.repeat(MB),
+    'long word run': 'x'.repeat(MB),
+    'run of href + spaces': 'href'.padEnd(MB, ' '),
+    'comment-hash robots-like': '#'.repeat(MB)
+  }
+  for (const [name, body] of Object.entries(hostile)) {
+    test(`${name} returns within budget`, async () => {
+      const { fetchFn } = stub({ 'https://a.com/': { body } })
+      const t0 = Date.now()
+      await lookupContact('https://a.com/', { fetchFn, sleep: noSleep })
+      const ms = Date.now() - t0
+      console.log(`hostile ${name}: ${ms} ms`)
+      expect(ms).toBeLessThan(1500)
+    })
+  }
+
+  test('a hostile robots.txt is also fast', async () => {
+    const { fetchFn } = stub({ 'https://a.com/robots.txt': { type: 'text/plain', body: '#'.repeat(MB) }, 'https://a.com/': { body: 'a@a.com' } })
+    const t0 = Date.now()
+    expect((await lookupContact('https://a.com/', { fetchFn, sleep: noSleep }))?.email).toBe('a@a.com')
+    expect(Date.now() - t0).toBeLessThan(1500)
+  })
 })

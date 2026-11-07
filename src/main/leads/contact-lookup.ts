@@ -71,7 +71,7 @@ async function get(url: string, ctx: Ctx, from: URL = new URL(url)): Promise<Pag
         const loc = res.headers.get('location')
         if (!loc) return null
         const next = new URL(loc, cur)
-        if (next.hostname !== from.hostname || !isFetchableUrl(next.href)) return null
+        if (!sameSite(next.hostname, from.hostname) || !isFetchableUrl(next.href)) return null
         cur = next.href
         continue
       }
@@ -84,12 +84,22 @@ async function get(url: string, ctx: Ctx, from: URL = new URL(url)): Promise<Pag
   return null
 }
 
+/** a.com and www.a.com count as the same site. */
+function sameSite(a: string, b: string): boolean {
+  const bare = (h: string): string => h.toLowerCase().replace(/^www\./, '')
+  return bare(a) === bare(b)
+}
+
+// Every helper below scans fetched (hostile) content with indexOf and bounded slices, never a backtracking regex over the raw page.
+const TAG_MAX = 2000
+
 /** Simple robots.txt: only the `User-agent: *` group, Disallow by prefix. A missing or unreadable file allows everything. */
 function disallowed(robots: string, path: string): boolean {
   let inStar = false
   let lastWasAgent = false
-  for (const raw of robots.split(/\r?\n/)) {
-    const line = raw.replace(/#.*/, '').trim()
+  for (const raw of robots.split('\n')) {
+    const hash = raw.indexOf('#')
+    const line = (hash >= 0 ? raw.slice(0, hash) : raw).trim()
     const i = line.indexOf(':')
     if (i < 0) continue
     const key = line.slice(0, i).trim().toLowerCase()
@@ -105,13 +115,38 @@ function disallowed(robots: string, path: string): boolean {
   return false
 }
 
+/** Linear tag stripper: drops tags, comments and script/style/noscript bodies. An unclosed construct drops the rest of the page. */
+function stripTags(html: string): string {
+  const lower = html.toLowerCase()
+  const out: string[] = []
+  let i = 0
+  while (i < html.length) {
+    const lt = html.indexOf('<', i)
+    if (lt < 0) { out.push(html.slice(i)); break }
+    out.push(html.slice(i, lt), ' ')
+    if (lower.startsWith('<!--', lt)) {
+      const end = html.indexOf('-->', lt + 4)
+      if (end < 0) break
+      i = end + 3
+      continue
+    }
+    const block = ['script', 'style', 'noscript'].find((t) => lower.startsWith(`<${t}`, lt) && /[\s>/]/.test(lower[lt + t.length + 1] ?? '>'))
+    if (block) {
+      const end = lower.indexOf(`</${block}`, lt)
+      const close = end < 0 ? -1 : html.indexOf('>', end)
+      if (close < 0) break
+      i = close + 1
+      continue
+    }
+    const gt = html.indexOf('>', lt + 1)
+    if (gt < 0) break
+    i = gt + 1
+  }
+  return out.join('')
+}
+
 function visibleText(html: string): string {
-  return html
-    .replace(/<(script|style|noscript)[\s\S]*?<\/\1>/gi, ' ')
-    .replace(/<!--[\s\S]*?-->/g, ' ')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&#64;|&commat;/gi, '@')
-    .replace(/&amp;/gi, '&')
+  return stripTags(html).replace(/&#64;|&commat;/gi, '@').replace(/&amp;/gi, '&')
 }
 
 /** Windows around each "@" so a huge unbroken run of word characters cannot make the email regex quadratic. */
@@ -121,25 +156,41 @@ function aroundAt(text: string): string {
   return parts.join(' ')
 }
 
-function findEmail(html: string): string | null {
-  const mailto: string[] = []
-  for (const m of html.matchAll(/href\s*=\s*["']mailto:([^"'?]+)/gi)) {
-    try { mailto.push(decodeURIComponent(m[1])) } catch { mailto.push(m[1]) }
+function mailtoAddresses(html: string): string[] {
+  const lower = html.toLowerCase()
+  const out: string[] = []
+  for (let i = lower.indexOf('mailto:'); i >= 0 && out.length < 200; i = lower.indexOf('mailto:', i + 7)) {
+    const chunk = html.slice(i + 7, i + 7 + 320)
+    const raw = chunk.split(/["'?<>\s]/, 1)[0]
+    try { out.push(decodeURIComponent(raw)) } catch { out.push(raw) }
   }
-  return extractEmails(aroundAt(mailto.join(' ')))[0] ?? extractEmails(aroundAt(visibleText(html)))[0] ?? null
+  return out
+}
+
+function findEmail(html: string): string | null {
+  return extractEmails(aroundAt(mailtoAddresses(html).join(' ')))[0] ?? extractEmails(aroundAt(visibleText(html)))[0] ?? null
 }
 
 function contactLinks(html: string, base: URL): string[] {
+  const lower = html.toLowerCase()
   const out: string[] = []
-  for (const m of html.matchAll(/<a\b[^>]*?href\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
-    if (!LINK_WORDS.test(m[1]) && !LINK_WORDS.test(m[2].replace(/<[^>]+>/g, ' '))) continue
+  let scanned = 0
+  for (let i = lower.indexOf('<a'); i >= 0 && out.length < MAX_FOLLOWED && scanned++ < 20000; i = lower.indexOf('<a', i + 2)) {
+    if (!/\s/.test(lower[i + 2] ?? '')) continue
+    const head = html.slice(i, i + TAG_MAX)
+    const gt = head.indexOf('>')
+    if (gt < 0) continue
+    const hm = head.slice(0, gt).match(/\bhref\s*=\s*(?:"([^"]{1,1000})"|'([^']{1,1000})')/i)
+    if (!hm) continue
+    const href = hm[1] ?? hm[2]
+    const text = stripTags(html.slice(i + gt + 1, i + gt + 1 + 300).split(/<\/a/i, 1)[0])
+    if (!LINK_WORDS.test(href) && !LINK_WORDS.test(text)) continue
     try {
-      const u = new URL(m[1], base)
+      const u = new URL(href, base)
       u.hash = ''
-      if (u.hostname !== base.hostname || !isFetchableUrl(u.href) || u.href === base.href || out.includes(u.href)) continue
+      if (!sameSite(u.hostname, base.hostname) || !isFetchableUrl(u.href) || u.href === base.href || out.includes(u.href)) continue
       out.push(u.href)
     } catch { /* bad href */ }
-    if (out.length >= MAX_FOLLOWED) break
   }
   return out
 }

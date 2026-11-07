@@ -8,6 +8,7 @@ import { applyPendingRestore, autoBackupTarget, openDb, stageRestore } from './d
 import { Store } from './store'
 import { Watcher } from './watcher'
 import { Crm } from './crm'
+import { Leads } from './leads'
 import { Packs } from './packs'
 import { Catalog } from './catalog'
 import { Sales } from './sales'
@@ -54,6 +55,7 @@ let store: Store
 let watcher: Watcher
 let loopWatcher: Watcher
 let crm: Crm
+let leads: Leads
 let packs: Packs
 let catalog: Catalog
 let sales: Sales
@@ -209,6 +211,7 @@ function registerIpc(): void {
     get watcher() { return watcher },
     get loopWatcher() { return loopWatcher },
     get crm() { return crm },
+    get leads() { return leads },
     get packs() { return packs },
     get catalog() { return catalog },
     get sales() { return sales },
@@ -243,6 +246,7 @@ app.whenReady().then(async () => {
   watcher = new Watcher(store)
   loopWatcher = new Watcher(store, 'loop')
   crm = new Crm(db, () => store.getSettings().followupDays, () => store.bumpAll())
+  leads = new Leads(db, crm, () => [])
   sales = new Sales(db)
   content = new Content(db)
   const midiDir = join(app.getPath('userData'), 'FL project MIDI')

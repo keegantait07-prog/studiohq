@@ -1,6 +1,7 @@
 import type { PublishDraft, SavedDraft, YtDraftEdits, YtPublishEdits, YtPublishResult, YtStatus } from './ytTypes'
 import type { VizFeatures } from './vizFeatures'
 import type { SceneLayout } from './vizScene'
+import type { Lead, LeadSource, LeadStatus } from './leads'
 import type { AssistantEvent, ApprovalRequest } from './assistantTypes'
 export const STATUSES = ['idea', 'wip', 'finished', 'sent', 'sold'] as const
 export type Status = (typeof STATUSES)[number]
@@ -421,6 +422,13 @@ export interface Api {
   exportSplitSheet(groupId: number): Promise<string | null>
   exportSalesCsv(): Promise<string | null>
   crmAll(): Promise<CrmData>
+  leadsList(filter?: { source?: LeadSource; minScore?: number; hasEmail?: boolean; status?: LeadStatus }): Promise<Lead[]>
+  leadsImport(text: string, kind: 'handles' | 'csv'): Promise<{ added: number; duplicates: number }>
+  leadsPromote(id: number): Promise<number>
+  leadsSkip(ids: number[]): Promise<void>
+  leadsSave(ids: number[]): Promise<void>
+  leadsSuppress(email: string, reason: string): Promise<void>
+  leadsIsSuppressed(email: string): Promise<boolean>
   saveContact(c: Partial<Contact> & { name: string }): Promise<number>
   deleteContact(id: number): Promise<void>
   logPitch(input: LogPitchInput): Promise<number>

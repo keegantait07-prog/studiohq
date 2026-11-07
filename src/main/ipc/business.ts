@@ -5,6 +5,8 @@ import { join } from 'path'
 import { splitSheetHtml, writePdf } from '../splitsheet'
 import type { LogSaleInput, License, Sale, SplitRow } from '../../shared/types'
 import type { LogPitchInput, Template, Contact, PitchStatus } from '../../shared/types'
+import type { Lead, LeadSource, LeadStatus } from '../../shared/leads'
+import { importCandidates } from '../leads/import'
 import type { IpcCtx } from './context'
 
 export function registerBusinessIpc(c: IpcCtx): void {
@@ -61,4 +63,12 @@ export function registerBusinessIpc(c: IpcCtx): void {
   h('crm:deletePitch', mut((id: number) => c.crm.deletePitch(id)))
   h('crm:saveTemplate', mut((t: Template) => c.crm.saveTemplate(t)))
   h('crm:deleteTemplate', mut((id: number) => c.crm.deleteTemplate(id)))
+
+  h('leads:list', (_, f?: { source?: LeadSource; minScore?: number; hasEmail?: boolean; status?: LeadStatus }): Lead[] => c.leads.list(f))
+  h('leads:import', mut((text: string, kind: 'handles' | 'csv') => c.leads.addCandidates(importCandidates(text, kind))))
+  h('leads:promote', mut((id: number) => c.leads.promote(id)))
+  h('leads:skip', mut((ids: number[]) => { for (const id of ids) c.leads.setStatus(id, 'skipped') }))
+  h('leads:save', mut((ids: number[]) => { for (const id of ids) c.leads.setStatus(id, 'saved') }))
+  h('leads:suppress', mut((email: string, reason: string) => c.leads.suppress(email, reason)))
+  h('leads:isSuppressed', (_, email: string): boolean => c.leads.isSuppressed(email))
 }

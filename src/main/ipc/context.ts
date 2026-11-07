@@ -2,6 +2,7 @@ import type { BrowserWindow } from 'electron'
 import type { Store } from '../store'
 import type { Watcher } from '../watcher'
 import type { Crm } from '../crm'
+import type { Leads } from '../leads'
 import type { Packs } from '../packs'
 import type { Catalog } from '../catalog'
 import type { Sales } from '../sales'
@@ -28,6 +29,7 @@ export interface IpcCtx {
   readonly watcher: Watcher
   readonly loopWatcher: Watcher
   readonly crm: Crm
+  readonly leads: Leads
   readonly packs: Packs
   readonly catalog: Catalog
   readonly sales: Sales

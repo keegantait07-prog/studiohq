@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  looksLikeBeatMaker,
   normalizeEmail,
   extractEmails,
   scoreLead,
@@ -177,5 +178,28 @@ describe('emailsIn', () => {
     expect(emailsIn('mailto:foo@x.com')).toEqual(['foo@x.com'])
     expect(emailsIn('no address here')).toEqual([])
     expect(emailsIn('')).toEqual([])
+  })
+})
+
+describe('looksLikeBeatMaker', () => {
+  it.each([
+    'Dark Drill Type Beat 2026 | Free',
+    'Metro Type Beats',
+    'Free beats for rappers. Beats for sale: buy at example.com',
+    'Official beatmaker channel',
+    'Instrumentals and royalty free beats'
+  ])('flags producer text: %s', (t) => expect(looksLikeBeatMaker(t)).toBe(true))
+  it.each([
+    'Nova Kid - Run It Up (Official Video)',
+    'Rapper from London. New single out now.',
+    'Rapper and producer from Atlanta.',
+    'Beat the odds - Freestyle',
+    '',
+    'Looking for beats! DM me'
+  ])('keeps artist text: %s', (t) => expect(looksLikeBeatMaker(t)).toBe(false))
+  it('is linear on long hostile input', () => {
+    const t0 = Date.now()
+    looksLikeBeatMaker('b'.repeat(500_000) + ' type ' + 'beat '.repeat(100_000))
+    expect(Date.now() - t0).toBeLessThan(1500)
   })
 })

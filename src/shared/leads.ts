@@ -70,6 +70,12 @@ export function extractEmails(text: string): string[] {
 const ASKS_FOR_BEATS =
   /\bneed(?:ing)? (?:some |new )?beats\b|\blooking for (?:a |some )?(?:producers?|beats)\b|\bsend (?:me )?(?:your |some )?beats\b|\bneed (?:a )?producers?\b|\bdm (?:me )?(?:for )?beats\b|\bbeats wanted\b/i
 
+/** Text that advertises beats for sale or free, i.e. a producer channel or upload rather than an artist. Input is capped, patterns are flat. */
+const BEATMAKER = /\b(?:type[\s-]*beats?|free[\s-]*beats?|beats?\s+(?:for\s+(?:sale|lease)|by)|beat[\s-]*makers?|instrumentals?|royalty[\s-]*free|buy\s+beats?|beat\s+store)\b/i
+export function looksLikeBeatMaker(text: string): boolean {
+  return BEATMAKER.test(text.slice(0, 2000).replace(/\s+/g, ' '))
+}
+
 /** True when a public bio asks for beats or a producer ("need beats", "looking for a producer", "send me beats", "dm for beats"). */
 export function asksForBeats(text: string): boolean {
   return ASKS_FOR_BEATS.test(text.slice(0, 2000).replace(/\s+/g, ' '))

@@ -1,5 +1,6 @@
 // Studies top type-beat videos through the YouTube Data API and turns them into Style Profiles. Every call is metered against the research quota and cached.
 import type Database from 'better-sqlite3'
+import { looksLikeBeatMaker } from '../shared/leads'
 import { buildStyleProfile } from '../shared/styleProfile'
 import { COST, quotaAllows, rankByVelocity } from '../shared/ytQuota'
 import type { StyleProfile, YtVideo } from '../shared/ytTypes'
@@ -65,18 +66,30 @@ export class YtResearch {
   }
 
   /** Channels matching a search whose subscriber count is under maxSubs (or hidden). One search plus one channels.list, cached for a week. */
+  /** Small artist channels, found through recent music videos (rappers upload videos; text-matching channel search mostly returns beat channels). */
   async smallChannels(query: string, maxSubs: number, now = Date.now()): Promise<SmallChannel[]> {
-    const key = `small:${query.toLowerCase()}:${maxSubs}`
+    const key = `small2:${query.toLowerCase()}:${maxSubs}`
     const hit = this.cached<SmallChannel[]>(key, WEEK, now)
     if (hit) return hit
-    const s = await this.api('search', { part: 'snippet', q: query, type: 'channel', maxResults: '25' }, COST.search)
-    const ids = [...new Set(((s.items ?? []) as Row[]).map((i) => i.id?.channelId as string | undefined).filter((x): x is string => !!x))]
+    const q = `${query.trim()} -beat -beats -instrumental -"type beat"`
+    const s = await this.api('search', {
+      part: 'snippet', q, type: 'video', videoCategoryId: '10', order: 'relevance', maxResults: '50',
+      publishedAfter: new Date(now - 180 * 86_400_000).toISOString()
+    }, COST.search)
+    const latest = new Map<string, number>()
+    for (const i of (s.items ?? []) as Row[]) {
+      const id = i.snippet?.channelId as string | undefined
+      if (!id || looksLikeBeatMaker(String(i.snippet?.title ?? ''))) continue
+      const t = Date.parse(String(i.snippet?.publishedAt ?? ''))
+      latest.set(id, Math.max(latest.get(id) ?? 0, Number.isNaN(t) ? 0 : t))
+    }
+    const ids = [...latest.keys()].slice(0, 50)
     let out: SmallChannel[] = []
     if (ids.length) {
       const c = await this.api('channels', { part: 'snippet,statistics', id: ids.join(',') }, COST.list)
       out = ((c.items ?? []) as Row[])
         .map((i): SmallChannel => ({
-          channelId: i.id, title: i.snippet?.title ?? '', description: i.snippet?.description ?? '', lastUploadAt: null,
+          channelId: i.id, title: i.snippet?.title ?? '', description: i.snippet?.description ?? '', lastUploadAt: latest.get(i.id) || null,
           subs: i.statistics?.hiddenSubscriberCount ? null : Number(i.statistics?.subscriberCount ?? 0),
           url: `https://www.youtube.com/channel/${i.id}`
         }))
@@ -85,6 +98,7 @@ export class YtResearch {
     this.store(key, out, now)
     return out
   }
+
 
   /** A name, @handle, YouTube URL or channel ID to a channel ID. Resolved once, then remembered. */
   async resolveChannel(entry: string, now = Date.now()): Promise<string | null> {

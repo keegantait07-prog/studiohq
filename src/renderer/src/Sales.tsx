@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react'
-import type { License, Sale, SalesData } from '@shared/types'
+import type { Beat, License, Sale, SalesData } from '@shared/types'
+import { ImportSalesDialog } from './ImportSalesDialog'
 import { Revenue } from './Revenue'
 import { errMsg, fmtDay, money, net } from './salesUtils'
 
 interface Props {
   data: SalesData
+  beats: Beat[]
   query: string
   onQuery: (q: string) => void
   onLog: () => void
@@ -19,8 +21,16 @@ interface Props {
 export function SalesView(p: Props) {
   const [tab, setTab] = useState<'sales' | 'revenue' | 'collabs' | 'licenses'>('sales')
   const { data } = p
+  const [importPath, setImportPath] = useState<string | null>(null)
+  const pick = async () => { try { const f = await window.api.salesImportPick(); if (f) setImportPath(f) } catch (e) { p.toast(errMsg(e)) } }
+  const dropped = (e: React.DragEvent) => {
+    const f = e.dataTransfer.files[0]
+    if (!f) return
+    e.preventDefault()
+    if (/\.csv$/i.test(f.name)) setImportPath(window.api.pathForFile(f)); else p.toast('Drop a .csv sales export from BeatStars.')
+  }
   return (
-    <section className="sales">
+    <section className="sales" onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) e.preventDefault() }} onDrop={dropped}>
       <div className="sales-head">
         <h2>Sales & Collabs</h2>
         <div className="seg" style={{ width: 'auto' }}>
@@ -28,8 +38,10 @@ export function SalesView(p: Props) {
         </div>
         <div className="grow" />
         {tab === 'sales' && <button onClick={async () => { try { const f = await window.api.exportSalesCsv(); if (f) p.toast(`Exported ${f.split('/').pop()}`) } catch (e) { p.toast(errMsg(e)) } }}>Export CSV</button>}
+        <button onClick={pick}>Import BeatStars sales…</button>
         <button className="primary" onClick={p.onLog}>+ Log sale</button>
       </div>
+      {importPath && <ImportSalesDialog path={importPath} beats={p.beats} onClose={() => setImportPath(null)} onDone={(m) => { setImportPath(null); p.toast(m); p.reload() }} />}
       <div className="sales-body">
         {tab === 'sales' && <SalesTable {...p} />}
         {tab === 'revenue' && <Revenue sales={data.sales} />}
@@ -121,6 +133,7 @@ function Licenses({ licenses, reload, toast }: { licenses: License[]; reload: ()
   return (
     <div style={{ maxWidth: 640 }}>
       <p className="help">The license types you offer. Prices are suggestions and fill in when you log a sale; you can always override them. Past sales keep the name they were sold under.</p>
+      <p className="help">“Files” and “What it includes” are shown on your public beat site.</p>
       <div className="lic-grid shead"><span>Name</span><span>Default price</span><span>Exclusive</span><span /></div>
       {licenses.map((l) => <LicenseRow key={l.id} l={l} save={save} reload={reload} />)}
       <button style={{ marginTop: 10 }} onClick={() => save({ name: 'New license', exclusive: false, defaultPrice: 50 })}>+ Add license</button>
@@ -130,12 +143,21 @@ function Licenses({ licenses, reload, toast }: { licenses: License[]; reload: ()
 function LicenseRow({ l, save, reload }: { l: License; save: (l: Partial<License> & { name: string; exclusive: boolean }) => void; reload: () => void }) {
   const [name, setName] = useState(l.name)
   const [price, setPrice] = useState(l.defaultPrice == null ? '' : String(l.defaultPrice))
+  const [files, setFiles] = useState(l.files)
+  const [perks, setPerks] = useState(l.perks.join('\n'))
   return (
-    <div className="lic-grid">
-      <input value={name} onChange={(e) => setName(e.target.value)} onBlur={() => name.trim() && name !== l.name && save({ ...l, name })} />
-      <input inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} onBlur={() => save({ ...l, defaultPrice: price === '' ? null : parseFloat(price) || 0 })} />
-      <input type="checkbox" checked={l.exclusive} onChange={(e) => save({ ...l, exclusive: e.target.checked })} style={{ width: 'auto' }} />
-      <button className="x" onClick={async () => { if (confirm(`Remove “${l.name}”? Past sales keep their license name.`)) { await window.api.deleteLicense(l.id); reload() } }}>×</button>
+    <div style={{ marginBottom: 14 }}>
+      <div className="lic-grid" style={{ marginBottom: 4 }}>
+        <input value={name} onChange={(e) => setName(e.target.value)} onBlur={() => name.trim() && name !== l.name && save({ ...l, name })} />
+        <input inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} onBlur={() => save({ ...l, defaultPrice: price === '' ? null : parseFloat(price) || 0 })} />
+        <input type="checkbox" checked={l.exclusive} onChange={(e) => save({ ...l, exclusive: e.target.checked })} style={{ width: 'auto' }} />
+        <button className="x" onClick={async () => { if (confirm(`Remove “${l.name}”? Past sales keep their license name.`)) { await window.api.deleteLicense(l.id); reload() } }}>×</button>
+      </div>
+      <div className="two">
+        <input value={files} placeholder="Files, e.g. MP3 + WAV" aria-label={`Files for ${l.name}`} onChange={(e) => setFiles(e.target.value)} onBlur={() => files !== l.files && save({ ...l, files })} />
+        <textarea rows={3} value={perks} placeholder="What it includes, one per line" aria-label={`What ${l.name} includes`} onChange={(e) => setPerks(e.target.value)}
+          onBlur={() => { const next = perks.split('\n').map((x) => x.trim()).filter(Boolean); if (next.join('\n') !== l.perks.join('\n')) save({ ...l, perks: next }) }} />
+      </div>
     </div>
   )
 }

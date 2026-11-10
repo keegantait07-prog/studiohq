@@ -467,7 +467,7 @@ export function App() {
         <ViewGuard name="Store"><Store beats={audioBeats} toast={toast} openSettings={() => setSettings(true)} onChanged={(s) => setSiteInfo({ count: s.entries.length, pending: s.pending })} /></ViewGuard>
       ) : view === 'sales' ? (
         <SalesView
-          data={salesData} query={salesQuery} onQuery={setSalesQuery} onLog={() => setSaleDlg({})} onEdit={(sale) => setSaleDlg({ edit: sale })}
+          beats={audioBeats} data={salesData} query={salesQuery} onQuery={setSalesQuery} onLog={() => setSaleDlg({})} onEdit={(sale) => setSaleDlg({ edit: sale })}
           onSplits={setSplitsDlg} reload={() => { reload(); reloadSales() }} toast={toast}
           onSheet={async (gid) => { try { const f = await window.api.exportSplitSheet(gid); if (f) toast(`Split sheet saved: ${f.split('/').pop()}`); reloadSales() } catch (e) { toast(errMsg(e)) } }}
           onOpenBeat={(id) => openItem(id)}

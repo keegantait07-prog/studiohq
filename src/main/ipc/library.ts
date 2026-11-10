@@ -12,6 +12,7 @@ export function registerLibraryIpc(c: IpcCtx): void {
   h('beats:list', () => c.store.listBeats())
   h('loops:list', () => c.store.listLoops())
   h('beats:get', (_, id: number) => c.store.getBeat(id))
+  h('release:get', (_, id: number) => c.store.releaseFor(id))
   // a project link is only set through the file picker below, because Open in FL hands that path to the system
   h('beats:update', (_, id: number, patch: BeatPatch) => c.store.updateBeat(id, patch?.projectPath ? { ...patch, projectPath: undefined } : patch))
   h('beats:setTags', (_, id: number, tags: Record<TagKind, string[]>) => c.store.setTags(id, tags))

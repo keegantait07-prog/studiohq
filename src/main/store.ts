@@ -1,3 +1,4 @@
+import { releaseFor } from './release'
 import type Database from 'better-sqlite3'
 import { dirname, basename, extname, relative, sep } from 'path'
 import { existsSync, statSync } from 'fs'
@@ -8,7 +9,7 @@ import type { AnalyzeResult } from './analyze.worker'
 import { parseName, genreFromFolder, pickMoved } from './filename'
 import { normalizeKey } from '../shared/key'
 import { scanProjects, matchProject, type ProjectFile } from './projects'
-import { TAG_KINDS, type Beat, type BeatDetail, type BeatPatch, type ScanStatus, type Settings, type Status, type TagKind, type VaultKind } from '../shared/types'
+import { TAG_KINDS, type Beat, type BeatDetail, type BeatPatch, type Release, type ScanStatus, type Settings, type Status, type TagKind, type VaultKind } from '../shared/types'
 
 const DEFAULTS: Settings = {
   watchFolders: [`${homedir()}/Desktop/! BEATS`],
@@ -98,6 +99,9 @@ export class Store {
     return rows.map((r) => this.toBeat(r, tags.get(r.id)))
   }
   listLoops(): Beat[] { return this.listBeats('loop') }
+  /** The beat's release checklist (store, video, post, pitch, feedback, splits, sale), computed from the whole song. */
+  releaseFor(id: number): Release { return releaseFor(this.db, id) }
+
   getBeat(id: number): BeatDetail | null {
     const r = this.db.prepare(`SELECT * FROM beats WHERE id=?`).get(id) as Row | undefined
     if (!r) return null

@@ -329,6 +329,7 @@ export interface Api {
   listBeats(): Promise<Beat[]>
   listLoops(): Promise<Beat[]>
   getBeat(id: number): Promise<BeatDetail | null>
+  releaseGet(beatId: number): Promise<Release>
   updateBeat(id: number, patch: BeatPatch): Promise<void>
   setTags(id: number, tags: Record<TagKind, string[]>): Promise<void>
   allTags(kind?: VaultKind): Promise<Record<TagKind, string[]>>

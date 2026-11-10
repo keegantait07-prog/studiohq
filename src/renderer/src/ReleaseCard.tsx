@@ -39,7 +39,8 @@ export function ReleaseCard(p: Props) {
   useEffect(() => {
     const again = () => setTick((t) => t + 1)
     window.addEventListener('focus', again)
-    return () => window.removeEventListener('focus', again)
+    const off = window.api.onBeatsChanged(again) // e.g. the assistant changed the store or a pitch
+    return () => { window.removeEventListener('focus', again); off() }
   }, [])
 
   const shown = rel && rel.beatId === beat.id ? rel : null

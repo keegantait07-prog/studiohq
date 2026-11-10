@@ -19,6 +19,8 @@ export function Store({ beats, toast, openSettings, onChanged }: { beats: Beat[]
   const load = useCallback(async () => { const s = await window.api.siteStatus(); setSt(s); onChanged?.(s) }, [onChanged])
   useEffect(() => { void load() }, [load])
   useEffect(() => window.api.onSiteProgress((s) => setBusy(s)), [])
+  // the assistant (or anything else) may change the site while this view is open
+  useEffect(() => window.api.onBeatsChanged(() => { void load() }), [load])
 
   const entries = st?.entries ?? []
   const shown = useMemo(() => (needsLink ? entries.filter((e) => e.noLink) : entries), [entries, needsLink])

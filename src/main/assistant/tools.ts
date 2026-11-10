@@ -4,6 +4,8 @@ import type { Sales } from '../sales'
 import type { Content } from '../content'
 import type { Feedback } from '../feedback'
 import type { YtPublisher } from '../ytpublisher'
+import type { Catalog } from '../catalog'
+import type { Leads } from '../leads'
 import { parseQuery } from '../../shared/query'
 import { STATUSES, PLATFORMS, SALE_SOURCES, CONTACT_ROLES, TAG_KINDS, type TagKind } from '../../shared/types'
 
@@ -20,12 +22,14 @@ export interface ToolDef {
 }
 
 export interface ToolDeps {
-  store: Pick<Store, 'listBeats' | 'getBeat' | 'updateBeat' | 'setTags'>
+  store: Pick<Store, 'listBeats' | 'getBeat' | 'updateBeat' | 'setTags' | 'releaseFor'>
   crm: Pick<Crm, 'all' | 'due' | 'saveContact' | 'deleteContact' | 'logPitch' | 'logFollowup'>
   sales: Pick<Sales, 'all' | 'log'>
   content: Pick<Content, 'all' | 'savePost'>
   feedback: Pick<Feedback, 'all'>
   yt: Pick<YtPublisher, 'status' | 'prepare'>
+  catalog: Pick<Catalog, 'status' | 'addMany' | 'removeMany' | 'reorder' | 'update' | 'publish'>
+  leads: Pick<Leads, 'list' | 'get' | 'setStatus' | 'promote' | 'isSuppressed'>
   afterWrite(): void
 }
 
@@ -34,6 +38,9 @@ const RECENT_SALES = 5
 const SHOW_LEN = 80
 const MAX_LIMIT = 500
 const MAX_REMOVE = 100
+const MAX_STORE = 100
+const LEAD_SOURCES = ['youtube', 'soundcloud', 'audiomack', 'reddit', 'x', 'manual']
+const LEAD_STATUSES = ['new', 'saved', 'in_crm', 'skipped']
 const SHOW_REMOVE = 12
 
 const noArgs = { type: 'object' as const, properties: {} }
@@ -197,6 +204,150 @@ export function buildTools(d: ToolDeps): ToolDef[] {
     if (!b) return null
     return Array.isArray(a.artists) ? a.artists.map(String) : [...b.tags.artist]
   }
+
+  // ---- Store, release checklist and Leads ----
+  const siteIds = () => new Set(d.catalog.status().entries.map((e) => e.beatId))
+  const siteName = (id: number) => d.catalog.status().entries.find((e) => e.beatId === id)?.title ?? titleOf(id) ?? `beat ${id}`
+  const names = (ids: number[]) => ids.slice(0, SHOW_REMOVE).map((id) => show(siteName(id))).join(', ') + (ids.length > SHOW_REMOVE ? `, and ${ids.length - SHOW_REMOVE} more` : '')
+  const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
+
+  /** A clean list of beat ids for a store change. Adding needs real beats with audio; removing and reordering need beats already on the site. */
+  const storeIds = (a: A, onSite: boolean): Fail | { ids: number[] } => {
+    const ids = Array.isArray(a.beatIds) ? [...new Set(a.beatIds.map(Number))] : []
+    if (!ids.length) return { error: 'beatIds must be a non-empty list of beat ids' }
+    if (ids.length > MAX_STORE) return { error: `Pass at most ${MAX_STORE} beats at a time` }
+    if (ids.some((n) => !Number.isInteger(n))) return { error: 'beatIds must be whole numbers' }
+    if (onSite) {
+      const on = siteIds()
+      const off = ids.filter((id) => !on.has(id))
+      if (off.length) return { error: `These beats are not on the store: ${off.join(', ')}` }
+    } else {
+      for (const id of ids) {
+        const b = d.store.getBeat(id)
+        if (!b) return { error: `No beat with id ${id}` }
+        if (b.ext === 'flp') return { error: `"${b.title}" is an FL project with no audio yet, so it can't go on the store` }
+      }
+    }
+    return { ids }
+  }
+  const entryPatch = (a: A): Fail | { id: number; patch: { title?: string; genre?: string; link?: string } } => {
+    const id = Number(a.beatId)
+    if (!siteIds().has(id)) return { error: `Beat ${a.beatId} is not on the store` }
+    const patch: { title?: string; genre?: string; link?: string } = {}
+    if (a.title !== undefined) patch.title = str(a.title)
+    if (a.genre !== undefined) patch.genre = str(a.genre)
+    if (a.link !== undefined) {
+      const link = str(a.link).trim()
+      if (link && !/^https?:\/\//i.test(link)) return { error: 'link must be a web address starting with http:// or https://' }
+      patch.link = link
+    }
+    if (!Object.keys(patch).length) return { error: 'Nothing to change' }
+    return { id, patch }
+  }
+  const idsSchema = (what: string): ToolDef['inputSchema'] => ({ type: 'object', properties: { beatIds: { type: 'array', items: { type: 'number' }, description: `${what} (at most ${MAX_STORE})` } }, required: ['beatIds'] })
+  const leadFail = (a: A): string | null => (d.leads.get(Number(a.id)) ? null : `No lead with id ${a.id}`)
+
+  const extra: ToolDef[] = [
+    read('release_status', 'Where one beat is in its release: Store, Video, Post, Pitch, Feedback, Splits and Sale, each with a state (todo, doing, done or na) and a one-line summary. Counts every version of the song.',
+      { type: 'object', properties: { beatId: { type: 'number' } }, required: ['beatId'] },
+      (a) => {
+        if (!d.store.getBeat(Number(a.beatId))) return { error: `No beat with id ${a.beatId}` }
+        try { return d.store.releaseFor(Number(a.beatId)) } catch (e) { return { error: e instanceof Error ? e.message : String(e) } }
+      },
+      (a) => `Release status of "${beatName(a.beatId)}"`),
+
+    read('store_status', 'The public beat site: which beats are on it, in order, with title, genre, BeatStars link and state (live, changed, missing, sold). Also whether there are unpublished changes and whether a Netlify token is set. The token itself is never shown.', { type: 'object', properties: { ...limitProp } },
+      (a) => {
+        const s = d.catalog.status()
+        return { url: s.url, hasToken: s.hasToken, pending: s.pending, ...capped('beats', a, s.entries.map((e) => ({ beatId: e.beatId, title: e.title, genre: e.genre, link: e.link, state: e.state, noLink: e.noLink }))) }
+      },
+      () => 'Look at the beat site'),
+
+    read('list_leads', 'Artists found by Lead Finder, best score first. Optional filters: source, minScore, hasEmail, status (new, saved, in_crm, skipped).',
+      { type: 'object', properties: { source: { type: 'string', enum: LEAD_SOURCES }, minScore: { type: 'number' }, hasEmail: { type: 'boolean' }, status: { type: 'string', enum: LEAD_STATUSES }, ...limitProp } },
+      (a) => {
+        const f: Parameters<ToolDeps['leads']['list']>[0] = {}
+        if (LEAD_SOURCES.includes(a.source)) f.source = a.source
+        if (typeof a.minScore === 'number' && Number.isFinite(a.minScore)) f.minScore = a.minScore
+        if (typeof a.hasEmail === 'boolean') f.hasEmail = a.hasEmail
+        if (LEAD_STATUSES.includes(a.status)) f.status = a.status
+        return capped('leads', a, d.leads.list(f).map((l) => ({ id: l.id, name: l.name, source: l.source, score: l.score, reasons: l.reasons, status: l.status, url: l.url, followers: l.followers, genre: l.genre, email: l.email, emailSourceUrl: l.emailSourceUrl })))
+      },
+      () => 'List leads'),
+
+    write('store_add_beats', 'Put finished beats on the public beat site. They go to the top, in the order given. This does NOT publish: the site only changes when store_publish is approved.',
+      idsSchema('Ids of the beats to add'),
+      (a) => { const r = storeIds(a, false); return 'error' in r ? 'Add beats to the store' : `Add ${plural(r.ids.length, 'beat')} to the store site (not published yet): ${names(r.ids)}.` },
+      (a) => { const r = storeIds(a, false); if ('error' in r) return { error: r.error }; return { ok: true, added: d.catalog.addMany(r.ids) } },
+      (a) => { const r = storeIds(a, false); return 'error' in r ? r.error : null }),
+
+    write('store_remove_beats', 'Take beats off the public beat site. They stay in your library. This does NOT publish: the live site changes only when store_publish is approved.',
+      idsSchema('Ids of the beats to take off'),
+      (a) => { const r = storeIds(a, true); return 'error' in r ? 'Remove beats from the store' : `Take ${plural(r.ids.length, 'beat')} off the store site (not published yet): ${names(r.ids)}.` },
+      (a) => { const r = storeIds(a, true); if ('error' in r) return { error: r.error }; d.catalog.removeMany(r.ids); return { ok: true, removed: r.ids.length } },
+      (a) => { const r = storeIds(a, true); return 'error' in r ? r.error : null }),
+
+    write('store_reorder', 'Set the order of beats on the public beat site: the listed beats go first, in that order, and the rest keep their order. Does NOT publish.',
+      idsSchema('Ids of beats already on the site, in the order you want them'),
+      (a) => { const r = storeIds(a, true); return 'error' in r ? 'Reorder the store' : `Move ${names(r.ids)} to the top of the store site, in that order (not published yet).` },
+      (a) => { const r = storeIds(a, true); if ('error' in r) return { error: r.error }; d.catalog.reorder(r.ids); return { ok: true } },
+      (a) => { const r = storeIds(a, true); return 'error' in r ? r.error : null }),
+
+    write('store_update_entry', 'Change how one beat shows on the public beat site: its title, genre and its own BeatStars link (empty link means the general store link). Does NOT publish.',
+      { type: 'object', properties: { beatId: { type: 'number' }, title: { type: 'string' }, genre: { type: 'string' }, link: { type: 'string', description: 'A web address, or "" to use the store-wide link' } }, required: ['beatId'] },
+      (a) => {
+        const r = entryPatch(a)
+        if ('error' in r) return 'Change a store entry'
+        const parts = Object.entries(r.patch).map(([k, v]) => `${k} → ${show(v)}`)
+        return `Change ${show(siteName(r.id))} on the store site (not published yet): ${parts.join(', ')}.`
+      },
+      (a) => { const r = entryPatch(a); if ('error' in r) return { error: r.error }; d.catalog.update(r.id, r.patch); return { ok: true } },
+      (a) => { const r = entryPatch(a); return 'error' in r ? r.error : null }),
+
+    write('store_publish', 'Publish the public beat site to Netlify so everyone can see the current list. Only call this when the user has asked to publish or update the live site.',
+      noArgs,
+      () => {
+        const s = d.catalog.status()
+        const live = s.entries.filter((e) => e.state !== 'sold').length
+        return `Publish the beat site to Netlify. ${plural(live, 'beat')} go live${s.url ? ` at ${s.url}` : ''}. Anyone with the link can see it.`
+      },
+      async () => ({ ok: true, url: await d.catalog.publish() }),
+      () => {
+        const s = d.catalog.status()
+        if (!s.hasToken) return 'No Netlify token is set. Add one in Settings first.'
+        if (!s.entries.length) return 'There is nothing on the store to publish.'
+        return null
+      }),
+
+    write('promote_lead', 'Add a lead to the pitch CRM as an artist contact (reuses an existing contact with the same email). Leads who opted out are refused.',
+      { type: 'object', properties: { id: { type: 'number', description: 'Lead id from list_leads' } }, required: ['id'] },
+      (a) => {
+        const l = d.leads.get(Number(a.id))
+        return l ? `Add lead ${show(l.name)} (${l.source}) to the pitch CRM as an artist contact${l.email ? ` with email ${l.email}` : ''}.` : 'Add a lead to the CRM'
+      },
+      (a) => {
+        const l = d.leads.get(Number(a.id))
+        if (!l) return { error: `No lead with id ${a.id}` }
+        if (l.email && d.leads.isSuppressed(l.email)) return { error: `${l.email} opted out and cannot be added` }
+        return { ok: true, contactId: d.leads.promote(l.id) }
+      },
+      (a) => {
+        const l = d.leads.get(Number(a.id))
+        if (!l) return `No lead with id ${a.id}`
+        return l.email && d.leads.isSuppressed(l.email) ? `${l.email} opted out and cannot be added` : null
+      }),
+
+    write('set_lead_status', 'Mark a lead saved (worth keeping) or skipped (not interested).',
+      { type: 'object', properties: { id: { type: 'number' }, status: { type: 'string', enum: ['saved', 'skipped'] } }, required: ['id', 'status'] },
+      (a) => { const l = d.leads.get(Number(a.id)); return `Mark lead ${show(l?.name ?? `#${a.id}`)} as ${a.status}.` },
+      (a) => {
+        if (leadFail(a)) return { error: leadFail(a) }
+        if (a.status !== 'saved' && a.status !== 'skipped') return { error: 'status must be saved or skipped' }
+        d.leads.setStatus(Number(a.id), a.status)
+        return { ok: true }
+      },
+      (a) => leadFail(a) ?? (a.status === 'saved' || a.status === 'skipped' ? null : 'status must be saved or skipped'))
+  ]
 
   return [
     read('search_beats',
@@ -427,6 +578,8 @@ export function buildTools(d: ToolDeps): ToolDef[] {
         const draft = await d.yt.prepare(Number(a.beatId), artists, () => {})
         return { ok: true, videoId: draft.videoId, beatId: draft.beatId, artists: draft.artists, note: 'Draft saved. Review and publish it from the YouTube tab.' }
       },
-      (a) => (draftArtists(a) ? null : `No beat with id ${a.beatId}`))
+      (a) => (draftArtists(a) ? null : `No beat with id ${a.beatId}`)),
+
+    ...extra
   ]
 }

@@ -79,7 +79,8 @@ describe('the CRM itself refuses opted-out contacts (every caller shares it)', (
     const tools = buildTools({
       store: { listBeats: () => [], getBeat: () => null, updateBeat: noop, setTags: noop } as unknown as ToolDeps['store'],
       crm, sales: { all: noop, log: noop } as unknown as ToolDeps['sales'], content: { all: noop, savePost: noop } as unknown as ToolDeps['content'],
-      feedback: { all: () => ({ links: [], comments: [] }) } as unknown as ToolDeps['feedback'], yt: { status: noop, prepare: noop } as unknown as ToolDeps['yt'], afterWrite
+      feedback: { all: () => ({ links: [], comments: [] }) } as unknown as ToolDeps['feedback'], yt: { status: noop, prepare: noop } as unknown as ToolDeps['yt'],
+      catalog: {} as unknown as ToolDeps['catalog'], leads: {} as unknown as ToolDeps['leads'], afterWrite
     })
     const logPitch = tools.find((t) => t.name === 'log_pitch')!
     expect(await logPitch.run({ contactId: id, beatIds: [] })).toEqual({ error: 'Ada <ada@example.com> opted out and cannot be pitched.' })

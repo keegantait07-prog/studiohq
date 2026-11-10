@@ -31,6 +31,8 @@ beforeAll(() => {
     content: new Content(db),
     feedback: { all: () => ({ links: [], comments: [] }) },
     yt: { status: async () => ({ signedIn: true, hasClientId: true, hasAnthropicKey: true, encryptionOk: true, imagesLeft: 3, quotaToday: 0 }), prepare: noop } as unknown as ToolDeps['yt'],
+    catalog: {} as unknown as ToolDeps['catalog'],
+    leads: {} as unknown as ToolDeps['leads'],
     afterWrite: () => {}
   }
   tools = Object.fromEntries(buildTools(deps).map((t) => [t.name, t]))

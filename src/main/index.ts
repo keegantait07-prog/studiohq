@@ -274,7 +274,7 @@ app.whenReady().then(async () => {
   registerIpc()
   threads = new Threads(db)
   const tools = buildTools({
-    store, crm, sales, content, feedback, yt,
+    store, crm, sales, content, feedback, yt, catalog, leads,
     afterWrite: () => { send('beats:changed', [-1]); sendCrm() }
   })
   assistant = new AssistantService({

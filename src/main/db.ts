@@ -18,7 +18,7 @@ export function openDb(dir: string): Database.Database {
  * Add new changes as a new entry at the END; never edit an old one. The first two are written to be
  * safe on databases that already have everything (they predate version numbers).
  */
-const MIGRATIONS: ((db: Database.Database) => void)[] = [createTables, addColumns, integrityAndIndexes, addLeadTables]
+const MIGRATIONS: ((db: Database.Database) => void)[] = [createTables, addColumns, integrityAndIndexes, addLeadTables, addStoreColumns]
 
 function migrate(db: Database.Database, file: string): void {
   const from = db.pragma('user_version', { simple: true }) as number
@@ -446,11 +446,36 @@ export function autoBackupTarget(dir: string, now: Date, keep = 5): string | nul
   return autos.includes(name) ? null : join(dir, name)
 }
 
+/** What each starter tier includes on the public page. Only fills tiers that have nothing yet. */
+const STARTER_LICENSES: Record<string, { files: string; perks: string[] }> = {
+  'mp3 lease': { files: 'MP3', perks: ['Up to 100k streams', '1 music video', 'Non-profit performances', 'Credit "Prod. SMALLS"'] },
+  'wav lease': { files: 'MP3 + WAV', perks: ['Up to 500k streams', '2 music videos', 'Paid performances', 'Credit "Prod. SMALLS"'] },
+  'unlimited': { files: 'MP3 + WAV + Stems', perks: ['Unlimited streams', 'Unlimited videos', 'Radio + commercial use', 'Credit "Prod. SMALLS"'] },
+  'exclusive': { files: 'Everything', perks: ['Beat removed from the store', 'Full ownership of the master', 'Unlimited everything', 'Credit "Prod. SMALLS"'] }
+}
+STARTER_LICENSES['unlimited lease'] = STARTER_LICENSES['unlimited']
+
+function fillStarterLicenses(db: Database.Database): void {
+  const up = db.prepare("UPDATE license_types SET files=?, perks=? WHERE lower(name)=? AND files='' AND perks='[]'")
+  for (const [name, v] of Object.entries(STARTER_LICENSES)) up.run(v.files, JSON.stringify(v.perks), name)
+}
+
+/** Store: what a license includes (shown on the public page) and the outside order id that stops a sale importing twice. */
+function addStoreColumns(db: Database.Database): void {
+  const has = (t: string, c: string) => (db.pragma(`table_info(${t})`) as { name: string }[]).some((x) => x.name === c)
+  if (!has('license_types', 'files')) db.exec("ALTER TABLE license_types ADD COLUMN files TEXT NOT NULL DEFAULT ''")
+  if (!has('license_types', 'perks')) db.exec("ALTER TABLE license_types ADD COLUMN perks TEXT NOT NULL DEFAULT '[]'")
+  if (!has('sales', 'external_id')) db.exec('ALTER TABLE sales ADD COLUMN external_id TEXT')
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS sales_external ON sales(source, external_id) WHERE external_id IS NOT NULL')
+  fillStarterLicenses(db)
+}
+
 function seedLicenses(db: Database.Database): void {
   if ((db.prepare('SELECT COUNT(*) c FROM license_types').get() as { c: number }).c) return
   const ins = db.prepare('INSERT INTO license_types(name,exclusive,default_price,sort) VALUES(?,?,?,?)')
   // starter prices only; edit them under Sales > Licenses
   ;[['MP3 Lease', 0, 25], ['WAV Lease', 0, 50], ['Trackout Lease', 0, 100], ['Unlimited Lease', 0, 200], ['Exclusive', 1, 500]].forEach(([n, e, p], i) => ins.run(n, e, p, i))
+  fillStarterLicenses(db)
 }
 
 function seedTemplates(db: Database.Database): void {

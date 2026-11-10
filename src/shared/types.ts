@@ -206,7 +206,7 @@ export interface VideoProgress { label: string; pct: number }
 // ---- Sales & Collabs ----
 export type SaleSource = 'beatstars' | 'paypal' | 'venmo' | 'cashapp' | 'zelle' | 'other'
 export const SALE_SOURCES: SaleSource[] = ['beatstars', 'paypal', 'venmo', 'cashapp', 'zelle', 'other']
-export interface License { id: number; name: string; exclusive: boolean; defaultPrice: number | null }
+export interface License { id: number; name: string; exclusive: boolean; defaultPrice: number | null; files: string; perks: string[] }
 export interface Sale {
   id: number
   beatId: number

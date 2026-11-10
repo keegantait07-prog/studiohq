@@ -17,7 +17,7 @@ export class Sales {
       id: r.id, beatId: r.beat_id, groupId: r.group_id, beatTitle: r.beat_title, buyer: r.buyer, buyerEmail: r.buyer_email, contactId: r.contact_id,
       licenseName: r.license_name, exclusive: !!r.exclusive, price: r.price, fee: r.fee, source: r.source, soldAt: r.sold_at, notes: r.notes
     }))
-    const licenses = (this.db.prepare('SELECT * FROM license_types ORDER BY sort, id').all() as Row[]).map((r): License => ({ id: r.id, name: r.name, exclusive: !!r.exclusive, defaultPrice: r.default_price }))
+    const licenses = (this.db.prepare('SELECT * FROM license_types ORDER BY sort, id').all() as Row[]).map((r): License => ({ id: r.id, name: r.name, exclusive: !!r.exclusive, defaultPrice: r.default_price, files: r.files, perks: JSON.parse(r.perks) }))
     const groups = (this.db.prepare(
       `SELECT g.id groupId, g.split_sheet_at sheetAt,
          (SELECT id FROM beats WHERE group_id=g.id AND missing=0 ORDER BY mtime DESC LIMIT 1) beatId,
@@ -91,14 +91,17 @@ export class Sales {
   }
 
   // ---- licenses ----
+  /** Creates or updates a license type. `files` and `perks` are left as they are when not given. */
   saveLicense(l: Partial<License> & { name: string; exclusive: boolean }): number {
     const price = l.defaultPrice == null ? null : num(l.defaultPrice, 0)
+    const perks = l.perks ? JSON.stringify(l.perks.map((p) => String(p).trim()).filter(Boolean).slice(0, 8)) : null
+    const files = l.files == null ? null : l.files.trim()
     if (l.id) {
-      this.db.prepare('UPDATE license_types SET name=?, exclusive=?, default_price=? WHERE id=?').run(l.name.trim(), l.exclusive ? 1 : 0, price, l.id)
+      this.db.prepare('UPDATE license_types SET name=?, exclusive=?, default_price=?, files=COALESCE(?,files), perks=COALESCE(?,perks) WHERE id=?').run(l.name.trim(), l.exclusive ? 1 : 0, price, files, perks, l.id)
       return l.id
     }
     const sort = (this.db.prepare('SELECT COALESCE(MAX(sort),0)+1 n FROM license_types').get() as Row).n
-    return Number(this.db.prepare('INSERT INTO license_types(name,exclusive,default_price,sort) VALUES(?,?,?,?)').run(l.name.trim(), l.exclusive ? 1 : 0, price, sort).lastInsertRowid)
+    return Number(this.db.prepare('INSERT INTO license_types(name,exclusive,default_price,sort,files,perks) VALUES(?,?,?,?,?,?)').run(l.name.trim(), l.exclusive ? 1 : 0, price, sort, files ?? '', perks ?? '[]').lastInsertRowid)
   }
   deleteLicense(id: number): void {
     this.db.prepare('DELETE FROM license_types WHERE id=?').run(id)

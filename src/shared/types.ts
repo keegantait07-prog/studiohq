@@ -253,6 +253,12 @@ export interface SplitRow { name: string; role: SplitRole; email: string; pro: s
 export interface SplitGroup { groupId: number; beatId: number; title: string; count: number; parties: number; pubTotal: number; masterTotal: number; sheetAt: number | null }
 export interface SalesData { sales: Sale[]; licenses: License[]; groups: SplitGroup[] }
 
+// ---- Release checklist ----
+export type StepId = 'store' | 'video' | 'post' | 'pitch' | 'feedback' | 'splits' | 'sale'
+export type StepState = 'todo' | 'doing' | 'done' | 'na'
+export interface ReleaseStep { id: StepId; state: StepState; summary: string }
+export interface Release { beatId: number; groupId: number; steps: ReleaseStep[]; done: number; total: number }
+
 // ---- Pitch CRM ----
 export type ContactRole = 'artist' | 'manager' | 'a&r' | 'other'
 export const CONTACT_ROLES: ContactRole[] = ['artist', 'manager', 'a&r', 'other']

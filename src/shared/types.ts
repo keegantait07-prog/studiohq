@@ -237,6 +237,16 @@ export interface LogSaleInput {
   soldAt: number
   notes: string
 }
+// ---- BeatStars sales import ----
+export type ImportField = 'orderId' | 'date' | 'title' | 'license' | 'buyer' | 'email' | 'gross' | 'fee' | 'net'
+export type ColumnMap = Partial<Record<ImportField, number>>
+export type ImportRowStatus = 'new' | 'duplicate' | 'unmatched' | 'skipped'
+export interface ImportRow {
+  line: number; externalId: string; title: string; license: string; buyer: string; email: string
+  price: number; fee: number; soldAt: number | null; beatId: number | null; licenseId: number | null
+  exclusive: boolean; status: ImportRowStatus; reason: string
+}
+export interface ImportRead { headers: string[]; columns: ColumnMap; missing: ImportField[]; rows: ImportRow[] }
 export type SplitRole = 'producer' | 'writer' | 'artist' | 'other'
 export const SPLIT_ROLES: SplitRole[] = ['producer', 'writer', 'artist', 'other']
 export interface SplitRow { name: string; role: SplitRole; email: string; pro: string; ipi: string; pubPct: number; masterPct: number }

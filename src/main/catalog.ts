@@ -5,6 +5,7 @@ import { spawn } from 'child_process'
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync, copyFileSync } from 'fs'
 import { join } from 'path'
 import ffmpegStatic from 'ffmpeg-static'
+import { siteTitle } from './catalog-title'
 import { fromPrice, pageHtml, pageLicenses } from './catalog-render'
 import { CATALOG_SEED } from './catalog-seed'
 import { call, deployDir } from './netlify'
@@ -18,11 +19,7 @@ const DEFAULT_STORE = 'https://www.beatstars.com/smallsmadethis'
 const GENRES: Record<string, string> = { trap: 'Trap', jersey: 'Jersey Club', 'jersey club': 'Jersey Club', afro: 'Afro', ambient: 'Ambient', ambience: 'Ambient', dnb: 'Drum & Bass', 'drum & bass': 'Drum & Bass', latin: 'Latin', opium: 'Opium', experimental: 'Experimental', hyperpop: 'Hyperpop', "2000's": '2000s', '2000s': '2000s', drill: 'Drill', rnb: 'R&B', 'r&b': 'R&B' }
 const FLAT: Record<string, string> = { Db: 'C#', Eb: 'D#', Gb: 'F#', Ab: 'G#', Bb: 'A#' }
 
-export function siteTitle(t: string): string {
-  let s = t.replace(/\[\s*\]/g, '').replace(/\(.*?\)/g, '').replace(/@\S+/g, '').trim()
-  s = s.replace(/\s+\d{2,3}$/, '').replace(/\s+[A-G][#b]?m$/, '').replace(/^\d+\s+/, '').replace(/\s{2,}/g, ' ').trim()
-  return s ? s[0].toUpperCase() + s.slice(1) : t
-}
+export { siteTitle }
 function shortKey(k: string | null): string {
   const m = (k ?? '').trim().match(/^([A-G][b#]?)\s*(major|minor|maj|min|m)?/i)
   if (!m) return k || 'C'

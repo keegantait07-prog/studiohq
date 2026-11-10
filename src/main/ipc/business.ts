@@ -3,7 +3,7 @@ import { app, dialog, shell } from 'electron'
 import { writeFileSync } from 'fs'
 import { join } from 'path'
 import { splitSheetHtml, writePdf } from '../splitsheet'
-import type { LogSaleInput, License, Sale, SplitRow } from '../../shared/types'
+import type { ColumnMap, LogSaleInput, License, Sale, SplitRow } from '../../shared/types'
 import type { LogPitchInput, Template, Contact, PitchStatus } from '../../shared/types'
 import type { Lead, LeadSource, LeadStatus } from '../../shared/leads'
 import { lookupContact } from '../leads/contact-lookup'
@@ -22,6 +22,13 @@ export function registerBusinessIpc(c: IpcCtx): void {
   h('sales:update', sale((id: number, p: Partial<Sale>) => c.sales.update(id, p)))
   h('sales:delete', sale((id: number) => c.sales.delete(id)))
   h('sales:saveLicense', (_, l: Partial<License> & { name: string; exclusive: boolean }) => c.sales.saveLicense(l))
+  // Import paths come from the open dialog or a file dropped on the window; the importer only accepts a .csv file of at most 20 MB and only parses it.
+  h('sales:importPick', async () => {
+    const r = await dialog.showOpenDialog(c.win!, { title: 'Import BeatStars sales', properties: ['openFile'], filters: [{ name: 'CSV', extensions: ['csv'] }] })
+    return r.canceled ? null : r.filePaths[0] ?? null
+  })
+  h('sales:importRead', (_, path: string, columns?: ColumnMap, choices?: Record<number, number | null>) => c.sales.importRead(path, columns, choices))
+  h('sales:importApply', sale((path: string, columns: ColumnMap, choices: Record<number, number | null>) => c.sales.importApply(path, columns, choices)))
   h('sales:deleteLicense', (_, id: number) => c.sales.deleteLicense(id))
   h('splits:get', (_, groupId: number) => ({ rows: c.sales.getSplits(groupId), known: c.sales.knownCollaborators() }))
   h('splits:save', (_, groupId: number, rows: SplitRow[]) => c.sales.saveSplits(groupId, rows))

@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3'
-import type { License, LogSaleInput, Sale, SalesData, SplitGroup, SplitRow } from '../shared/types'
+import { applyImport, readImport, type ImportResult } from './beatstars-apply'
+import type { ColumnMap, ImportRead, License, LogSaleInput, Sale, SalesData, SplitGroup, SplitRow } from '../shared/types'
 
 type Row = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 const dateStr = (ms: number) => new Date(ms).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
@@ -89,6 +90,10 @@ export class Sales {
       if (cur.exclusive && !this.exclusiveFor(cur.group_id)) this.db.prepare(`UPDATE beats SET status='finished' WHERE group_id=? AND status='sold'`).run(cur.group_id)
     })()
   }
+
+  // ---- BeatStars import ----
+  importRead(path: string, columns?: ColumnMap, choices?: Record<number, number | null>): ImportRead { return readImport(this.db, path, columns, choices) }
+  importApply(path: string, columns: ColumnMap, choices: Record<number, number | null>): ImportResult { return applyImport(this.db, path, columns, choices) }
 
   // ---- licenses ----
   /** Creates or updates a license type. `files` and `perks` are left as they are when not given. */

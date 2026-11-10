@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { Api } from '../shared/types'
 
 const sub = <T>(ch: string, cb: (v: T) => void) => {
@@ -141,6 +141,10 @@ const api: Api = {
   netlifyStatus: () => ipcRenderer.invoke('netlify:status'),
   setNetlifyToken: (t) => ipcRenderer.invoke('netlify:setToken', t),
   openExternal: (u) => ipcRenderer.invoke('app:openExternal', u),
+  salesImportPick: () => ipcRenderer.invoke('sales:importPick'),
+  salesImportRead: (p, c, ch) => ipcRenderer.invoke('sales:importRead', p, c, ch),
+  salesImportApply: (p, c, ch) => ipcRenderer.invoke('sales:importApply', p, c, ch),
+  pathForFile: (f) => webUtils.getPathForFile(f),
   siteStatus: () => ipcRenderer.invoke('site:status'),
   siteAdd: (id) => ipcRenderer.invoke('site:add', id),
   siteUpdate: (id, p) => ipcRenderer.invoke('site:update', id, p),

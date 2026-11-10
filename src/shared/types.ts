@@ -428,6 +428,10 @@ export interface Api {
   deleteSale(id: number): Promise<void>
   saveLicense(l: Partial<License> & { name: string; exclusive: boolean }): Promise<number>
   deleteLicense(id: number): Promise<void>
+  salesImportPick(): Promise<string | null>
+  salesImportRead(path: string, columns?: ColumnMap, choices?: Record<number, number | null>): Promise<ImportRead>
+  salesImportApply(path: string, columns: ColumnMap, choices: Record<number, number | null>): Promise<{ imported: number; duplicates: number; skipped: number; unmatched: number }>
+  pathForFile(file: File): string
   getSplits(groupId: number): Promise<{ rows: SplitRow[]; known: SplitRow[] }>
   saveSplits(groupId: number, rows: SplitRow[]): Promise<void>
   exportSplitSheet(groupId: number): Promise<string | null>

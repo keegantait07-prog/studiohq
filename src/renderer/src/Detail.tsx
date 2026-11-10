@@ -6,7 +6,7 @@ import { artUrl, artPng } from './genart'
 import { keyColor } from './keyColor'
 import { fmtBpm, fmtDur } from './format'
 import { errMsg, fmtDay, money } from './salesUtils'
-import { SiteCard } from './SiteCard'
+import { ReleaseCard } from './ReleaseCard'
 
 const KIND_LABEL: Record<TagKind, string> = { vibe: 'Vibe', genre: 'Genre', artist: 'Type beat artist' }
 const LOOP_KIND_LABEL: Record<TagKind, string> = { vibe: 'Vibe', genre: 'Genre', artist: 'Sounds like (artist)' }
@@ -184,9 +184,15 @@ export function Detail({ beat, kind, allTags, onSelect, onPlay, refresh, pitched
         </div>
       </div>
 
-      {kind === 'beat' && <SiteCard beat={beat} />}
+      {kind === 'beat' && beat.ext !== 'flp' && (
+        <ReleaseCard
+          beat={beat} pitchedTo={pitchedTo} sales={sales} splitGroup={splitGroup} onSheet={onSheet} onOpenContact={onOpenContact}
+          reloadKey={[beat.id, beat.status, sales.length, pitchedTo.map((x) => x.pitch.status).join(','), posts.map((x) => x.status).join(','), splitGroup?.parties, splitGroup?.pubTotal, splitGroup?.masterTotal, splitGroup?.sheetAt].join('|')}
+          on={{ content: onContent, pitch: onPitch, feedback: onFeedback, splits: onEditSplits, sale: onLogSale }}
+        />
+      )}
 
-      {beat.ext !== 'flp' && (<>
+      {kind === 'loop' && beat.ext !== 'flp' && (<>
       <div className="field">
         <label>{kind === 'loop' ? 'Sent to' : 'Pitched to'} ({pitchedTo.length})</label>
         {pitchedTo.map(({ pitch, contact, response }) => (
@@ -197,38 +203,6 @@ export function Detail({ beat, kind, allTags, onSelect, onPlay, refresh, pitched
         ))}
         <button className="wide" onClick={onPitch} disabled={beat.status === 'sold'}>{beat.status === 'sold' ? 'Sold. Can’t pitch' : kind === 'loop' ? 'Send this loop…' : 'Pitch this beat…'}</button>
       </div>
-
-      {kind === 'beat' && (<>
-      <div className="field">
-        <label>Sales ({sales.length})</label>
-        {sales.map((x) => (
-          <div key={x.id} className="ver" style={{ gridTemplateColumns: '1fr auto auto' }}>
-            <span>{x.exclusive ? '🔒 ' : ''}{x.licenseName} · {x.buyer}</span><span className="dim">{fmtDay(x.soldAt)}</span><span className="mono">{money(x.price)}</span>
-          </div>
-        ))}
-        <button className="wide" onClick={onLogSale} disabled={sales.some((x) => x.exclusive)}>{sales.some((x) => x.exclusive) ? '🔒 Sold exclusively' : 'Log a sale…'}</button>
-      </div>
-
-      <div className="field">
-        <label>Splits {splitGroup?.parties ? `(${splitGroup.parties} people)` : ''}</label>
-        {splitGroup?.parties ? (
-          <div className="meta-line" style={{ marginTop: 0 }}>
-            Publishing {splitGroup.pubTotal}% · Master {splitGroup.masterTotal}%{(Math.abs(splitGroup.pubTotal - 100) > 0.01 || Math.abs(splitGroup.masterTotal - 100) > 0.01) && <span className="warn"> (not 100%)</span>}
-            {splitGroup.sheetAt ? ` · sheet ${fmtDay(splitGroup.sheetAt)}` : ''}
-          </div>
-        ) : <div className="meta-line" style={{ marginTop: 0 }}>No collaborators recorded. You own 100% by default.</div>}
-        <div className="actions" style={{ marginTop: 6 }}>
-          <button onClick={onEditSplits}>{splitGroup?.parties ? 'Edit splits' : 'Add splits'}</button>
-          {splitGroup?.parties ? <button onClick={onSheet} disabled={Math.abs(splitGroup.pubTotal - 100) > 0.01 || Math.abs(splitGroup.masterTotal - 100) > 0.01}>Split sheet PDF</button> : null}
-        </div>
-      </div>
-
-      <div className="field">
-        <label>Content ({posts.filter((x) => x.status === 'posted').length} posted)</label>
-        <button className="wide" onClick={onContent}>Make video, titles & tags…</button>
-        <button className="wide" style={{ marginTop: 6 }} onClick={onFeedback}>Get timestamped feedback…</button>
-      </div>
-      </>)}
       </>)}
 
       <div className="actions">

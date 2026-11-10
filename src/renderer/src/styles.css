@@ -861,3 +861,9 @@ select.grp { width: auto; margin-left: 4px; padding: 2px 6px; }
 .tabbar .tab .badge { font-size: 10px; line-height: 15px; }
 .tab-colls { display: flex; gap: 4px; align-items: center; margin-left: 14px; padding-bottom: 5px; }
 .tab-colls .coll { padding: 2px 8px; white-space: nowrap; }
+/* Release checklist in the beat panel. */
+.rel-row { display: grid; grid-template-columns: 18px 1fr; gap: 2px 8px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+.rel-mark { text-align: center; color: var(--dim); } .rel-mark.done, .rel-mark.doing { color: var(--accent); }
+.rel-main { display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; min-width: 0; cursor: default; } .rel-main[aria-expanded] { cursor: pointer; } .rel-main b { font-weight: 600; }
+.rel-act { grid-column: 2; justify-self: start; } .rel-act button { padding: 3px 9px; font-size: 12px; }
+.rel-body { padding: 4px 0 8px 26px; }

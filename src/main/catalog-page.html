@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="description" content="Beats by SMALLS. Preview any beat and lease it for $15 on BeatStars.">
+<meta name="description" content="Beats by SMALLS. Preview any beat and lease it on BeatStars.">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 <title>SMALLS Beat Catalogue</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -122,6 +122,7 @@ h2{font-family:var(--display);font-weight:900;font-size:clamp(48px,7vw,88px);lin
 /* notes */
 .notes ol{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--ink);border:1.5px solid var(--ink)}
 .notes li{background:var(--paper);padding:20px 18px 22px;min-width:0}
+.notes ul{margin:10px 0 0;padding-left:18px}.notes ul li{padding:0;background:none}.notes .lp{font-family:var(--mono);font-size:20px;margin:6px 0 0}
 .notes .n{font-family:var(--mono);font-size:12px;color:var(--pen);letter-spacing:.08em}
 .notes h3{margin:6px 0 6px;font-size:19px;line-height:1.2}
 .notes p{margin:0;color:var(--muted);font-size:15px}
@@ -172,6 +173,7 @@ footer .wrap{display:flex;justify-content:space-between;align-items:center;gap:1
     <span class="hide-s"><span class="lamp"></span>Recorder on</span>
     <span class="spacer"></span>
     <a class="link" href="#log">Beat log</a>
+    <a class="link" href="#licenses">Licenses</a>
     <a class="link" href="#notes">How to buy</a>
     <a class="link" id="storeTop" href="#" target="_blank" rel="noopener">BeatStars store ↗</a>
   </div>
@@ -181,8 +183,8 @@ footer .wrap{display:flex;justify-content:space-between;align-items:center;gap:1
   <div class="wrap">
     <h1>SMALLS</h1>
     <div class="lede">
-      <p>Every beat here is drawn from its own sound. Press play on any trace to hear a 45-second preview, then lease it for $15 on BeatStars.</p>
-      <div class="spec"><b id="sCount">42</b> beats logged<br>Range <b id="sBpm">87–193</b> BPM<br>Lease <b>$15</b> each</div>
+      <p>Every beat here is drawn from its own sound. Press play on any trace to hear a 45-second preview, then lease it<span id="ledePrice"></span> on BeatStars.</p>
+      <div class="spec"><b id="sCount">42</b> beats logged<br>Range <b id="sBpm">87–193</b> BPM<span id="sLease"></span></div>
     </div>
 
     <div class="panel" id="panel">
@@ -197,7 +199,7 @@ footer .wrap{display:flex;justify-content:space-between;align-items:center;gap:1
           <button class="knob" id="prev" type="button" aria-label="Previous beat"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
           <button class="knob main" id="pp" type="button" aria-label="Play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4v16l13-8z"/></svg></button>
           <button class="knob" id="next" type="button" aria-label="Next beat"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
-          <a class="btn" id="pBuy" href="#" target="_blank" rel="noopener">Lease $15</a>
+          <a class="btn" id="pBuy" href="#" target="_blank" rel="noopener">Lease</a>
         </div>
       </div>
     </div>
@@ -227,12 +229,19 @@ footer .wrap{display:flex;justify-content:space-between;align-items:center;gap:1
   </div>
 </section>
 
+<section class="notes" id="licenses" hidden>
+  <div class="wrap">
+    <div class="head"><h2>Licenses</h2></div>
+    <ol id="licList"></ol>
+  </div>
+</section>
+
 <section class="notes" id="notes">
   <div class="wrap">
     <div class="head"><h2>How to buy</h2></div>
     <ol>
       <li><div class="n">STEP 1</div><h3>Play the trace</h3><p>Each preview is a 45-second cut. Click anywhere on a trace to jump to that part.</p></li>
-      <li><div class="n">STEP 2</div><h3>Lease it for $15</h3><p>The Lease button opens the SMALLS store on BeatStars, where checkout happens.</p></li>
+      <li><div class="n">STEP 2</div><h3 id="step2">Lease it</h3><p>The Lease button opens the SMALLS store on BeatStars, where checkout happens.</p></li>
       <li><div class="n">STEP 3</div><h3>Get your files</h3><p>BeatStars sends the files and your licence after checkout. Terms are on each beat's page there.</p></li>
       <li><div class="n">STEP 4</div><h3>Want it exclusive?</h3><p>For exclusives or a custom beat, message SMALLS through BeatStars and name the beat.</p></li>
     </ol>
@@ -252,7 +261,7 @@ footer .wrap{display:flex;justify-content:space-between;align-items:center;gap:1
     <button class="knob main" id="bpp" type="button" aria-label="Play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4v16l13-8z"/></svg></button>
     <div class="t"><b id="bTitle"></b><span id="bMeta"></span></div>
     <canvas id="miniTrace" aria-label="Seek"></canvas>
-    <a class="btn" id="bBuy" href="#" target="_blank" rel="noopener">Lease $15</a>
+    <a class="btn" id="bBuy" href="#" target="_blank" rel="noopener">Lease</a>
   </div>
 </div>
 
@@ -262,10 +271,12 @@ footer .wrap{display:flex;justify-content:space-between;align-items:center;gap:1
 
 <script>
 // Built by Studio HQ. Beat data is in the #beats-data block above.
-const PRICE = 15;
 const DATA = JSON.parse(document.getElementById("beats-data").textContent);
 let STORE = DATA.store;
 let BEATS = DATA.beats;
+const LICENSES = DATA.licenses || [];
+const money = n => "$" + (Number.isInteger(n) ? n : n.toFixed(2));
+const FROM = DATA.from == null ? "" : "from " + money(DATA.from);
 const live = () => BEATS.filter(b => !b.hidden);
 const linkOf = b => (b && b.link) || STORE;
 const audioOf = b => b.src || ("audio/" + b.id + ".mp3");
@@ -288,6 +299,19 @@ function refreshStats(){
   $("#sBpm").textContent = bpms.length ? Math.min(...bpms) + "–" + Math.max(...bpms) : "–";
 }
 refreshStats();
+
+function renderLicenses(){
+  if (FROM) {
+    $("#ledePrice").textContent = " " + FROM;
+    $("#sLease").innerHTML = "<br>Lease <b>" + esc(FROM) + "</b>";
+    $("#step2").textContent = "Lease it " + FROM;
+    $("#pBuy").textContent = "Lease " + FROM; $("#bBuy").textContent = "Lease " + FROM;
+  }
+  if (!LICENSES.length) return;
+  $("#licenses").hidden = false;
+  $("#licList").innerHTML = LICENSES.map(l => `<li><div class="n">${esc(l.files || (l.exclusive ? "Exclusive" : "Lease"))}</div><h3>${esc(l.name)}</h3><p class="lp">${l.price == null ? "Ask" : esc(money(l.price))}</p>${l.perks.length ? `<ul>${l.perks.map(p => `<li>${esc(p)}</li>`).join("")}</ul>` : ""}</li>`).join("");
+}
+renderLicenses();
 
 // Turn a beat's 80 loudness peaks into a seismograph-style pen trace (same beat, same trace, every time).
 const traceCache = new Map();
@@ -397,7 +421,7 @@ function render(){
       <div class="name"><h3>${esc(b.title)}</h3><div class="co">${esc(credit(b))}</div>${b.drop ? `<div class="tag">New · ${esc(b.drop)}</div>` : ""}</div>
       <canvas class="trace" aria-label="Trace of ${esc(b.title)}. Click to play from that point."></canvas>
       <div class="read"><b>${b.bpm} BPM</b> <b>${keyName(b.key)}</b>${b.genre ? `<span>${esc(b.genre)}</span>` : ""}</div>
-      <div class="buy"><span class="price">$${PRICE}</span><a class="btn pen" href="${esc(linkOf(b))}" target="_blank" rel="noopener">Lease on BeatStars</a></div>`;
+      <div class="buy">${FROM ? `<span class="price">${esc(FROM)}</span>` : ""}<a class="btn pen" href="${esc(linkOf(b))}" target="_blank" rel="noopener">Lease on BeatStars</a></div>`;
     row.querySelector(".play").onclick = () => toggle(b);
     const cv = row.querySelector(".trace");
     cv.onclick = e => seekTo(b, (e.clientX - cv.getBoundingClientRect().left) / cv.clientWidth);

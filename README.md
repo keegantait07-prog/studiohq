@@ -55,6 +55,16 @@ Open it from the sidebar (under Beat Vault) or with **⌘8**. It is for the loop
 - **Sending.** **Send this loop…** in the detail panel logs it in the Pitch CRM like a beat and marks it **sent**. Sales, splits, videos and feedback links stay beat-only.
 - ⌘K finds loops too, and the Beat Vault never lists them.
 
+## Store (your public beat site)
+
+Open **Store** in the sidebar. It lists every beat on your public site, in the order buyers see them. BeatStars is still the checkout: **Lease** opens the beat (or your store) on BeatStars.
+
+- **Add, order, edit.** **+ Add beats** picks several finished beats at once. Drag rows or use the arrows to reorder; edit the title, genre and BeatStars link in place. Nothing goes live until you press **Publish**. The per-beat *Beat site* card in the beat panel still publishes straight away.
+- **Row status.** *Live*, *Changed* (edited since the last publish), *File missing*, *Sold exclusively* (kept in the list, left off the site), and *No link* (its Buy button opens your general store page). **Needs a link** filters to those.
+- **Preview** builds the exact page in a window without publishing, so you can check it first. It works without a Netlify token; Publish needs one (Settings).
+- **License tiers.** The site shows your license types from **Sales & Collabs → Licenses**: name, price, the files you get, and what it includes. Beats show "from $X", the cheapest non-exclusive tier.
+- **Import BeatStars sales.** In **Sales & Collabs**, press *Import BeatStars sales…* (or drop the `.csv` export on the view). Studio HQ matches columns, matches each row to a beat by title, and shows you everything before saving. Orders are remembered by their order id, so importing the same file twice never doubles your revenue. You pick the beat for unmatched rows or skip them. Refunds and zero amounts are skipped, and an exclusive sale locks the beat and takes it off the site at the next publish.
+
 ## What M1 does
 
 - **Folder watching.** Every audio file (mp3, wav, flac, m4a, aif, ogg) in your beat folders is imported, and new bounces appear once they finish writing. Renamed or moved files are re-matched by size and date, so your tags and status survive. `Backup/` folders and folders named "ideas"/"scraps" are skipped (toggle in Settings).

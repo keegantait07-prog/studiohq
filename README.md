@@ -46,6 +46,16 @@ Every FL Studio project in your project folders appears in the **Vault** as a be
 - A project with no audio can't be played, pitched, sold, posted or sent for feedback yet. Everything else (status, tags, notes, *Open in FL*) works.
 - FL 26.1 changed how projects are stored: Studio HQ still finds those projects' samples, but can't read their MIDI yet.
 
+## Release checklist
+
+Select a beat and the panel shows a **Release** card: where that beat is across **Store, Video, Post, Pitch, Feedback, Splits and Sale**, with a one-line summary and one button per step. Each button opens the screen or dialog you already use for that step; nothing new is stored.
+
+- **Per song.** All versions of a beat count together, so a post on one version and a pitch on another both show.
+- **States.** ✓ done, ● in progress, ○ to do, – not applicable. *Splits* is not applicable until a beat has credits or collaborators. *Store* is not applicable once a beat is sold exclusively.
+- **What counts.** A post is done once something is posted (planned only is in progress). A pitch is done once anyone responds, even with a pass. Feedback is in progress while a comment is unseen.
+- **Expand a row** (Store, Pitch, Splits, Sale) to see the details that used to be separate blocks in the panel: the store controls, who you pitched, each sale, and the split totals with the sheet button.
+- Loops keep their own panel, since they have no store, video, splits or sales.
+
 ## Loop Vault
 
 Open it from the sidebar (under Beat Vault) or with **⌘8**. It is for the loops you make and send to other producers, and it works the same way as the Beat Vault:

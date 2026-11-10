@@ -89,3 +89,15 @@ test('removeMany takes beats off and leaves changes pending', () => {
   expect(order()).toEqual([B])
   expect(cat.status().pending).toBe(true)
 })
+
+test('build writes the page with the license tiers and no fixed price, without a Netlify token', async () => {
+  const { readFileSync } = await import('fs')
+  const file = await cat.build()
+  expect(file).toBe(join(cat.dir, 'index.html'))
+  const html = readFileSync(file, 'utf8')
+  expect(html).toContain('"name":"MP3 Lease"')
+  expect(html).toContain('"files":"MP3"')
+  expect(html).toContain('"from":25')
+  expect(html).not.toContain('const PRICE')
+  await expect(cat.publish()).rejects.toThrow(/Netlify token/)
+})

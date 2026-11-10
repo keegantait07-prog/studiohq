@@ -9,6 +9,7 @@ const G: Record<string, ReactNode> = {
   leads: <><circle className="f" cx="10.5" cy="10.5" r="6.5" /><path d="M15.2 15.2l5.3 5.3M10.5 7.5v6M7.5 10.5h6" /></>,
   crm: <><rect className="f" x="3.5" y="5.5" width="17" height="13" /><path d="M3.5 7l8.5 6.5L20.5 7" /></>,
   sales: <><circle className="f" cx="12" cy="12" r="8.5" /><path d="M12 7v10M9.5 9.8c0-1.2 1.1-1.8 2.5-1.8s2.5.6 2.5 1.8-1.1 1.5-2.5 1.9-2.5.7-2.5 1.9 1.1 1.8 2.5 1.8 2.5-.6 2.5-1.8" /></>,
+  store: <><path d="M4 9l1.6-4.5h12.8L20 9" /><path d="M4 9c0 1.4 1.1 2.5 2.5 2.5S9 10.4 9 9c0 1.4 1.1 2.5 2.5 2.5S14 10.4 14 9c0 1.4 1.1 2.5 2.5 2.5S20 10.4 20 9" /><path d="M5.5 11.8V19h13v-7.2M9.5 19v-4.5h5V19" /></>,
   content: <><rect className="f" x="3.5" y="5" width="17" height="14" /><path d="M10 9.2v5.6l4.8-2.8z" /></>,
   sounds: <><circle className="f" cx="12" cy="12" r="8.5" /><path d="M12 12l3.6-3.6M5.5 17.5l1 -1M18.5 17.5l-1-1M12 3.5v1.6" /></>,
   kits: <><rect className="f" x="3.5" y="3.5" width="7" height="7" rx="1.5" /><rect className="f" x="13.5" y="3.5" width="7" height="7" rx="1.5" /><rect className="f" x="3.5" y="13.5" width="7" height="7" rx="1.5" /><path d="M17 13.5v7M13.5 17h7" /></>,

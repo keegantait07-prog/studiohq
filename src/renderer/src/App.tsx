@@ -30,6 +30,7 @@ const SoundLibrary = lazy(() => import('./SoundLibrary').then((m) => ({ default:
 import { groupRows, type GroupBy } from '@shared/loopGroups'
 const KitMaker = lazy(() => import('./KitMaker').then((m) => ({ default: m.KitMaker })))
 const Leads = lazy(() => import('./Leads').then((m) => ({ default: m.Leads })))
+const Store = lazy(() => import('./Store').then((m) => ({ default: m.Store })))
 const Plugins = lazy(() => import('./Plugins').then((m) => ({ default: m.Plugins })))
 import { FeedbackView } from './FeedbackView'
 import { FeedbackDialog } from './FeedbackDialog'
@@ -71,7 +72,9 @@ function SessionPill({ startedAt, onClick }: { startedAt: number; onClick: () =>
 export function App() {
   const [beats, setBeats] = useState<Beat[]>([])
   const [loaded, setLoaded] = useState(false)
-  const [view, setView] = useState<'dashboard' | 'vault' | 'loops' | 'map' | 'crm' | 'leads' | 'sales' | 'content' | 'sounds' | 'kits' | 'plugins' | 'feedback' | 'themes'>('dashboard')
+  const [siteInfo, setSiteInfo] = useState({ count: 0, pending: false })
+  useEffect(() => { void window.api.siteStatus().then((s) => setSiteInfo({ count: s.entries.length, pending: s.pending })).catch(() => undefined) }, [])
+  const [view, setView] = useState<'dashboard' | 'vault' | 'loops' | 'map' | 'crm' | 'leads' | 'sales' | 'store' | 'content' | 'sounds' | 'kits' | 'plugins' | 'feedback' | 'themes'>('dashboard')
   // the Beat Vault and the Loop Vault each keep their own search, status tab and selection
   const vaultKind: VaultKind = view === 'loops' ? 'loop' : 'beat'
   const isLoop = vaultKind === 'loop'
@@ -418,6 +421,7 @@ export function App() {
         <a className={`nav ${view === 'crm' ? 'on' : ''}`} {...clickable(() => setView('crm'))}><em className="nl"><Icon name="crm" />Pitch CRM</em> {dueCount > 0 ? <span className="badge">{dueCount}</span> : <span>{crm?.contacts.length ?? 0}</span>}</a>
         <a className={`nav ${view === 'leads' ? 'on' : ''}`} {...clickable(() => setView('leads'))}><em className="nl"><Icon name="leads" />Leads</em> <span></span></a>
         <a className={`nav ${view === 'sales' ? 'on' : ''}`} {...clickable(() => setView('sales'))}><em className="nl"><Icon name="sales" />Sales & Collabs</em> <span>{salesData.sales.length}</span></a>
+        <a className={`nav ${view === 'store' ? 'on' : ''}`} {...clickable(() => setView('store'))}><em className="nl"><Icon name="store" />Store</em> {siteInfo.pending ? <span className="badge">!</span> : <span>{siteInfo.count}</span>}</a>
         <a className={`nav ${view === 'content' ? 'on' : ''}`} {...clickable(() => setView('content'))}><em className="nl"><Icon name="content" />Content</em> {overduePosts > 0 ? <span className="badge">{overduePosts}</span> : <span>{content.posts.filter((p) => p.status === 'posted').length}</span>}</a>
         <a className={`nav ${view === 'sounds' ? 'on' : ''}`} {...clickable(() => setView('sounds'))}><em className="nl"><Icon name="sounds" />Sound Library</em> <span>{sounds ? sounds.items.length.toLocaleString() : ''}</span></a>
         <a className={`nav ${view === 'kits' ? 'on' : ''}`} {...clickable(() => setView('kits'))}><em className="nl"><Icon name="kits" />Kit Maker</em> <span></span></a>
@@ -459,6 +463,8 @@ export function App() {
           beats={audioBeats} sales={salesData.sales} content={content} settings={appSettings} beatId={contentBeat} onSelectBeat={setContentBeat}
           onPlayAt={(id, at) => safePlay(id, at)} reload={reloadContent} reloadBeats={reload} toast={toast} playId={player.id} playing={player.playing} playClock={player}
         /></ViewGuard>
+      ) : view === 'store' ? (
+        <ViewGuard name="Store"><Store beats={audioBeats} toast={toast} openSettings={() => setSettings(true)} onChanged={(s) => setSiteInfo({ count: s.entries.length, pending: s.pending })} /></ViewGuard>
       ) : view === 'sales' ? (
         <SalesView
           data={salesData} query={salesQuery} onQuery={setSalesQuery} onLog={() => setSaleDlg({})} onEdit={(sale) => setSaleDlg({ edit: sale })}

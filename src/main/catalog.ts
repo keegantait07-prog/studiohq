@@ -5,10 +5,10 @@ import { spawn } from 'child_process'
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync, copyFileSync } from 'fs'
 import { join } from 'path'
 import ffmpegStatic from 'ffmpeg-static'
-import pageTemplate from './catalog-page.html?raw'
+import { fromPrice, pageHtml, pageLicenses } from './catalog-render'
 import { CATALOG_SEED } from './catalog-seed'
 import { call, deployDir } from './netlify'
-import type { SiteEntry, SitePatch, SiteStatus } from '../shared/types'
+import type { License, SiteEntry, SitePatch, SiteRowState, SiteStatus } from '../shared/types'
 
 type Row = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 const ffmpeg = (ffmpegStatic as unknown as string).replace('app.asar', 'app.asar.unpacked')
@@ -59,6 +59,8 @@ export class Catalog {
       peaks TEXT,
       preview_key TEXT
     )`)
+    // dirty = edited since the last publish (this table belongs to Catalog, so the column is added here, not in db.ts)
+    if (!(db.pragma('table_info(site_beats)') as { name: string }[]).some((c) => c.name === 'dirty')) db.exec('ALTER TABLE site_beats ADD COLUMN dirty INTEGER NOT NULL DEFAULT 0')
     mkdirSync(join(this.dir, 'audio'), { recursive: true })
     mkdirSync(this.cache, { recursive: true })
     this.seed()
@@ -76,7 +78,15 @@ export class Catalog {
   }
 
   status(): SiteStatus {
-    const entries = (this.db.prepare('SELECT * FROM site_beats ORDER BY position').all() as Row[]).map((r): SiteEntry => ({ beatId: r.beat_id, title: r.title, genre: r.genre, co: JSON.parse(r.co), link: r.link, addedAt: r.added_at }))
+    const rows = this.db.prepare(
+      `SELECT s.*, b.bpm, b.key AS bkey, b.missing,
+         EXISTS(SELECT 1 FROM sales x WHERE x.group_id=b.group_id AND x.exclusive=1) AS sold
+       FROM site_beats s JOIN beats b ON b.id=s.beat_id ORDER BY s.position`
+    ).all() as Row[]
+    const entries = rows.map((r): SiteEntry => {
+      const state: SiteRowState = r.sold ? 'sold' : r.missing ? 'missing' : r.dirty ? 'changed' : 'live'
+      return { beatId: r.beat_id, title: r.title, genre: r.genre, co: JSON.parse(r.co), link: r.link, addedAt: r.added_at, bpm: r.bpm, key: r.bkey, state, noLink: !r.link }
+    })
     return { url: this.kv('site_url'), hasToken: !!this.token(), entries, pending: this.kv('site_dirty') === '1' }
   }
 
@@ -95,9 +105,53 @@ export class Catalog {
     if (!this.db.prepare('SELECT 1 FROM site_beats WHERE beat_id=?').get(beatId)) {
       const d = this.defaults(beatId)
       const min = (this.db.prepare('SELECT MIN(position) m FROM site_beats').get() as Row).m ?? 0
-      this.db.prepare('INSERT INTO site_beats(beat_id,title,genre,co,link,position,added_at) VALUES(?,?,?,?,?,?,?)').run(beatId, d.title, d.genre, JSON.stringify(d.co), '', min - 1, Date.now())
+      this.db.prepare('INSERT INTO site_beats(beat_id,title,genre,co,link,position,added_at,dirty) VALUES(?,?,?,?,?,?,?,1)').run(beatId, d.title, d.genre, JSON.stringify(d.co), '', min - 1, Date.now())
     }
     return this.publish(onStep)
+  }
+
+  /** Puts several beats at the top of the site, in the order given, without publishing. Returns how many were added. */
+  addMany(ids: number[]): number {
+    const onSite = this.db.prepare('SELECT 1 FROM site_beats WHERE beat_id=?')
+    const ins = this.db.prepare('INSERT INTO site_beats(beat_id,title,genre,co,link,position,added_at,dirty) VALUES(?,?,?,?,?,?,?,1)')
+    let added = 0
+    this.db.transaction(() => {
+      const fresh: { id: number; d: { title: string; genre: string; co: string[] } }[] = []
+      for (const id of [...new Set(ids)]) {
+        if (onSite.get(id)) continue
+        try { fresh.push({ id, d: this.defaults(id) }) } catch { /* gone, or an FL project with no audio: leave it out */ }
+      }
+      const min = (this.db.prepare('SELECT MIN(position) m FROM site_beats').get() as Row).m ?? 0
+      const now = Date.now()
+      fresh.forEach((f, i) => ins.run(f.id, f.d.title, f.d.genre, JSON.stringify(f.d.co), '', min - fresh.length + i, now))
+      added = fresh.length
+      if (added) this.setKv('site_dirty', '1')
+    })()
+    return added
+  }
+
+  /** Takes beats off the site without publishing. */
+  removeMany(ids: number[]): void {
+    const del = this.db.prepare('DELETE FROM site_beats WHERE beat_id=?')
+    this.db.transaction(() => {
+      let n = 0
+      for (const id of ids) n += del.run(id).changes
+      if (n) this.setKv('site_dirty', '1')
+    })()
+  }
+
+  /** New site order: the given beats first, then any others in the order they already had. Does not publish. */
+  reorder(ids: number[]): void {
+    const before = (this.db.prepare('SELECT beat_id FROM site_beats ORDER BY position').all() as Row[]).map((r) => r.beat_id as number)
+    const on = new Set(before)
+    const listed = [...new Set(ids)].filter((id) => on.has(id))
+    const after = [...listed, ...before.filter((id) => !listed.includes(id))]
+    const set = this.db.prepare('UPDATE site_beats SET position=?, dirty=CASE WHEN ? THEN 1 ELSE dirty END WHERE beat_id=?')
+    this.db.transaction(() => {
+      let moved = false
+      after.forEach((id, i) => { const m = before[i] !== id; moved ||= m; set.run(i, m ? 1 : 0, id) })
+      if (moved) this.setKv('site_dirty', '1')
+    })()
   }
   update(beatId: number, p: SitePatch): void {
     const sets: string[] = []; const vals: unknown[] = []
@@ -106,7 +160,7 @@ export class Catalog {
     if (p.link != null) { sets.push('link=?'); vals.push(p.link.trim()) }
     if (p.co != null) { sets.push('co=?'); vals.push(JSON.stringify(p.co)) }
     if (!sets.length) return
-    this.db.prepare(`UPDATE site_beats SET ${sets.join(',')} WHERE beat_id=?`).run(...vals, beatId)
+    this.db.prepare(`UPDATE site_beats SET ${sets.join(',')}, dirty=1 WHERE beat_id=?`).run(...vals, beatId)
     this.setKv('site_dirty', '1')
   }
   remove(beatId: number, onStep?: (s: string) => void): Promise<string> {
@@ -137,15 +191,21 @@ export class Catalog {
     return { file, peaks: pk.map((v) => Math.round((v / top) * 100) / 100) }
   }
 
-  /** Rebuilds the whole site folder and deploys it. Runs one at a time. */
-  publish(onStep?: (s: string) => void): Promise<string> {
-    const job = this.busy.then(() => this.doPublish(onStep))
+  private queue<T>(fn: () => Promise<T>): Promise<T> {
+    const job = this.busy.then(fn)
     this.busy = job.catch(() => undefined)
     return job
   }
-  private async doPublish(onStep?: (s: string) => void): Promise<string> {
-    const token = this.token()
-    if (!token) throw new Error('Add your Netlify token in Settings first, so Studio HQ can publish the site.')
+  /** Rebuilds the site folder without deploying it, and returns the path of its index.html. Needs no Netlify token. */
+  build(onStep?: (s: string) => void): Promise<string> { return this.queue(() => this.doBuild(onStep)) }
+  /** Rebuilds the whole site folder and deploys it. Runs one at a time. */
+  publish(onStep?: (s: string) => void): Promise<string> { return this.queue(() => this.doPublish(onStep)) }
+
+  private licenses(): License[] {
+    return (this.db.prepare('SELECT * FROM license_types ORDER BY sort, id').all() as Row[]).map((r) => ({ id: r.id, name: r.name, exclusive: !!r.exclusive, defaultPrice: r.default_price, files: r.files, perks: JSON.parse(r.perks) }))
+  }
+
+  private async doBuild(onStep?: (s: string) => void): Promise<string> {
     const rows = this.db.prepare('SELECT s.*, b.path, b.mtime, b.duration, b.bpm, b.key, b.peaks AS env, b.missing FROM site_beats s JOIN beats b ON b.id=s.beat_id WHERE NOT EXISTS (SELECT 1 FROM sales x WHERE x.group_id=b.group_id AND x.exclusive=1) ORDER BY s.position').all() as Row[] // an exclusively sold beat comes off the site
     const now = Date.now(), beats: Row[] = [], keep = new Set<string>()
     let i = 0
@@ -161,8 +221,16 @@ export class Catalog {
       beats.push(b)
     }
     for (const f of readdirSync(join(this.dir, 'audio'))) if (!keep.has(f)) rmSync(join(this.dir, 'audio', f), { force: true })
-    const data = JSON.stringify({ store: this.storeUrl() || DEFAULT_STORE, beats }).replace(/</g, '\\u003c')
-    writeFileSync(join(this.dir, 'index.html'), pageTemplate.split('__DATA__').join(data))
+    const licenses = this.licenses()
+    const index = join(this.dir, 'index.html')
+    writeFileSync(index, pageHtml({ store: this.storeUrl() || DEFAULT_STORE, from: fromPrice(licenses), licenses: pageLicenses(licenses), beats }))
+    return index
+  }
+
+  private async doPublish(onStep?: (s: string) => void): Promise<string> {
+    const token = this.token()
+    if (!token) throw new Error('Add your Netlify token in Settings first, so Studio HQ can publish the site.')
+    await this.doBuild(onStep)
     let siteId = this.kv('site_id')
     if (!siteId) {
       onStep?.('Creating your beat site on Netlify')
@@ -176,6 +244,7 @@ export class Catalog {
     }
     const r = await deployDir(this.dir, token, siteId, onStep)
     this.setKv('site_url', r.baseUrl)
+    this.db.prepare('UPDATE site_beats SET dirty=0').run()
     this.setKv('site_dirty', '0')
     return r.baseUrl
   }

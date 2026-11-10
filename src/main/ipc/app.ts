@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 import { app, dialog, shell } from 'electron'
 import { writeExports } from '../exporter'
+import { openPreview } from '../preview-window'
 import type { SitePatch } from '../../shared/types'
 import type { PackRequest } from '../../shared/types'
 import type { IpcCtx } from './context'
@@ -17,6 +18,10 @@ export function registerAppIpc(c: IpcCtx): void {
   h('site:update', (_, id: number, p: SitePatch) => c.catalog.update(id, p))
   h('site:remove', (_, id: number) => c.catalog.remove(id, step))
   h('site:publish', () => c.catalog.publish(step))
+  h('site:preview', async () => { openPreview(await c.catalog.build(step)) })
+  h('site:addMany', (_, ids: number[]) => c.catalog.addMany(ids))
+  h('site:removeMany', (_, ids: number[]) => c.catalog.removeMany(ids))
+  h('site:reorder', (_, ids: number[]) => c.catalog.reorder(ids))
   h('netlify:setToken', (_, t: string | null) => c.packs.setToken(t))
   h('app:openExternal', (_, url: string) => { if (/^(https?|mailto):/i.test(url)) return shell.openExternal(url) })
   h('app:backup', c.backupNow)

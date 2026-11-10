@@ -286,7 +286,8 @@ export interface CrmData { contacts: Contact[]; pitches: Pitch[]; templates: Tem
 export interface LogPitchInput { contactId: number; beatIds: number[]; channel: Pitch['channel']; subject: string; link: string; packId: number | null }
 export interface PackRequest { contactId: number | null; title: string; intro: string; beatIds: number[]; deploy: boolean }
 export interface PackResult { packId: number; slug: string; url: string | null; deployError: string | null }
-export interface SiteEntry { beatId: number; title: string; genre: string; co: string[]; link: string; addedAt: number }
+export type SiteRowState = 'live' | 'changed' | 'missing' | 'sold'
+export interface SiteEntry { beatId: number; title: string; genre: string; co: string[]; link: string; addedAt: number; bpm: number | null; key: string | null; state: SiteRowState; noLink: boolean }
 export interface SitePatch { title?: string; genre?: string; link?: string; co?: string[] }
 export interface SiteStatus { url: string | null; hasToken: boolean; entries: SiteEntry[]; pending: boolean }
 
@@ -452,6 +453,10 @@ export interface Api {
   siteUpdate(beatId: number, patch: SitePatch): Promise<void>
   siteRemove(beatId: number): Promise<string>
   sitePublish(): Promise<string>
+  siteBuildPreview(): Promise<void>
+  siteAddMany(beatIds: number[]): Promise<number>
+  siteRemoveMany(beatIds: number[]): Promise<void>
+  siteReorder(beatIds: number[]): Promise<void>
   onSiteProgress(cb: (step: string) => void): () => void
   onCrmChanged(cb: () => void): () => void
   onNavigate(cb: (view: 'dashboard' | 'vault' | 'loops' | 'crm' | 'sales' | 'content' | 'sounds' | 'feedback') => void): () => void

@@ -1,6 +1,8 @@
 import { lazy, useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react'
 import { STATUSES, type Beat, type BeatDetail, type ContentData, type CrmData, type FeedbackData, type SoundList, type SoundStatus, type StudioSession, type SalesData, type Sale, type ScanStatus, type Settings as AppSettings, type Status, type TagKind, type NetlifyStatus, type VaultKind } from '@shared/types'
 import { clickable } from './a11y'
+import { Rail, TabBar, type TabBadges } from './Nav'
+import { sectionOf, type SectionId, type ViewId } from './navModel'
 import { ViewGuard } from './ViewGuard'
 import { useNow } from './useNow'
 import { displayKey } from '@shared/key'
@@ -66,12 +68,13 @@ function PlayerWave({ player, peaks }: { player: PlayerClock & { duration: numbe
 /** The running-session timer in the sidebar. It owns the 1-second tick, so the rest of the app does not re-render every second. */
 function SessionPill({ startedAt, onClick }: { startedAt: number; onClick: () => void }) {
   const now = useNow(1000)
-  return <a className="timerpill" {...clickable(onClick)} title="Studio session running">● {fmtClock(now - startedAt)}</a>
+  return <a className="timerpill" {...clickable(onClick)} title={`Studio session running · ${fmtClock(now - startedAt)}`} aria-label={`Studio session running, ${fmtClock(now - startedAt)}`}>●</a>
 }
 
 export function App() {
   const [beats, setBeats] = useState<Beat[]>([])
   const [loaded, setLoaded] = useState(false)
+  const [lastTab, setLastTab] = useState<Partial<Record<SectionId, ViewId>>>({})
   const [siteInfo, setSiteInfo] = useState({ count: 0, pending: false })
   useEffect(() => { void window.api.siteStatus().then((s) => setSiteInfo({ count: s.entries.length, pending: s.pending })).catch(() => undefined) }, [])
   const [view, setView] = useState<'dashboard' | 'vault' | 'loops' | 'map' | 'crm' | 'leads' | 'sales' | 'store' | 'content' | 'sounds' | 'kits' | 'plugins' | 'feedback' | 'themes'>('dashboard')
@@ -101,6 +104,7 @@ export function App() {
   const [naming, setNaming] = useState<string | null>(null)
   const [whatsNew, setWhatsNew] = useState(() => { try { return localStorage.getItem('shq.seen') !== '2.0' } catch { return false } })
   useEffect(() => { try { localStorage.setItem('shq.collections', JSON.stringify(collections)) } catch { /* private mode */ } }, [collections])
+  useEffect(() => { setLastTab((o) => (o[sectionOf(view).id] === view ? o : { ...o, [sectionOf(view).id]: view })) }, [view])
   const openCollection = (q: string) => { setView('vault'); setTabs((o) => ({ ...o, beat: 'all' })); setQueries((o) => ({ ...o, beat: q })) }
   const openLoopCollection = (q: string) => { setView('loops'); setTabs((o) => ({ ...o, loop: 'all' })); setQueries((o) => ({ ...o, loop: q })) }
   const colls = isLoop ? loopCollections : collections
@@ -394,48 +398,35 @@ export function App() {
   ]
 
   const scanning = scan.pending > 0
+  const tabBadges: TabBadges = {
+    store: siteInfo.pending ? '!' : null,
+    crm: dueCount > 0 ? String(dueCount) : null,
+    content: overduePosts > 0 ? String(overduePosts) : null,
+    feedback: unseenFeedback > 0 ? String(unseenFeedback) : null
+  }
+  const savedSearches = view === 'vault' ? { list: collections, set: setCollections, open: openCollection, on: (q: string) => queries.beat === q } : view === 'loops' ? { list: loopCollections, set: setLoopCollections, open: openLoopCollection, on: (q: string) => queries.loop === q } : null
+  const tabExtra = savedSearches && savedSearches.list.length > 0 ? (
+    <div className="tab-colls" aria-label="Saved searches">
+      {savedSearches.list.map((c) => (
+        <a key={c.name} className={`coll ${savedSearches.on(c.q) ? 'on' : ''}`} {...clickable(() => savedSearches.open(c.q))} title={c.q}>
+          <span>{c.name}</span><button className="x" aria-label={`Remove ${c.name}`} onClick={(e) => { e.stopPropagation(); savedSearches.set(savedSearches.list.filter((x) => x !== c)) }}>×</button>
+        </a>
+      ))}
+    </div>
+  ) : null
   return (
     <div className="app">
       <Defs />
       <div className="titlebar" />
-      <nav className="side">
-        <div className="brand"><BrandMark /><span>Studio HQ</span></div>
-        <a className={`nav ${view === 'dashboard' ? 'on' : ''}`} {...clickable(() => setView('dashboard'))}><em className="nl"><Icon name="dashboard" />Dashboard</em></a>
-        <a className={`nav ${view === 'vault' ? 'on' : ''}`} {...clickable(() => setView('vault'))}><em className="nl"><Icon name="vault" />Beat Vault</em> <span>{beats.length}</span></a>
-        <div className="colls">
-          {collections.map((c) => (
-            <a key={c.name} className={`coll ${view === 'vault' && queries.beat === c.q ? 'on' : ''}`} {...clickable(() => openCollection(c.q))} title={c.q}>
-              <span>{c.name}</span><button className="x" aria-label="remove" onClick={(e) => { e.stopPropagation(); setCollections(collections.filter((x) => x !== c)) }}>×</button>
-            </a>
-          ))}
-        </div>
-        <a className={`nav ${view === 'loops' ? 'on' : ''}`} {...clickable(() => setView('loops'))}><em className="nl"><Icon name="loops" />Loop Vault</em> <span>{loops.length}</span></a>
-        <div className="colls">
-          {loopCollections.map((c) => (
-            <a key={c.name} className={`coll ${view === 'loops' && queries.loop === c.q ? 'on' : ''}`} {...clickable(() => openLoopCollection(c.q))} title={c.q}>
-              <span>{c.name}</span><button className="x" aria-label="remove" onClick={(e) => { e.stopPropagation(); setLoopCollections(loopCollections.filter((x) => x !== c)) }}>×</button>
-            </a>
-          ))}
-        </div>
-        <a className={`nav ${view === 'map' ? 'on' : ''}`} {...clickable(() => setView('map'))}><em className="nl"><Icon name="map" />Sonic Map</em> <span>◎</span></a>
-        <a className={`nav ${view === 'crm' ? 'on' : ''}`} {...clickable(() => setView('crm'))}><em className="nl"><Icon name="crm" />Pitch CRM</em> {dueCount > 0 ? <span className="badge">{dueCount}</span> : <span>{crm?.contacts.length ?? 0}</span>}</a>
-        <a className={`nav ${view === 'leads' ? 'on' : ''}`} {...clickable(() => setView('leads'))}><em className="nl"><Icon name="leads" />Leads</em> <span></span></a>
-        <a className={`nav ${view === 'sales' ? 'on' : ''}`} {...clickable(() => setView('sales'))}><em className="nl"><Icon name="sales" />Sales & Collabs</em> <span>{salesData.sales.length}</span></a>
-        <a className={`nav ${view === 'store' ? 'on' : ''}`} {...clickable(() => setView('store'))}><em className="nl"><Icon name="store" />Store</em> {siteInfo.pending ? <span className="badge">!</span> : <span>{siteInfo.count}</span>}</a>
-        <a className={`nav ${view === 'content' ? 'on' : ''}`} {...clickable(() => setView('content'))}><em className="nl"><Icon name="content" />Content</em> {overduePosts > 0 ? <span className="badge">{overduePosts}</span> : <span>{content.posts.filter((p) => p.status === 'posted').length}</span>}</a>
-        <a className={`nav ${view === 'sounds' ? 'on' : ''}`} {...clickable(() => setView('sounds'))}><em className="nl"><Icon name="sounds" />Sound Library</em> <span>{sounds ? sounds.items.length.toLocaleString() : ''}</span></a>
-        <a className={`nav ${view === 'kits' ? 'on' : ''}`} {...clickable(() => setView('kits'))}><em className="nl"><Icon name="kits" />Kit Maker</em> <span></span></a>
-        <a className={`nav ${view === 'plugins' ? 'on' : ''}`} {...clickable(() => setView('plugins'))}><em className="nl"><Icon name="plugins" />Plugins</em> <span></span></a>
-        <a className={`nav ${view === 'feedback' ? 'on' : ''}`} {...clickable(() => setView('feedback'))}><em className="nl"><Icon name="feedback" />Feedback</em> {unseenFeedback > 0 ? <span className="badge">{unseenFeedback}</span> : <span>{feedback.links.length}</span>}</a>
-        <a className={`nav ${view === 'themes' ? 'on' : ''}`} {...clickable(() => setView('themes'))}><em className="nl"><Icon name="themes" />Themes</em> <span>{THEMES.find((t) => t.id === theme)?.name}</span></a>
-        <div className="grow" />
+      <Rail view={view} last={lastTab} onGo={setView} badges={tabBadges} brand={<BrandMark />}>
         {openSession && <SessionPill startedAt={openSession.startedAt} onClick={() => setView('dashboard')} />}
-        <button className={`ghost as-btn ${assistantOpen ? 'on' : ''}`} onClick={() => setAssistantOpen((o) => !o)} title="Ask the assistant to look things up or make changes (⌘J)">
-          <em className="nl"><Icon name="assistant" />Assistant</em>
-          {assistantStatus === 'approval' ? <span className="badge">approve</span> : assistantStatus === 'working' ? <span className="as-dot" title="Working…" /> : <kbd>⌘J</kbd>}
+        <button className={`ghost as-btn nav rail-item ${assistantOpen ? 'on' : ''}`} onClick={() => setAssistantOpen((o) => !o)} title="Assistant (⌘J). Ask it to look things up or make changes." aria-label="Assistant">
+          <em className="nl"><Icon name="assistant" /></em>
+          {assistantStatus === 'approval' ? <i className="rail-dot hot" aria-label="Needs your approval" /> : assistantStatus === 'working' ? <span className="as-dot rail-work" title="Working…" /> : null}
         </button>
-        <button className="ghost" onClick={() => setSettings(true)}><em className="nl"><Icon name="settings" />Settings</em> <kbd>⌘,</kbd></button>
-      </nav>
+        <button className="ghost nav rail-item" onClick={() => setSettings(true)} title="Settings (⌘,)" aria-label="Settings"><em className="nl"><Icon name="settings" /></em></button>
+      </Rail>
+      <TabBar view={view} onGo={setView} badges={tabBadges} extra={tabExtra} />
 
       {view === 'dashboard' ? (
         <Dashboard

@@ -42,7 +42,8 @@ import { isAppUrl, isExternalUrl } from './safe-path'
 
 
 app.setName('Studio HQ')
-app.setPath('userData', join(app.getPath('appData'), 'Studio HQ'))
+// STUDIO_HQ_DATA_DIR points the app at another library (for trying changes on a copy). Unset = your real library.
+app.setPath('userData', process.env.STUDIO_HQ_DATA_DIR || join(app.getPath('appData'), 'Studio HQ'))
 
 // One copy at a time: two would both write the database and both watch the same folders.
 if (!app.requestSingleInstanceLock()) app.exit(0)

@@ -842,3 +842,22 @@ select.grp { width: auto; margin-left: 4px; padding: 2px 6px; }
 .store-grid { grid-template-columns: 24px 32px minmax(140px, 1.4fr) minmax(90px, .8fr) minmax(160px, 1.6fr) 170px 70px; }
 .store-grid input:not([type=checkbox]) { min-width: 0; } .addstore-row { grid-template-columns: 24px 1fr; cursor: pointer; height: 38px; }
 .import-grid { grid-template-columns: 150px 90px minmax(120px, 1.4fr) minmax(90px, 1fr) 80px minmax(150px, 1.2fr); }
+
+/* Rail and tabs. Colours and spacing come from the same tokens every theme already sets. */
+.app { grid-template-columns: 64px 1fr 340px; }
+.side.rail { padding: 46px 8px 12px; align-items: stretch; }
+.side.rail .brand { padding: 0 0 12px; display: flex; justify-content: center; }
+.side.rail .nav, .side.rail button.rail-item { justify-content: center; align-items: center; position: relative; padding: 9px 0; }
+.side.rail button.as-btn { justify-content: center; }
+.rail-dot { position: absolute; top: 6px; right: 10px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+.rail-dot.hot, .as-dot.rail-work { position: absolute; top: 6px; right: 10px; }
+.side.rail .timerpill { text-align: center; font-size: 11px; color: var(--accent-text); padding: 4px 0; }
+.tabbar { position: absolute; top: 0; left: 64px; right: 0; height: 38px; z-index: 6; display: flex; align-items: flex-end; gap: 2px; padding: 0 16px; overflow-x: auto; scrollbar-width: none; -webkit-app-region: drag; }
+.tabbar::-webkit-scrollbar { display: none; }
+.tabbar .tab, .tabbar .coll, .tabbar .tab-colls { -webkit-app-region: no-drag; }
+.tabbar .tab { background: transparent; border: 0; border-bottom: 2px solid transparent; border-radius: 0; color: var(--dim); padding: 8px 12px 7px; font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap; display: inline-flex; gap: 6px; align-items: center; }
+.tabbar .tab:hover { color: var(--text); }
+.tabbar .tab.on { color: var(--text); border-bottom-color: var(--accent); }
+.tabbar .tab .badge { font-size: 10px; line-height: 15px; }
+.tab-colls { display: flex; gap: 4px; align-items: center; margin-left: 14px; padding-bottom: 5px; }
+.tab-colls .coll { padding: 2px 8px; white-space: nowrap; }

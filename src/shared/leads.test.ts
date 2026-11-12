@@ -203,3 +203,24 @@ describe('looksLikeBeatMaker', () => {
     expect(Date.now() - t0).toBeLessThan(1500)
   })
 })
+
+describe('lead categories', () => {
+  it('names the genre tags in free text', async () => {
+    const { genreTags, sizeFor } = await import('./leads')
+    expect(genreTags('southside / melodic rap')).toEqual(['Southside', 'Melodic'])
+    expect(genreTags('4pf type piano or triplet hi hat')).toEqual(['4PF piano and triplets'])
+    expect(genreTags('melodic hard')).toEqual(['Melodic', 'Hard'])
+    expect(genreTags('rap any')).toEqual(['Open to anything'])
+    expect(genreTags('')).toEqual([])
+    expect(sizeFor({ role: 'manager', followers: 5 })).toBe('team')
+    expect(sizeFor({ followers: 250_000 })).toBe('big')
+    expect(sizeFor({ followers: null })).toBe('small')
+  })
+
+  it('reads role, size, ladder and note from optional CSV columns', () => {
+    const [a, b] = parseCsv('name,url,email,genre,followers,role,size,ladder,note\nAda,,ada@x.com,southside,,Manager,,Lil Baby,mgmt\nBo,,,melodic,,nope,big,,')
+    expect(a).toMatchObject({ role: 'manager', ladder: 'Lil Baby', note: 'mgmt' })
+    expect(b.role).toBeUndefined()
+    expect(b.size).toBe('big')
+  })
+})

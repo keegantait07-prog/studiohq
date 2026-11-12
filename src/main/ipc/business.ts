@@ -103,6 +103,7 @@ export function registerBusinessIpc(c: IpcCtx): void {
   }))
   h('leads:promote', mut((id: number) => c.leads.promote(id)))
   h('leads:skip', mut((ids: number[]) => { for (const id of ids) c.leads.setStatus(id, 'skipped') }))
+  h('leads:setSize', mut((ids: number[], size: Lead['size']) => { for (const id of ids) c.leads.setSize(id, size) }))
   h('leads:save', mut((ids: number[]) => { for (const id of ids) c.leads.setStatus(id, 'saved') }))
   h('leads:suppress', mut((email: string, reason: string): string[] => c.leads.suppress(email, reason)))
   let lookingUp = false

@@ -95,21 +95,48 @@ export function Dashboard(p: Props) {
   // 15-week activity heatmap, Monday-first columns
   const weeks = Array.from({ length: 15 }, (_, w) => Array.from({ length: 7 }, (_, d) => wk - (14 - w) * 7 * DAY + d * DAY))
 
+  const needs = due.length + planned.length + unseen.length
+  const bits = [
+    due.length ? `${due.length} follow-up${due.length === 1 ? ' is' : 's are'} due` : '',
+    ready.length ? `${ready.length} finished beat${ready.length === 1 ? ' hasn\'t' : 's haven\'t'} been pitched` : '',
+    wip.length ? `${wip.length} ${wip.length === 1 ? 'beat is' : 'beats are'} close to finished` : ''
+  ].filter(Boolean)
+
   return (
-    <section className="dash">
-      <div className="dash-head">
-        <div><h2>{hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening'}{name ? `, ${name}` : ''}</h2><div className="dim">{new Date(now).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</div></div>
-        <div className="tiles">
-          <div className="stat"><b>{money(Math.round(revenue))}</b><span>earned this month</span></div>
-          <div className="stat"><b>{awaiting}</b><span>pitches awaiting a reply</span></div>
-          <div className="stat"><b>{unsold}</b><span>beats available</span></div>
-        </div>
+    <section className="dash hm">
+      <div className="hm-top">
+        <div className="hm-hello">{hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening'}{name ? `, ${name}` : ''} · {new Date(now).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</div>
+        <h1>{needs === 0 ? 'You are all caught up.' : `${needs} thing${needs === 1 ? '' : 's'} ${needs === 1 ? 'needs' : 'need'} you today.`}</h1>
+        <p className="hm-lede">{bits.length ? `${bits.join('. ')}.` : 'Nothing is waiting on you. A good time to make something.'}</p>
       </div>
 
-      <div className="dgrid">
-        <CatalogHealth beats={p.beats} onQuery={p.onQuery} />
-        <div className="panel timer">
-          <h3>Studio session</h3>
+      <div className="hm-strip">
+        <div><b>{money(Math.round(revenue))}</b><span>earned this month</span></div>
+        <div><b>{awaiting}</b><span>pitches awaiting a reply</span></div>
+        <div><b>{unsold}</b><span>beats available</span></div>
+        <div><b>{current}</b><span>day{current === 1 ? '' : 's'} beat-making streak</span></div>
+      </div>
+
+      <div className="hm-cols">
+        <div className="hm-main">
+          <h3>Do next</h3>
+          {due.slice(0, 5).map((x) => <div key={x.id} className="hm-row"><span className="hm-dot warn" /><span>Follow up with <a onClick={() => p.onOpenContact(x.contactId)}>{x.contactName}</a></span><span className="dim hm-sub">{x.beats.map((b) => b.title).join(', ') || x.subject}</span><span className="warn hm-when">{daysSince(x.sentAt, now)}d</span></div>)}
+          {due.length > 5 && <div className="hm-row"><a onClick={() => p.onGo('crm')}>+{due.length - 5} more follow-ups</a></div>}
+          {planned.map((x) => <div key={x.id} className="hm-row"><span className="hm-dot warn" /><span>Post <b>{title(x.beatId)}</b> on {x.platform}</span><span className={`hm-when ${startOfDay(x.date) < today0 ? 'warn' : 'dim'}`}>{startOfDay(x.date) < today0 ? 'overdue' : 'today'}</span></div>)}
+          {unseen.slice(0, 3).map((c) => <div key={c.id} className="hm-row"><span className="hm-dot warn" /><span><b>{c.name || 'Anonymous'}</b> commented on {c.beatId ? title(c.beatId) : 'a beat'}</span><span className="dim hm-sub">{c.text.slice(0, 60)}</span><a className="hm-when" onClick={() => p.onGo('feedback')}>Open</a></div>)}
+          {ready.slice(0, 5).map((b) => <div key={b.id} className="hm-row"><span className="hm-dot" /><span>Pitch <a onClick={() => p.onOpenBeat(b.id)}>{b.title}</a></span><span className="dim hm-sub">finished, never pitched or posted</span><span className="hm-acts"><button onClick={() => p.onPitchBeat(b.id)}>Pitch</button><button onClick={() => p.onMakeVideo(b.id)}>Video</button></span></div>)}
+          {wip.slice(0, 5).map((b) => <div key={b.id} className="hm-row"><span className="hm-dot" /><span>Finish <a onClick={() => p.onOpenBeat(b.id)}>{b.title}</a></span><span className="dim hm-sub">{daysSince(b.mtime, now)}d since you touched it</span><span className="hm-acts"><button onClick={() => p.onSetStatus(b.id, 'finished')}>Mark finished</button></span></div>)}
+          {needs === 0 && !ready.length && !wip.length && <p className="help">Nothing to do. <a onClick={() => p.onGo('content')}>Plan some posts</a> or <a onClick={() => p.onGo('vault')}>open the Vault</a>.</p>}
+        </div>
+
+        <div className="hm-side">
+          <h3>This week</h3>
+          <Goal label="Beats made" value={madeWeek} goal={settings?.goalBeats ?? 3} onGoal={(n) => window.api.setSetting({ goalBeats: n })} />
+          <Goal label="Pitches sent" value={pitchesWeek} goal={settings?.goalPitches ?? 5} onGoal={(n) => window.api.setSetting({ goalPitches: n })} />
+          <Goal label="Posts published" value={postsWeek} goal={settings?.goalPosts ?? 3} onGoal={(n) => window.api.setSetting({ goalPosts: n })} />
+          <div className="help">Weeks run Monday to Sunday. Click a goal number to change it.</div>
+
+          <h3 className="hm-gap">Studio session</h3>
           <div className={`clock ${open ? 'run' : ''}`}>{fmtClock(open ? now - open.startedAt : 0)}</div>
           <div className="timer-row">
             {open ? <button className="primary" onClick={async () => { await window.api.stopSession(); p.reloadSessions() }}>Stop session</button> : <button className="primary" onClick={async () => { await window.api.startSession(); p.reloadSessions() }}>Start session</button>}
@@ -117,55 +144,14 @@ export function Dashboard(p: Props) {
           </div>
           <div className="dim" style={{ marginTop: 10 }}>Today {fmtHM(todayMs)} · this week {fmtHM(weekMs)}</div>
           <label className="check small" style={{ marginTop: 8 }}><input type="checkbox" checked={!!settings?.autoTrackFL} onChange={(e) => window.api.setSetting({ autoTrackFL: e.target.checked })} /> Time sessions automatically while FL Studio is open</label>
-        </div>
 
-        <div className="panel">
-          <h3>Beat-making streak</h3>
-          <div className="streak"><b>{current}</b><span>day{current === 1 ? '' : 's'}</span><em className="dim">best {best}</em></div>
+          <h3 className="hm-gap">Streak <span className="dim hm-best">best {best}</span></h3>
           <div className="heat">
             {weeks.map((w, i) => <div key={i} className="hcol">{w.map((t) => { const d = act.get(dayKey(t)); const n = d ? d.bounces + (isActive({ bounces: 0, ms: d.ms }) ? 1 : 0) : 0; return <i key={t} title={`${new Date(t).toLocaleDateString()}: ${d?.bounces ?? 0} bounce${d?.bounces === 1 ? '' : 's'}, ${fmtHM(d?.ms ?? 0)}`} className={`hc ${t > now ? 'future' : n >= 3 ? 'l3' : n === 2 ? 'l2' : n === 1 ? 'l1' : ''} ${t === today0 ? 'today' : ''}`} /> })}</div>)}
           </div>
           <div className="help">A day counts when you bounce a beat or log 15+ minutes in the studio.</div>
-        </div>
 
-        <div className="panel">
-          <h3>This week</h3>
-          <Goal label="Beats made" value={madeWeek} goal={settings?.goalBeats ?? 3} onGoal={(n) => window.api.setSetting({ goalBeats: n })} />
-          <Goal label="Pitches sent" value={pitchesWeek} goal={settings?.goalPitches ?? 5} onGoal={(n) => window.api.setSetting({ goalPitches: n })} />
-          <Goal label="Posts published" value={postsWeek} goal={settings?.goalPosts ?? 3} onGoal={(n) => window.api.setSetting({ goalPosts: n })} />
-          <div className="help">Weeks run Monday to Sunday. Click a goal number to change it.</div>
-        </div>
-
-        <div className="panel">
-          <h3>Follow-ups due {due.length > 0 && <span className="badge">{due.length}</span>}</h3>
-          {due.slice(0, 5).map((x) => <div key={x.id} className="drow"><a onClick={() => p.onOpenContact(x.contactId)}>{x.contactName}</a><span className="dim">{x.beats.map((b) => b.title).join(', ') || x.subject}</span><span className="warn">{daysSince(x.sentAt, now)}d</span></div>)}
-          {!due.length && <p className="help">Nothing due today.</p>}
-          {due.length > 5 && <a onClick={() => p.onGo('crm')}>+{due.length - 5} more</a>}
-        </div>
-
-        <div className="panel">
-          <h3>Close to finished</h3>
-          {wip.slice(0, 5).map((b) => <div key={b.id} className="drow"><a onClick={() => p.onOpenBeat(b.id)}>{b.title}</a><span className="dim">{daysSince(b.mtime, now)}d ago</span><button onClick={() => p.onSetStatus(b.id, 'finished')}>Mark finished</button></div>)}
-          {!wip.length && <p className="help">No beats marked WIP. Press 2 on a beat in the Vault to mark it.</p>}
-        </div>
-
-        <div className="panel">
-          <h3>Finished, not out yet</h3>
-          {ready.slice(0, 5).map((b) => <div key={b.id} className="drow"><a onClick={() => p.onOpenBeat(b.id)}>{b.title}</a><span className="dim">never pitched or posted</span><button onClick={() => p.onPitchBeat(b.id)}>Pitch</button><button onClick={() => p.onMakeVideo(b.id)}>Video</button></div>)}
-          {!ready.length && <p className="help">Everything finished has been sent or posted.</p>}
-        </div>
-
-        <div className="panel">
-          <h3>Today</h3>
-          {planned.map((x) => <div key={x.id} className="drow"><span>{title(x.beatId)}</span><span className="dim">{x.platform}</span><span className={startOfDay(x.date) < today0 ? 'warn' : 'dim'}>{startOfDay(x.date) < today0 ? 'overdue' : 'today'}</span></div>)}
-          {!planned.length && <p className="help">No posts planned for today. <a onClick={() => p.onGo('content')}>Open the calendar</a></p>}
-        </div>
-
-        <div className="panel">
-          <h3>New feedback {unseen.length > 0 && <span className="badge">{unseen.length}</span>}</h3>
-          {unseen.slice(0, 3).map((c) => <div key={c.id} className="drow"><span><b>{c.name || 'Anonymous'}</b> on {c.beatId ? title(c.beatId) : 'a beat'}</span><span className="dim" style={{ flex: 1 }}>{c.text.slice(0, 60)}</span></div>)}
-          {!unseen.length && <p className="help">No new comments. <a onClick={() => p.onGo('feedback')}>Send a feedback link</a></p>}
-          {unseen.length > 0 && <a onClick={() => p.onGo('feedback')}>Open Feedback</a>}
+          <div className="hm-health"><CatalogHealth beats={p.beats} onQuery={p.onQuery} /></div>
         </div>
       </div>
     </section>

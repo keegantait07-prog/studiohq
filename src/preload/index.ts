@@ -131,6 +131,7 @@ const api: Api = {
   leadsSearch: (source, query, opts) => ipcRenderer.invoke('leads:search', source, query, opts),
   leadsPromote: (id) => ipcRenderer.invoke('leads:promote', id),
   leadsSkip: (ids) => ipcRenderer.invoke('leads:skip', ids),
+  leadsSetSize: (ids, size) => ipcRenderer.invoke('leads:setSize', ids, size),
   leadsSave: (ids) => ipcRenderer.invoke('leads:save', ids),
   leadsSuppress: (email, reason) => ipcRenderer.invoke('leads:suppress', email, reason),
   leadsIsSuppressed: (email) => ipcRenderer.invoke('leads:isSuppressed', email),

@@ -31,6 +31,18 @@ function cand(o: Partial<LeadCandidate> = {}): LeadCandidate {
 }
 
 describe('Leads store', () => {
+  test('stores size, role, ladder and genres, working them out when a source leaves them blank', () => {
+    leads.addCandidates([
+      cand({ sourceId: 'big', followers: 400_000, genre: 'southside / melodic rap' }),
+      cand({ sourceId: 'mgr', role: 'manager', ladder: 'Lil Baby', moreEmails: ['Two@X.com', 'nope'], note: 'books him' })
+    ])
+    const [big, mgr] = leads.list().sort((a, b) => a.id - b.id)
+    expect(big).toMatchObject({ size: 'big', role: 'artist', genres: ['Southside', 'Melodic'] })
+    expect(mgr).toMatchObject({ size: 'team', role: 'manager', ladder: 'Lil Baby', moreEmails: ['two@x.com'], note: 'books him' })
+    leads.setSize(mgr.id, 'small')
+    expect(leads.get(mgr.id)?.size).toBe('small')
+  })
+
   test('addCandidates scores on insert and dedupes on (source, sourceId)', () => {
     expect(leads.addCandidates([cand(), cand({ name: 'Again' })])).toEqual({ added: 1, duplicates: 1 })
     expect(leads.addCandidates([cand()])).toEqual({ added: 0, duplicates: 1 })

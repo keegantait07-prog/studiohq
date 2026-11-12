@@ -4,7 +4,8 @@ import { DEFAULT_FILTER, apiFilter, emailSourceLabel, fmtFollowers, isDefaultFil
 
 const lead = (id: number, status: Lead['status']): Lead => ({
   id, status, source: 'manual', sourceId: `a${id}`, name: `A${id}`, url: '', followers: null, lastActiveAt: null, genre: '', bio: '',
-  signals: [], email: '', emailSourceUrl: '', score: 50, reasons: [], contactId: status === 'in_crm' ? 9 : null, createdAt: 0
+  signals: [], email: '', emailSourceUrl: '', score: 50, reasons: [], contactId: status === 'in_crm' ? 9 : null, createdAt: 0,
+  handle: '', role: 'artist', size: 'small', ladder: '', genres: [], moreEmails: [], note: ''
 })
 
 describe('leadsUtils', () => {

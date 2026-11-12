@@ -1,4 +1,4 @@
-import type { Lead, LeadSource, LeadStatus } from '@shared/leads'
+import { GENRE_TAGS, type Lead, type LeadRole, type LeadSize, type LeadSource, type LeadStatus } from '@shared/leads'
 
 export const SOURCE_LABEL: Record<LeadSource, string> = {
   youtube: 'YouTube', soundcloud: 'SoundCloud', audiomack: 'Audiomack', reddit: 'Reddit', x: 'X', manual: 'Added by you'
@@ -55,3 +55,46 @@ export function emailSourceLabel(email: string, src: string): string {
 
 /** Selected leads that still need a contact. Leads already in the CRM, or already linked to a contact, are never promoted again. */
 export const toPromote = (leads: Lead[], ids: Set<number>) => leads.filter((l) => ids.has(l.id) && l.status !== 'in_crm' && l.contactId == null)
+
+export const SIZE_LABEL: Record<LeadSize, string> = { big: 'Big artists', small: 'Small artists', team: 'Team and gatekeepers' }
+export const SIZE_HINT: Record<LeadSize, string> = {
+  big: 'Headliners. Work through the people around them.',
+  small: 'Up-and-coming. The easiest to land and the way up.',
+  team: 'Managers, engineers, A&Rs and media. Go through them first.'
+}
+export const ROLE_LABEL: Record<LeadRole, string> = { artist: 'Artist', manager: 'Manager', engineer: 'Engineer', 'a&r': 'A&R', media: 'Media', producer: 'Producer', label: 'Label' }
+
+/** Where the list is looking: everything, one size, one genre, or one ladder (the artist whose circle the lead belongs to). */
+export type LeadView = { t: 'all' } | { t: 'size'; k: LeadSize } | { t: 'genre'; k: string } | { t: 'ladder'; k: string }
+export type EmailTab = 'all' | 'email' | 'dm'
+
+export function inView(l: Lead, v: LeadView): boolean {
+  return v.t === 'all' || (v.t === 'size' ? l.size === v.k : v.t === 'genre' ? l.genres.includes(v.k) : l.ladder === v.k)
+}
+export const hasEmail = (l: Lead) => l.email !== ''
+export function matchesText(l: Lead, q: string): boolean {
+  const t = q.trim().toLowerCase()
+  return !t || [l.name, l.handle, l.email, l.ladder, l.note, ...l.moreEmails].some((x) => x.toLowerCase().includes(t))
+}
+/** Genres with at least one lead, in the sidebar order, plus anything a lead names that is not a standard tag. */
+export function genreCounts(leads: Lead[]): [string, number][] {
+  const n = new Map<string, number>()
+  for (const l of leads) for (const g of l.genres) n.set(g, (n.get(g) ?? 0) + 1)
+  const order = [...GENRE_TAGS] as string[]
+  return [...n.entries()].sort((a, b) => (order.indexOf(a[0]) + 1 || 99) - (order.indexOf(b[0]) + 1 || 99) || b[1] - a[1])
+}
+export function ladderCounts(leads: Lead[]): [string, number][] {
+  const n = new Map<string, number>()
+  for (const l of leads) if (l.ladder) n.set(l.ladder, (n.get(l.ladder) ?? 0) + 1)
+  return [...n.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+}
+export type LeadGroup = { title: string; hint: string; leads: Lead[] }
+/** A size view splits by main genre. Every other view splits by size, big first. */
+export function groupLeads(leads: Lead[], v: LeadView): LeadGroup[] {
+  if (v.t === 'size') {
+    const m = new Map<string, Lead[]>()
+    for (const l of leads) { const g = l.genres[0] ?? 'No genre yet'; m.set(g, [...(m.get(g) ?? []), l]) }
+    return [...m.entries()].map(([title, ls]) => ({ title, hint: '', leads: ls }))
+  }
+  return (['big', 'small', 'team'] as const).map((k) => ({ title: SIZE_LABEL[k], hint: SIZE_HINT[k], leads: leads.filter((l) => l.size === k) })).filter((g) => g.leads.length)
+}

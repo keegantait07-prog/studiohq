@@ -449,6 +449,7 @@ export interface Api {
   leadsSearch(source: LeadSource, query: string, opts?: { maxSubs?: number; days?: number }): Promise<{ added: number; duplicates: number } | { error: string }>
   leadsPromote(id: number): Promise<number>
   leadsSkip(ids: number[]): Promise<void>
+  leadsSetSize(ids: number[], size: Lead['size']): Promise<void>
   leadsSave(ids: number[]): Promise<void>
   leadsSuppress(email: string, reason: string): Promise<string[]>
   leadsIsSuppressed(email: string): Promise<boolean>

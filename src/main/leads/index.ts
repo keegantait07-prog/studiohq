@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3'
-import { asksForBeats, emailsIn, normalizeEmail, scoreLead, type Lead, type LeadCandidate, type LeadSource, type LeadStatus } from '../../shared/leads'
+import { asksForBeats, emailsIn, genreTags, normalizeEmail, scoreLead, sizeFor, type Lead, type LeadCandidate, type LeadSource, type LeadStatus } from '../../shared/leads'
 import type { Crm } from '../crm'
 
 type Row = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -35,7 +35,8 @@ export class Leads {
     return {
       id: r.id, source: r.source, sourceId: r.source_id, name: r.name, url: r.url, followers: r.followers, lastActiveAt: r.last_active_at,
       genre: r.genre, bio: r.bio, signals: parseList(r.signals), score: r.score, reasons: parseList(r.reasons), email: r.email,
-      emailSourceUrl: r.email_source_url, status: r.status, contactId: r.contact_id, createdAt: r.created_at
+      emailSourceUrl: r.email_source_url, status: r.status, contactId: r.contact_id, createdAt: r.created_at,
+      handle: r.handle, role: r.role, size: r.size, ladder: r.ladder, genres: parseList(r.genres), moreEmails: parseList(r.more_emails), note: r.note
     }
   }
 
@@ -61,8 +62,8 @@ export class Leads {
     const seen = this.db.prepare('SELECT 1 FROM leads WHERE source=? AND source_id=?')
     const emailTaken = this.db.prepare('SELECT 1 FROM leads WHERE email=?')
     const ins = this.db.prepare(
-      `INSERT INTO leads(source,source_id,name,url,followers,last_active_at,genre,bio,signals,score,reasons,email,email_source_url,status,created_at)
-       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,'new',?)`
+      `INSERT INTO leads(source,source_id,name,url,followers,last_active_at,genre,bio,signals,score,reasons,email,email_source_url,status,created_at,handle,role,size,ladder,genres,more_emails,note)
+       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,'new',?,?,?,?,?,?,?,?)`
     )
     let added = 0
     let duplicates = 0
@@ -73,11 +74,14 @@ export class Leads {
           duplicates++
           continue
         }
+        const role = c.role ?? 'artist'
         const signals = !c.signals.includes('asks_for_beats') && asksForBeats(c.bio) ? [...c.signals, 'asks_for_beats'] : c.signals
         const { score, reasons } = scoreLead({ ...c, signals }, { producerGenres, now })
         ins.run(
           c.source, c.sourceId, c.name, c.url, c.followers, c.lastActiveAt, c.genre, c.bio, JSON.stringify(signals), score, JSON.stringify(reasons),
-          email, email ? c.emailSourceUrl.trim() || ADDED_BY_YOU : '', now
+          email, email ? c.emailSourceUrl.trim() || ADDED_BY_YOU : '', now,
+          c.handle ?? '', role, c.size ?? sizeFor({ role, followers: c.followers }), c.ladder ?? '',
+          JSON.stringify(c.genres ?? genreTags(c.genre)), JSON.stringify((c.moreEmails ?? []).map((e) => normalizeEmail(e)).filter(Boolean)), c.note ?? ''
         )
         added++
       }
@@ -88,6 +92,10 @@ export class Leads {
   /** A lead already in the CRM keeps that status, so a later Add to CRM can never make a second contact. */
   setStatus(id: number, s: 'saved' | 'skipped'): void {
     this.db.prepare("UPDATE leads SET status=? WHERE id=? AND status!='in_crm'").run(s, id)
+  }
+
+  setSize(id: number, size: Lead['size']): void {
+    this.db.prepare('UPDATE leads SET size=? WHERE id=?').run(size, id)
   }
 
   setEmail(id: number, email: string, sourceUrl: string): void {

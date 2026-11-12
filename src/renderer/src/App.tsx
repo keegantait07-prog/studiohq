@@ -1,7 +1,7 @@
 import { lazy, useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react'
 import { STATUSES, type Beat, type BeatDetail, type ContentData, type CrmData, type FeedbackData, type SoundList, type SoundStatus, type StudioSession, type SalesData, type Sale, type ScanStatus, type Settings as AppSettings, type Status, type TagKind, type NetlifyStatus, type VaultKind } from '@shared/types'
 import { clickable } from './a11y'
-import { Rail, TabBar, type TabBadges } from './Nav'
+import { SideNav, type TabBadges } from './Nav'
 import { sectionOf, type SectionId, type ViewId } from './navModel'
 import { ViewGuard } from './ViewGuard'
 import { useNow } from './useNow'
@@ -102,7 +102,7 @@ export function App() {
     return [{ name: 'Ready to pitch', q: 'finished, unsent' }, { name: 'Needs info', q: 'needsinfo' }, { name: 'Stale WIPs', q: 'stale' }]
   })
   const [naming, setNaming] = useState<string | null>(null)
-  const [whatsNew, setWhatsNew] = useState(() => { try { return localStorage.getItem('shq.seen') !== '2.0' } catch { return false } })
+  const [whatsNew, setWhatsNew] = useState(() => { try { return localStorage.getItem('shq.seen') == null } catch { return false } })
   useEffect(() => { try { localStorage.setItem('shq.collections', JSON.stringify(collections)) } catch { /* private mode */ } }, [collections])
   useEffect(() => { setLastTab((o) => (o[sectionOf(view).id] === view ? o : { ...o, [sectionOf(view).id]: view })) }, [view])
   const openCollection = (q: string) => { setView('vault'); setTabs((o) => ({ ...o, beat: 'all' })); setQueries((o) => ({ ...o, beat: q })) }
@@ -418,15 +418,14 @@ export function App() {
     <div className="app">
       <Defs />
       <div className="titlebar" />
-      <Rail view={view} last={lastTab} onGo={setView} badges={tabBadges} brand={<BrandMark />}>
+      <SideNav view={view} onGo={setView} badges={tabBadges} brand={<BrandMark />} onSearch={() => setPalette(true)} extra={tabExtra}>
         {openSession && <SessionPill startedAt={openSession.startedAt} onClick={() => setView('dashboard')} />}
         <button className={`ghost as-btn nav rail-item ${assistantOpen ? 'on' : ''}`} onClick={() => setAssistantOpen((o) => !o)} title="Assistant (⌘J). Ask it to look things up or make changes." aria-label="Assistant">
-          <em className="nl"><Icon name="assistant" /></em>
+          <em className="nl"><Icon name="assistant" /></em><span className="sn-lbl">Assistant</span>
           {assistantStatus === 'approval' ? <i className="rail-dot hot" aria-label="Needs your approval" /> : assistantStatus === 'working' ? <span className="as-dot rail-work" title="Working…" /> : null}
         </button>
-        <button className="ghost nav rail-item" onClick={() => setSettings(true)} title="Settings (⌘,)" aria-label="Settings"><em className="nl"><Icon name="settings" /></em></button>
-      </Rail>
-      <TabBar view={view} onGo={setView} badges={tabBadges} extra={tabExtra} />
+        <button className="ghost nav rail-item" onClick={() => setSettings(true)} title="Settings (⌘,)" aria-label="Settings"><em className="nl"><Icon name="settings" /></em><span className="sn-lbl">Settings</span></button>
+      </SideNav>
 
       {view === 'dashboard' ? (
         <Dashboard

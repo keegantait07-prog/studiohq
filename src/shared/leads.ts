@@ -2,6 +2,9 @@
 
 export type LeadSource = 'youtube' | 'soundcloud' | 'audiomack' | 'reddit' | 'x' | 'manual'
 export type LeadStatus = 'new' | 'saved' | 'in_crm' | 'skipped'
+/** Where a lead sits on the ladder: headliners, up-and-comers, or the people around them (managers, engineers, A&Rs, media). */
+export type LeadSize = 'big' | 'small' | 'team'
+export type LeadRole = 'artist' | 'manager' | 'engineer' | 'a&r' | 'media' | 'producer' | 'label'
 
 export interface LeadCandidate {
   source: LeadSource
@@ -15,15 +18,56 @@ export interface LeadCandidate {
   signals: string[]
   email: string
   emailSourceUrl: string
+  /** Optional categories. Left out, they are worked out from the other fields when the lead is saved. */
+  handle?: string
+  role?: LeadRole
+  size?: LeadSize
+  ladder?: string
+  genres?: string[]
+  moreEmails?: string[]
+  note?: string
 }
 
 export interface Lead extends LeadCandidate {
+  handle: string
+  role: LeadRole
+  size: LeadSize
+  ladder: string
+  genres: string[]
+  moreEmails: string[]
+  note: string
   id: number
   score: number
   reasons: string[]
   status: LeadStatus
   contactId: number | null
   createdAt: number
+}
+
+/** The genres a lead can want, in the order the sidebar lists them. */
+export const GENRE_TAGS = ['Southside', 'Melodic', 'Dark / wheezy', '4PF piano and triplets', 'Hard', 'Detroit', 'Country and poppy', 'Spanish', 'Open to anything'] as const
+
+/** Free text such as "southside / melodic rap" or "4pf type piano or triplet hi hat" as the genre tags it names. */
+export function genreTags(text: string): string[] {
+  const g = text.toLowerCase()
+  const out: string[] = []
+  if (g.includes('southside')) out.push('Southside')
+  if (g.includes('melodic')) out.push('Melodic')
+  if (g.includes('dark') || g.includes('wheezy')) out.push('Dark / wheezy')
+  if (g.includes('4pf') || g.includes('piano') || g.includes('triplet')) out.push('4PF piano and triplets')
+  if (/\bhard\b/.test(g)) out.push('Hard')
+  if (g.includes('detroit')) out.push('Detroit')
+  if (g.includes('country') || g.includes('poppy')) out.push('Country and poppy')
+  if (g.includes('spanish')) out.push('Spanish')
+  if (!out.length && /^(any|rap any|any rap)$/.test(g.trim())) out.push('Open to anything')
+  return out
+}
+
+const BIG_FOLLOWERS = 100_000
+/** Team when the role is someone around an artist, big at 100K followers or more, otherwise small. */
+export function sizeFor(c: { role?: LeadRole; followers: number | null }): LeadSize {
+  if (c.role && c.role !== 'artist') return 'team'
+  return c.followers !== null && c.followers >= BIG_FOLLOWERS ? 'big' : 'small'
 }
 
 export const OPT_OUT_LINE = 'Not interested? Reply "stop" and I won\'t email you again.'
@@ -187,6 +231,8 @@ function splitCsvLine(line: string): string[] {
   return cells.map((c) => c.trim())
 }
 
+const ROLES: LeadRole[] = ['artist', 'manager', 'engineer', 'a&r', 'media', 'producer', 'label']
+
 export function parseCsv(text: string): LeadCandidate[] {
   const lines = text
     .replace(/^﻿/, '')
@@ -198,10 +244,12 @@ export function parseCsv(text: string): LeadCandidate[] {
   for (const line of lines) {
     const cells = splitCsvLine(line)
     if (cells.length < 2) continue
-    const [name, url = '', rawEmail = '', genre = '', rawFollowers = ''] = cells
+    const [name, url = '', rawEmail = '', genre = '', rawFollowers = '', rawRole = '', rawSize = '', ladder = '', note = ''] = cells
     if (!name) continue
     const email = rawEmail ? (normalizeEmail(rawEmail) ?? '') : ''
     const n = rawFollowers ? Number(rawFollowers.replace(/[\s_]/g, '')) : NaN
+    const role = ROLES.includes(rawRole.toLowerCase() as LeadRole) ? (rawRole.toLowerCase() as LeadRole) : undefined
+    const size = (['big', 'small', 'team'] as const).find((x) => x === rawSize.toLowerCase())
     out.push({
       source: 'manual',
       sourceId: (email || parseHandleLine(url)?.sourceId || name).toLowerCase(),
@@ -213,7 +261,11 @@ export function parseCsv(text: string): LeadCandidate[] {
       bio: '',
       signals: [],
       email,
-      emailSourceUrl: ''
+      emailSourceUrl: '',
+      ...(role ? { role } : {}),
+      ...(size ? { size } : {}),
+      ...(ladder ? { ladder } : {}),
+      ...(note ? { note } : {})
     })
   }
   return out

@@ -1,45 +1,39 @@
 import type { ReactNode } from 'react'
 import { clickable } from './a11y'
-import { Icon } from './Icons'
-import { SECTIONS, hasDot, sectionOf, sectionTarget, type SectionId, type ViewId } from './navModel'
+import { SECTIONS, sectionOf, type ViewId } from './navModel'
 
-/** What a tab shows beside its name: a count or "!" when something needs a look. */
+/** What an item shows beside its name: a count or "!" when something needs a look. */
 export type TabBadges = Partial<Record<ViewId, string | null>>
 
-/** The narrow icon strip on the left: one button per section, plus whatever the app puts at the bottom. Hover for the name. */
-export function Rail({ view, last, onGo, badges, brand, children }: {
-  view: ViewId; last: Partial<Record<SectionId, ViewId>>; onGo: (v: ViewId) => void; badges: TabBadges; brand: ReactNode; children: ReactNode
+/**
+ * The side navigation: every screen, grouped by what you are doing (Make, Sell, Reach, Studio). It replaces the icon strip
+ * and the tab row, so you can see where everything lives. `extra` (saved searches) opens under the screen you are on.
+ */
+export function SideNav({ view, onGo, badges, brand, onSearch, extra, children }: {
+  view: ViewId; onGo: (v: ViewId) => void; badges: TabBadges; brand: ReactNode; onSearch: () => void; extra?: ReactNode; children: ReactNode
 }) {
   const here = sectionOf(view)
-  const flags = Object.fromEntries(Object.entries(badges).map(([k, v]) => [k, !!v])) as Partial<Record<ViewId, boolean>>
   return (
-    <nav className="side rail" aria-label="Sections">
-      <div className="brand">{brand}</div>
-      {SECTIONS.map((s) => (
-        <a key={s.id} className={`nav rail-item ${here.id === s.id ? 'on' : ''}`} title={s.label} aria-label={s.label} aria-current={here.id === s.id ? 'page' : undefined}
-          {...clickable(() => onGo(sectionTarget(s, last, view)))}>
-          <em className="nl"><Icon name={s.icon} /></em>
-          {hasDot(s, flags) && <i className="rail-dot" aria-label="Needs a look" />}
-        </a>
-      ))}
-      <div className="grow" />
-      {children}
+    <nav className="side rail sn" aria-label="Screens">
+      <div className="brand sn-brand">{brand}</div>
+      <button className="sn-search" onClick={onSearch} aria-label="Search everything"><span>Search</span><kbd>⌘K</kbd></button>
+      <div className="sn-scroll">
+        {SECTIONS.map((s) => (
+          <div key={s.id} className="sn-group" role="group" aria-label={s.label}>
+            {s.id !== 'home' && <div className="sn-h">{s.label}</div>}
+            {s.tabs.map((t) => (
+              <div key={t.view}>
+                <a className={`nav sn-item ${view === t.view ? 'on' : ''}`} aria-current={view === t.view ? 'page' : undefined} {...clickable(() => onGo(t.view))}>
+                  <span className="nl">{s.id === 'home' ? 'Home' : t.label}</span>
+                  {badges[t.view] ? <span className="sn-badge">{badges[t.view]}</span> : null}
+                </a>
+                {view === t.view && here.id === s.id && extra}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+      <div className="sn-foot">{children}</div>
     </nav>
-  )
-}
-
-/** The tabs for the section you are in, sitting in the strip at the top of the window. `extra` goes after the tabs (saved searches). */
-export function TabBar({ view, onGo, badges, extra }: { view: ViewId; onGo: (v: ViewId) => void; badges: TabBadges; extra?: ReactNode }) {
-  const s = sectionOf(view)
-  if (s.tabs.length < 2) return null
-  return (
-    <div className="tabbar" role="tablist" aria-label={s.label}>
-      {s.tabs.map((t) => (
-        <button key={t.view} role="tab" aria-selected={view === t.view} className={`tab ${view === t.view ? 'on' : ''}`} onClick={() => onGo(t.view)}>
-          {t.label}{badges[t.view] ? <span className="badge">{badges[t.view]}</span> : null}
-        </button>
-      ))}
-      {extra}
-    </div>
   )
 }

@@ -18,7 +18,7 @@ export function openDb(dir: string): Database.Database {
  * Add new changes as a new entry at the END; never edit an old one. The first two are written to be
  * safe on databases that already have everything (they predate version numbers).
  */
-const MIGRATIONS: ((db: Database.Database) => void)[] = [createTables, addColumns, integrityAndIndexes, addLeadTables, addStoreColumns]
+const MIGRATIONS: ((db: Database.Database) => void)[] = [createTables, addColumns, integrityAndIndexes, addLeadTables, addStoreColumns, addLeadCategories]
 
 function migrate(db: Database.Database, file: string): void {
   const from = db.pragma('user_version', { simple: true }) as number
@@ -468,6 +468,17 @@ function addStoreColumns(db: Database.Database): void {
   if (!has('sales', 'external_id')) db.exec('ALTER TABLE sales ADD COLUMN external_id TEXT')
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS sales_external ON sales(source, external_id) WHERE external_id IS NOT NULL')
   fillStarterLicenses(db)
+}
+
+/** Leads get a size (big, small, team), a role, the ladder they sit on, the genres they want and any extra emails. */
+function addLeadCategories(db: Database.Database): void {
+  const has = (c: string) => (db.pragma('table_info(leads)') as { name: string }[]).some((x) => x.name === c)
+  const cols: [string, string][] = [
+    ['handle', "TEXT NOT NULL DEFAULT ''"], ['role', "TEXT NOT NULL DEFAULT 'artist'"], ['size', "TEXT NOT NULL DEFAULT 'small'"],
+    ['ladder', "TEXT NOT NULL DEFAULT ''"], ['genres', "TEXT NOT NULL DEFAULT '[]'"], ['more_emails', "TEXT NOT NULL DEFAULT '[]'"], ['note', "TEXT NOT NULL DEFAULT ''"]
+  ]
+  for (const [c, ddl] of cols) if (!has(c)) db.exec(`ALTER TABLE leads ADD COLUMN ${c} ${ddl}`)
+  db.exec('CREATE INDEX IF NOT EXISTS leads_size ON leads(size)')
 }
 
 function seedLicenses(db: Database.Database): void {

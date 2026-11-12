@@ -1,62 +1,82 @@
 import { presetGroups, type LeadPreset } from '@shared/leadPresets'
-import { useCallback, useEffect, useState } from 'react'
-import type { Lead, LeadSource, LeadStatus } from '@shared/leads'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import type { Lead, LeadSize, LeadSource } from '@shared/leads'
 import { clickable } from './a11y'
-import { ago } from './format'
 import { errMsg } from './salesUtils'
 import {
-  DEFAULT_FILTER, SOURCE_LABEL, STATUS_LABEL, apiFilter, emailSourceLabel, fmtFollowers, isDefaultFilter, reasonText, scoreBand, toPromote, visibleLeads,
-  type LeadFilterUi
+  ROLE_LABEL, SIZE_LABEL, SOURCE_LABEL, emailSourceLabel, fmtFollowers, genreCounts, groupLeads, hasEmail, inView, ladderCounts, matchesText, reasonText, toPromote,
+  type EmailTab, type LeadView
 } from './leadsUtils'
 
-const SOURCES = Object.keys(SOURCE_LABEL) as LeadSource[]
-const STATUSES = Object.keys(STATUS_LABEL) as LeadStatus[]
-const MIN_SCORES = [0, 45, 60, 70, 85]
+type StatusFilter = 'active' | 'in_crm' | 'skipped' | 'all'
+const SIZES: LeadSize[] = ['big', 'small', 'team']
+const hue = (s: string) => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 0)
+const initials = (n: string) => n.replace(/[^A-Za-z0-9 ]/g, ' ').trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '?'
+const sameView = (a: LeadView, b: LeadView) => a.t === b.t && ('k' in a ? 'k' in b && a.k === b.k : true)
+const viewTitle = (v: LeadView) => (v.t === 'all' ? 'All leads' : v.t === 'size' ? SIZE_LABEL[v.k] : v.k)
+const viewKind = (v: LeadView) => (v.t === 'all' ? 'Everyone' : v.t === 'size' ? 'Size' : v.t === 'genre' ? 'Genre they want' : 'Works with')
 
-/** Leads: artists found or imported, ranked by fit, with bulk Add to CRM / Skip and a per-row Pitch. */
+function Avatar({ name, big }: { name: string; big?: boolean }) {
+  return <span className={`lh-av${big ? ' big' : ''}`} style={{ background: `hsl(${hue(name)} 36% 68%)` }} aria-hidden="true">{initials(name)}</span>
+}
+
+/** Leads: artists and the people around them, sorted by size (big, small, team) and by the genres they want. */
 export function Leads({ onPitch }: { onPitch: (contactId: number) => void }) {
-  const [filter, setFilter] = useState<LeadFilterUi>(DEFAULT_FILTER)
   const [leads, setLeads] = useState<Lead[] | null>(null)
+  const [view, setView] = useState<LeadView>({ t: 'all' })
+  const [tab, setTab] = useState<EmailTab>('all')
+  const [genre, setGenre] = useState<string | null>(null)
+  const [status, setStatus] = useState<StatusFilter>('active')
+  const [text, setText] = useState('')
+  const [mode, setMode] = useState<'list' | 'tree'>('list')
   const [sel, setSel] = useState<Set<number>>(new Set())
+  const [openId, setOpenId] = useState<number | null>(null)
   const [error, setError] = useState('')
-  const [loadError, setLoadError] = useState('')
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
-  const [importing, setImporting] = useState(false)
   const [looking, setLooking] = useState<number | null>(null)
-  const [searchSource, setSearchSource] = useState<LeadSource>('youtube')
-  const [query, setQuery] = useState('')
-  const [preset, setPreset] = useState<LeadPreset | null>(null)
-  const [searching, setSearching] = useState(false)
+  const [adding, setAdding] = useState(false)
 
   const load = useCallback(async () => {
     try {
-      const all = visibleLeads(await window.api.leadsList(apiFilter(filter)), filter)
+      const all = await window.api.leadsList({})
       setLeads(all)
       setSel((s) => new Set([...s].filter((id) => all.some((l) => l.id === id))))
-      setLoadError('')
+      setError('')
     } catch (e) {
-      setLoadError(`Could not load leads: ${errMsg(e)}`)
+      setError(`Could not load leads: ${errMsg(e)}`)
     }
-  }, [filter])
-
+  }, [])
   useEffect(() => {
     load()
     return window.api.onCrmChanged(load)
   }, [load])
 
-  const set = <K extends keyof LeadFilterUi>(k: K, v: LeadFilterUi[K]) => setFilter((f) => ({ ...f, [k]: v }))
-  const flip = (id: number) => setSel((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
-  const rows = leads ?? []
-  const allOn = rows.length > 0 && rows.every((l) => sel.has(l.id))
+  const visible = useMemo(() => (leads ?? []).filter((l) => (status === 'all' ? true : status === 'active' ? l.status !== 'skipped' : l.status === status)), [leads, status])
+  const inScope = useMemo(() => visible.filter((l) => inView(l, view)), [visible, view])
+  const shown = useMemo(
+    () => inScope.filter((l) => (tab === 'all' ? true : tab === 'email' ? hasEmail(l) : !hasEmail(l)) && (!genre || l.genres.includes(genre)) && matchesText(l, text)),
+    [inScope, tab, genre, text]
+  )
+  const groups = useMemo(() => groupLeads(shown, view), [shown, view])
+  const open = leads?.find((l) => l.id === openId) ?? null
+  const ready = shown.filter(hasEmail)
+  const counts = useMemo(() => ({
+    size: Object.fromEntries(SIZES.map((s) => [s, visible.filter((l) => l.size === s).length])) as Record<LeadSize, number>,
+    genres: genreCounts(visible),
+    ladders: ladderCounts(visible)
+  }), [visible])
 
-  const addToCrm = async () => {
-    const todo = toPromote(rows, sel)
+  const goto = (v: LeadView) => { setView(v); setGenre(null); setOpenId(null); setSel(new Set()) }
+  const flip = (id: number) => setSel((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
+
+  const addToCrm = async (list: Lead[]) => {
+    const todo = toPromote(list, new Set(list.map((l) => l.id)))
     setBusy(true); setNotice(''); setError('')
     let done = 0
     try {
       for (const l of todo) { await window.api.leadsPromote(l.id); done++ }
-      const already = sel.size - todo.length
+      const already = list.length - todo.length
       setNotice(`Added ${done} to Pitch CRM${already ? `. ${already} already there.` : '.'}`)
       setSel(new Set())
     } catch (e) {
@@ -65,23 +85,22 @@ export function Leads({ onPitch }: { onPitch: (contactId: number) => void }) {
     setBusy(false)
     load()
   }
-
-  const skip = async () => {
+  const skip = async (ids: number[]) => {
     setBusy(true); setNotice(''); setError('')
     try {
-      await window.api.leadsSkip([...sel])
-      setNotice(`Skipped ${sel.size}.`)
+      await window.api.leadsSkip(ids)
+      setNotice(`Skipped ${ids.length}.`)
       setSel(new Set())
+      if (openId !== null && ids.includes(openId)) setOpenId(null)
     } catch (e) {
       setError(`Could not skip: ${errMsg(e)}`)
     }
     setBusy(false)
     load()
   }
-
   const pitch = async (l: Lead) => {
     setNotice(''); setError('')
-    if (!l.email) { setNotice(`${l.name} has no email yet. Add an email before pitching.`); return }
+    if (!l.email) { setNotice(`${l.name} has no email yet. Find or add an email before pitching.`); return }
     try {
       // promote is idempotent: it returns the linked live contact, or re-links one if that contact was archived
       onPitch(await window.api.leadsPromote(l.id))
@@ -89,214 +108,267 @@ export function Leads({ onPitch }: { onPitch: (contactId: number) => void }) {
       setError(`Could not open the pitch: ${errMsg(e)}`)
     }
   }
-
   const findEmail = async (l: Lead) => {
     setLooking(l.id); setNotice(''); setError('')
     try {
       const r = await window.api.leadsLookupContact(l.id)
-      if (r.found) setNotice(`Found ${r.email} for ${l.name}.`)
-      else setNotice(r.reason)
+      setNotice(r.found ? `Found ${r.email} for ${l.name}.` : r.reason)
     } catch (e) {
       setError(`Could not look up an email: ${errMsg(e)}`)
     }
     setLooking(null)
     load()
   }
-
-  const search = async () => {
-    setSearching(true); setNotice(''); setError('')
-    try {
-      const opts = preset && preset.source === 'youtube' && query === preset.query ? { maxSubs: preset.maxSubs, days: preset.days } : undefined
-      const r = await window.api.leadsSearch(searchSource, query, opts)
-      if ('error' in r) setError(r.error)
-      else if (!r.added && !r.duplicates) setNotice('No new artists found.')
-      else setNotice(`Added ${r.added} lead${r.added === 1 ? '' : 's'}${r.duplicates ? `, ${r.duplicates} already in your list` : ''}.`)
-    } catch (e) {
-      setError(`Search failed: ${errMsg(e)}`)
-    }
-    setSearching(false)
+  const setSize = async (l: Lead, size: LeadSize) => {
+    try { await window.api.leadsSetSize([l.id], size) } catch (e) { setError(`Could not change the size: ${errMsg(e)}`) }
     load()
   }
 
-  const empty = leads !== null && !rows.length
-  return (
-    <section className="sales">
-      <div className="sales-head">
-        <h2>Leads</h2>
-        <div className="grow" />
-        <select
-          className="grp" aria-label="Search presets" value={preset?.id ?? ''}
-          onChange={(e) => {
-            const p = presetGroups().flatMap((g) => g.presets).find((x) => x.id === e.target.value) ?? null
-            setPreset(p)
-            if (p) { setSearchSource(p.source); setQuery(p.query) }
-          }}
-        >
-          <option value="">Presets…</option>
-          {presetGroups().map((g) => (
-            <optgroup key={g.group} label={g.group}>
-              {g.presets.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
-            </optgroup>
-          ))}
-        </select>
-        <select className="grp" aria-label="Search source" value={searchSource} onChange={(e) => { setSearchSource(e.target.value as LeadSource); setPreset(null) }}>
-          <option value="youtube">{SOURCE_LABEL.youtube}</option>
-          <option value="reddit">{SOURCE_LABEL.reddit}</option>
-          <option value="soundcloud">{SOURCE_LABEL.soundcloud}</option>
-          <option value="audiomack">{SOURCE_LABEL.audiomack}</option>
-          <option value="x">{SOURCE_LABEL.x}</option>
-        </select>
-        <input
-          aria-label="Search for artists" placeholder={searchSource === 'reddit' || searchSource === 'x' ? 'looking for beats' : 'trap rapper'} value={query}
-          onChange={(e) => { setQuery(e.target.value); if (preset && e.target.value !== preset.query) setPreset(null) }} onKeyDown={(e) => { if (e.key === 'Enter' && !searching) search() }}
-        />
-        <button disabled={searching} onClick={search}>{searching ? 'Searching…' : 'Search'}</button>
-        <button className="primary" onClick={() => setImporting(true)}>Paste or import</button>
-      </div>
-      <div className="sales-body">
-        {preset && (
-          <p className="help" style={{ margin: '0 0 10px' }}>
-            {preset.note}
-            {preset.source === 'youtube' && ` Under ${(preset.maxSubs ?? 0).toLocaleString()} subscribers, uploaded in the last ${preset.days} days. A search uses about 100 of your daily YouTube quota.`}
-          </p>
-        )}
-        <div className="subbar" style={{ padding: '0 0 10px', flexWrap: 'wrap' }}>
-          <label className="check small">Source
-            <select className="grp" value={filter.source} onChange={(e) => set('source', e.target.value as LeadFilterUi['source'])}>
-              <option value="all">All sources</option>
-              {SOURCES.map((s) => <option key={s} value={s}>{SOURCE_LABEL[s]}</option>)}
-            </select>
-          </label>
-          <label className="check small">Score
-            <select className="grp" value={filter.minScore} onChange={(e) => set('minScore', Number(e.target.value))}>
-              {MIN_SCORES.map((n) => <option key={n} value={n}>{n ? `${n}+` : 'Any'}</option>)}
-            </select>
-          </label>
-          <label className="check small"><input type="checkbox" checked={filter.hasEmail} onChange={(e) => set('hasEmail', e.target.checked)} /> Has email</label>
-          <label className="check small">Status
-            <select className="grp" value={filter.status} onChange={(e) => set('status', e.target.value as LeadFilterUi['status'])}>
-              <option value="active">Not skipped</option>
-              {STATUSES.map((s) => <option key={s} value={s}>{STATUS_LABEL[s][0].toUpperCase() + STATUS_LABEL[s].slice(1)}</option>)}
-              <option value="all">All</option>
-            </select>
-          </label>
-          <div className="grow" />
-          <span className="dim" aria-live="polite">{leads ? `${rows.length} lead${rows.length === 1 ? '' : 's'}` : ''}</span>
-        </div>
+  const act = (l: Lead) => (
+    <button className={hasEmail(l) ? 'lh-act pri' : 'lh-act'} disabled={looking === l.id} onClick={(e) => { e.stopPropagation(); hasEmail(l) ? pitch(l) : findEmail(l) }}>
+      {hasEmail(l) ? 'Pitch' : looking === l.id ? 'Looking…' : 'Find email'}
+    </button>
+  )
 
-        {(error || loadError) && <div className="notice err" role="alert">{error || loadError} <a onClick={() => { setError(''); setLoadError(''); load() }}>Try again</a></div>}
+  const row = (l: Lead) => (
+    <div key={l.id} className={`lh-row${openId === l.id ? ' on' : ''}`} {...clickable(() => setOpenId(l.id))} aria-label={`${l.name}, open details`}>
+      <input type="checkbox" aria-label={`Select ${l.name}`} checked={sel.has(l.id)} onClick={(e) => e.stopPropagation()} onChange={() => flip(l.id)} />
+      <Avatar name={l.name} />
+      <div className="lh-nm"><b>{l.name}</b><small>{l.handle ? `@${l.handle}` : ROLE_LABEL[l.role]}</small></div>
+      <span className={`lh-size ${l.size}`}>{l.size === 'team' ? ROLE_LABEL[l.role] : l.size === 'big' ? 'Big' : 'Small'}</span>
+      <div className="lh-gen">{l.genres.slice(0, 2).map((g) => <span key={g} className="lh-gc">{g}</span>)}</div>
+      <div className={`lh-em${l.email ? '' : ' none'}`} title={l.email}>{l.email ? <>{l.email}{l.moreEmails.length > 0 && <i> +{l.moreEmails.length}</i>}</> : 'No email yet'}</div>
+      {act(l)}
+    </div>
+  )
+
+  const empty = leads !== null && !leads.length
+  const sideItem = (v: LeadView, label: string, n: number, dot?: string) => (
+    <button key={label} className={`lh-item${sameView(view, v) ? ' on' : ''}`} onClick={() => goto(v)} aria-pressed={sameView(view, v)}>
+      {dot && <span className="lh-dot" style={{ background: dot }} />}<span className="lh-lbl">{label}</span><span className="lh-n">{n}</span>
+    </button>
+  )
+
+  return (
+    <section className={`lh${open ? ' has-open' : ''}`}>
+      <aside className="lh-side" aria-label="Browse leads">
+        <div className="lh-search"><input aria-label="Search leads" placeholder={`Search ${visible.length} leads`} value={text} onChange={(e) => setText(e.target.value)} /></div>
+        <div className="lh-scroll">
+          <h3 className="lh-h">Browse</h3>
+          {sideItem({ t: 'all' }, 'All leads', visible.length)}
+          {SIZES.map((s) => sideItem({ t: 'size', k: s }, SIZE_LABEL[s], counts.size[s], `var(--lh-${s})`))}
+          {counts.genres.length > 0 && <h3 className="lh-h">Genres they want</h3>}
+          {counts.genres.map(([g, n]) => sideItem({ t: 'genre', k: g }, g, n))}
+          {counts.ladders.length > 0 && <h3 className="lh-h">Works with</h3>}
+          {counts.ladders.map(([g, n]) => sideItem({ t: 'ladder', k: g }, g, n))}
+        </div>
+        <div className="lh-foot"><button className="primary" onClick={() => setAdding(true)}>Add leads</button></div>
+      </aside>
+
+      <div className="lh-main">
+        <header className="lh-head">
+          <div className="lh-kind">{viewKind(view)}</div>
+          <h2>{viewTitle(view)}</h2>
+          <div className="lh-stats" aria-live="polite">
+            <span><b>{inScope.length}</b> leads</span>
+            <span><b>{inScope.filter(hasEmail).length}</b> with email</span>
+            {view.t !== 'size' && SIZES.map((s) => <span key={s}><b>{inScope.filter((l) => l.size === s).length}</b> {s}</span>)}
+          </div>
+        </header>
+        <div className="lh-bar">
+          <div className="seg lh-seg" role="group" aria-label="Layout">
+            <button className={mode === 'list' ? 'on' : ''} aria-pressed={mode === 'list'} onClick={() => setMode('list')}>List</button>
+            <button className={mode === 'tree' ? 'on' : ''} aria-pressed={mode === 'tree'} onClick={() => setMode('tree')}>Groups</button>
+          </div>
+          {(['all', 'email', 'dm'] as const).map((t) => (
+            <button key={t} className={`lh-chip${tab === t ? ' on' : ''}`} aria-pressed={tab === t} onClick={() => setTab(t)}>{t === 'all' ? 'All' : t === 'email' ? 'Has email' : 'No email yet'}</button>
+          ))}
+          <select className="grp" aria-label="Show" value={status} onChange={(e) => setStatus(e.target.value as StatusFilter)}>
+            <option value="active">Not skipped</option><option value="in_crm">In CRM</option><option value="skipped">Skipped</option><option value="all">Everything</option>
+          </select>
+          <div className="grow" />
+          <button disabled={busy || !ready.length} onClick={() => addToCrm(ready)}>Add {ready.length} to CRM</button>
+        </div>
+        {view.t !== 'genre' && counts.genres.length > 0 && (
+          <div className="lh-genres" role="group" aria-label="Filter by genre">
+            <span>Genre</span>
+            {genreCounts(inScope).map(([g]) => (
+              <button key={g} className={`lh-chip${genre === g ? ' on' : ''}`} aria-pressed={genre === g} onClick={() => setGenre(genre === g ? null : g)}>{g}</button>
+            ))}
+          </div>
+        )}
+        {error && <div className="notice err" role="alert">{error} <a onClick={() => { setError(''); load() }}>Try again</a></div>}
         {notice && <div className="notice" role="status">{notice}</div>}
 
-        {leads === null && !error && !loadError && <p className="help">Loading leads…</p>}
-        {empty && isDefaultFilter(filter) && (
-          <div className="empty">
-            <p>Import your first leads. Paste handles or profile links, or bring in a CSV, and Studio HQ ranks them by how well they fit your beats.</p>
-            <button className="primary" onClick={() => setImporting(true)}>Paste or import</button>
-          </div>
-        )}
-        {empty && !isDefaultFilter(filter) && <div className="empty-res">No leads match these filters. <a onClick={() => setFilter(DEFAULT_FILTER)}>Clear filters</a></div>}
+        <div className="lh-list">
+          {leads === null && !error && <p className="help">Loading leads…</p>}
+          {empty && (
+            <div className="lh-empty"><h3>No leads yet</h3><p>Paste a list of artists, or search YouTube, SoundCloud and more for ones who need beats.</p><button className="primary" onClick={() => setAdding(true)}>Add leads</button></div>
+          )}
+          {!empty && leads !== null && !groups.length && <div className="lh-empty"><h3>Nothing matches</h3><p>Try a different view or clear the filters above.</p></div>}
+          {mode === 'list' && groups.map((g) => (
+            <section key={g.title} aria-label={g.title}>
+              <div className="lh-sec"><h3>{g.title}</h3><span>{g.leads.length}{g.hint ? ` · ${g.hint}` : ''}</span>
+                {g.leads.some(hasEmail) && <button className="lh-link" disabled={busy} onClick={() => addToCrm(g.leads.filter(hasEmail))}>Add {g.leads.filter(hasEmail).length} with email to CRM</button>}
+              </div>
+              {g.leads.map(row)}
+            </section>
+          ))}
+          {mode === 'tree' && groups.map((g) => (
+            <section key={g.title} className="lh-tier" aria-label={g.title}>
+              <h4>{g.title}</h4>
+              <div className="lh-nodes">
+                {g.leads.map((l) => (
+                  <button key={l.id} className={`lh-node${openId === l.id ? ' on' : ''}`} onClick={() => setOpenId(l.id)}>
+                    <Avatar name={l.name} />{l.name}<span className={`lh-led${l.email ? ' on' : ''}`} title={l.email ? 'Has email' : 'No email yet'} />
+                  </button>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
 
-        {rows.length > 0 && (
-          <div className="stable">
-            <div className="lrow shead">
-              <input type="checkbox" aria-label="Select all leads" checked={allOn} onChange={() => setSel(allOn ? new Set() : new Set(rows.map((l) => l.id)))} />
-              <span>Artist</span><span className="r">Followers</span><span>Score</span><span>Email</span><span />
-            </div>
-            {rows.map((l) => {
-              const reasons = l.reasons.map(reasonText)
-              const meta = [SOURCE_LABEL[l.source], l.lastActiveAt ? `active ${ago(l.lastActiveAt)}` : '', ...reasons].filter(Boolean).join(' · ')
-              return (
-                <div key={l.id} className={`lrow ${sel.has(l.id) ? 'sel' : ''}`} aria-pressed={sel.has(l.id)} aria-label={`${l.name}, score ${l.score}`} {...clickable(() => flip(l.id))}>
-                  <input type="checkbox" aria-label={`Select ${l.name}`} tabIndex={-1} checked={sel.has(l.id)} onClick={(e) => e.stopPropagation()} onChange={() => flip(l.id)} />
-                  <div className="lr-artist">
-                    <div className="st-title">
-                      {l.url ? <a href={l.url} title={`Open ${l.url}`} onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.api.openExternal(l.url) }}>{l.name}</a> : l.name}
-                      {l.status !== 'new' && <span className="chip" style={{ marginLeft: 6 }}>{STATUS_LABEL[l.status]}</span>}
-                    </div>
-                    <div className="sub dim" title={l.reasons.join('\n')}>{meta}</div>
-                  </div>
-                  <span className="r">{fmtFollowers(l.followers)}</span>
-                  <span><span className={`chip lscore ${scoreBand(l.score)}`} title={l.reasons.join('\n') || 'No signals yet'}>{l.score}</span></span>
-                  <div className="lr-email">
-                    {l.email ? (
-                      <>
-                        <div>{l.email}</div>
-                        <div className="sub dim" title={l.emailSourceUrl}>{emailSourceLabel(l.email, l.emailSourceUrl)}</div>
-                      </>
-                    ) : (
-                      <button
-                        disabled={looking !== null}
-                        title={l.url ? 'Look for a public email on their page and contact pages' : 'Add a profile or website link first'}
-                        onClick={(e) => { e.stopPropagation(); findEmail(l) }}
-                      >{looking === l.id ? 'Looking…' : 'Find email'}</button>
-                    )}
-                  </div>
-                  <div className="sact"><button onClick={(e) => { e.stopPropagation(); pitch(l) }}>Pitch</button></div>
-                </div>
-              )
-            })}
+        {sel.size > 0 && (
+          <div className="lh-bulk" role="region" aria-label="Selected leads">
+            <b>{sel.size} selected</b>
+            <div className="grow" />
+            <button disabled={busy} onClick={() => skip([...sel])}>Skip</button>
+            <button className="primary" disabled={busy} onClick={() => addToCrm((leads ?? []).filter((l) => sel.has(l.id)))}>Add to CRM</button>
+            <button onClick={() => setSel(new Set())}>Clear</button>
           </div>
         )}
       </div>
 
-      {sel.size > 0 && (
-        <div style={{ padding: '0 28px 16px' }}>
-          <div className="pl-bar" role="region" aria-label="Selected leads">
-            <b>{sel.size} selected</b>
-            <div className="grow" />
-            <button disabled={busy} onClick={skip}>Skip</button>
-            <button className="primary" disabled={busy} onClick={addToCrm}>Add to CRM</button>
-          </div>
-        </div>
-      )}
+      {open && <aside className="lh-drawer" aria-label="Lead details">
+        {open && (
+          <>
+            <Avatar name={open.name} big />
+            <h2>{open.name}</h2>
+            <p className="lh-sub">{open.size === 'team' ? ROLE_LABEL[open.role] : open.size === 'big' ? 'Big artist' : 'Small artist'}{open.handle ? ` · @${open.handle}` : ''}</p>
+            <dl className="lh-kv">
+              <dt>Wants</dt><dd>{open.genres.length ? open.genres.map((g) => <span key={g} className="lh-gc">{g}</span>) : <span className="dim">Not set</span>}</dd>
+              <dt>Works with</dt><dd>{open.ladder || <span className="dim">Nobody yet</span>}</dd>
+              <dt>Size</dt>
+              <dd>
+                <select className="grp" aria-label="Size" value={open.size} onChange={(e) => setSize(open, e.target.value as LeadSize)}>
+                  {SIZES.map((s) => <option key={s} value={s}>{SIZE_LABEL[s]}</option>)}
+                </select>
+              </dd>
+              <dt>{open.moreEmails.length ? 'Emails' : 'Email'}</dt>
+              <dd>
+                {open.email ? [open.email, ...open.moreEmails].map((e) => <div key={e} className="lh-mail">{e}</div>) : <span className="dim">None yet</span>}
+                {open.email && <small className="dim">{emailSourceLabel(open.email, open.emailSourceUrl)}</small>}
+              </dd>
+              <dt>Where</dt><dd>{open.url ? <code>{open.url.replace(/^https?:\/\/(www\.)?/, '')}</code> : SOURCE_LABEL[open.source]}</dd>
+              {open.followers !== null && (<><dt>Followers</dt><dd>{fmtFollowers(open.followers)}</dd></>)}
+              <dt>Status</dt><dd>{open.status === 'in_crm' ? 'In CRM' : open.status[0].toUpperCase() + open.status.slice(1)}</dd>
+            </dl>
+            {open.note && <p className="lh-note">{open.note}</p>}
+            {open.reasons.length > 0 && <p className="lh-why">{open.reasons.map(reasonText).join(' · ')}</p>}
+            <div className="lh-btns">
+              {act(open)}
+              <button disabled={busy || open.status === 'in_crm'} onClick={() => addToCrm([open])}>{open.status === 'in_crm' ? 'In CRM' : 'Add to CRM'}</button>
+              <button disabled={busy || open.status === 'skipped'} onClick={() => skip([open.id])}>Skip</button>
+            </div>
+          </>
+        )}
+      </aside>}
 
-      {importing && <ImportDialog onClose={() => setImporting(false)} onImported={load} />}
+      {adding && <AddDialog onClose={() => setAdding(false)} onDone={load} />}
     </section>
   )
 }
 
-function ImportDialog({ onClose, onImported }: { onClose: () => void; onImported: () => void }) {
-  const [kind, setKind] = useState<'handles' | 'csv'>('handles')
+/** Add leads two ways: search the web for artists who need beats, or paste handles and a CSV. */
+function AddDialog({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const [tab, setTab] = useState<'search' | 'paste'>('paste')
+  const [kind, setKind] = useState<'handles' | 'csv'>('csv')
   const [text, setText] = useState('')
+  const [source, setSource] = useState<LeadSource>('youtube')
+  const [query, setQuery] = useState('')
+  const [preset, setPreset] = useState<LeadPreset | null>(null)
   const [busy, setBusy] = useState(false)
-  const [result, setResult] = useState<{ added: number; duplicates: number } | null>(null)
+  const [result, setResult] = useState('')
   const [error, setError] = useState('')
+  const sum = (r: { added: number; duplicates: number }) => (!r.added && !r.duplicates ? 'No new artists found.' : `Added ${r.added} lead${r.added === 1 ? '' : 's'}${r.duplicates ? `, ${r.duplicates} already in your list` : ''}.`)
 
-  const go = async () => {
-    setBusy(true); setError(''); setResult(null)
+  const run = async (go: () => Promise<{ added: number; duplicates: number } | { error: string }>) => {
+    setBusy(true); setError(''); setResult('')
     try {
-      setResult(await window.api.leadsImport(text, kind))
-      setText('')
-      onImported()
+      const r = await go()
+      if ('error' in r) setError(r.error)
+      else { setResult(sum(r)); onDone() }
     } catch (e) {
-      setError(`Import failed: ${errMsg(e)}`)
+      setError(`That did not work: ${errMsg(e)}`)
     }
     setBusy(false)
   }
+  const search = () => run(() => {
+    const opts = preset && preset.source === 'youtube' && query === preset.query ? { maxSubs: preset.maxSubs, days: preset.days } : undefined
+    return window.api.leadsSearch(source, query, opts)
+  })
+  const paste = () => run(async () => { const r = await window.api.leadsImport(text, kind); setText(''); return r })
 
   return (
     <div className="overlay" onMouseDown={onClose}>
       <div className="modal wide-modal" onMouseDown={(e) => e.stopPropagation()}>
-        <header><h2>Paste or import leads</h2><button onClick={onClose}>Close</button></header>
-        <div className="seg" role="group" aria-label="What you are pasting" style={{ marginTop: 12 }}>
-          <button className={kind === 'handles' ? 'on' : ''} aria-pressed={kind === 'handles'} onClick={() => setKind('handles')}>Handles / links</button>
-          <button className={kind === 'csv' ? 'on' : ''} aria-pressed={kind === 'csv'} onClick={() => setKind('csv')}>CSV</button>
+        <header><h2>Add leads</h2><button onClick={onClose}>Close</button></header>
+        <div className="seg" role="group" aria-label="How to add" style={{ marginTop: 12 }}>
+          <button className={tab === 'paste' ? 'on' : ''} aria-pressed={tab === 'paste'} onClick={() => setTab('paste')}>Paste a list</button>
+          <button className={tab === 'search' ? 'on' : ''} aria-pressed={tab === 'search'} onClick={() => setTab('search')}>Search the web</button>
         </div>
-        <p className="help" style={{ marginTop: 10 }}>
-          {kind === 'handles'
-            ? 'One per line: @handle, or a YouTube, SoundCloud or Instagram profile link.'
-            : 'Columns: name, url, email, genre, followers. A header row is optional.'}
-        </p>
-        <textarea
-          aria-label={kind === 'handles' ? 'Handles or links, one per line' : 'CSV rows'} rows={10} value={text} onChange={(e) => setText(e.target.value)} spellCheck={false}
-          placeholder={kind === 'handles' ? '@artistname\nhttps://www.youtube.com/@artistname\nhttps://soundcloud.com/artistname' : 'name,url,email,genre,followers\nNova Kid,https://soundcloud.com/novakid,,trap,1800'}
-        />
+        {tab === 'paste' ? (
+          <>
+            <div className="seg" role="group" aria-label="What you are pasting" style={{ marginTop: 10 }}>
+              <button className={kind === 'csv' ? 'on' : ''} aria-pressed={kind === 'csv'} onClick={() => setKind('csv')}>CSV</button>
+              <button className={kind === 'handles' ? 'on' : ''} aria-pressed={kind === 'handles'} onClick={() => setKind('handles')}>Handles or links</button>
+            </div>
+            <p className="help" style={{ marginTop: 10 }}>
+              {kind === 'handles'
+                ? 'One per line: @handle, or a YouTube, SoundCloud or Instagram profile link.'
+                : 'Columns: name, url, email, genre, followers, role, size, ladder, note. Only name and url are required. Role is manager, engineer, a&r, media, producer, label or artist. Size is big, small or team.'}
+            </p>
+            <textarea
+              aria-label={kind === 'handles' ? 'Handles or links, one per line' : 'CSV rows'} rows={10} value={text} onChange={(e) => setText(e.target.value)} spellCheck={false}
+              placeholder={kind === 'handles' ? '@artistname\nhttps://www.youtube.com/@artistname\nhttps://soundcloud.com/artistname' : 'name,url,email,genre,followers,role,size,ladder\nNova Kid,https://soundcloud.com/novakid,,southside,1800,artist,small,Lil Baby'}
+            />
+            <div className="draft-actions"><div className="grow" /><button className="primary" disabled={!text.trim() || busy} onClick={paste}>{busy ? 'Adding…' : 'Add leads'}</button></div>
+          </>
+        ) : (
+          <>
+            <div className="field" style={{ marginTop: 12 }}>
+              <select
+                className="grp" aria-label="Search presets" value={preset?.id ?? ''}
+                onChange={(e) => {
+                  const p = presetGroups().flatMap((g) => g.presets).find((x) => x.id === e.target.value) ?? null
+                  setPreset(p)
+                  if (p) { setSource(p.source); setQuery(p.query) }
+                }}
+              >
+                <option value="">Presets…</option>
+                {presetGroups().map((g) => <optgroup key={g.group} label={g.group}>{g.presets.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}</optgroup>)}
+              </select>
+            </div>
+            <div className="lh-searchrow">
+              <select className="grp" aria-label="Search source" value={source} onChange={(e) => { setSource(e.target.value as LeadSource); setPreset(null) }}>
+                {(['youtube', 'reddit', 'soundcloud', 'audiomack', 'x'] as const).map((s) => <option key={s} value={s}>{SOURCE_LABEL[s]}</option>)}
+              </select>
+              <input
+                aria-label="Search for artists" placeholder={source === 'reddit' || source === 'x' ? 'looking for beats' : 'trap rapper'} value={query}
+                onChange={(e) => { setQuery(e.target.value); if (preset && e.target.value !== preset.query) setPreset(null) }} onKeyDown={(e) => { if (e.key === 'Enter' && !busy) search() }}
+              />
+              <button className="primary" disabled={busy || !query.trim()} onClick={search}>{busy ? 'Searching…' : 'Search'}</button>
+            </div>
+            {preset && (
+              <p className="help" style={{ marginTop: 10 }}>
+                {preset.note}
+                {preset.source === 'youtube' && ` Under ${(preset.maxSubs ?? 0).toLocaleString()} subscribers, uploaded in the last ${preset.days} days. A search uses about 100 of your daily YouTube quota.`}
+              </p>
+            )}
+          </>
+        )}
         {error && <div className="notice err" role="alert">{error}</div>}
-        {result && <div className="notice" role="status">Added {result.added} lead{result.added === 1 ? '' : 's'}{result.duplicates ? `, ${result.duplicates} already in your list` : ''}.</div>}
-        <div className="draft-actions">
-          <div className="grow" />
-          <button className="primary" disabled={!text.trim() || busy} onClick={go}>{busy ? 'Importing…' : 'Import'}</button>
-        </div>
+        {result && <div className="notice" role="status">{result}</div>}
       </div>
     </div>
   )

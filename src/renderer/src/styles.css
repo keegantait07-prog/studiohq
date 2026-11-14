@@ -69,8 +69,6 @@ kbd { font: 11px ui-monospace, Menlo, monospace; color: var(--dim); background: 
 .dot.st-wip { background: var(--wip); } .dot.st-finished { background: var(--finished); } .dot.st-sent { background: var(--sent); } .dot.st-sold { background: var(--sold); }
 .empty { padding: 60px; text-align: center; color: var(--dim); } .empty a { color: var(--accent-text); cursor: pointer; }
 
-.detail { background: var(--panel); border-left: 1px solid var(--line); padding: 46px 16px 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
-.empty-detail { color: var(--dim); align-items: center; justify-content: center; text-align: center; }
 .title-input { font-size: 16px; font-weight: 600; background: transparent; border-color: transparent; padding: 4px 6px; margin: 0 -6px; } .title-input:hover { border-color: var(--line); }
 .filename { color: var(--dim); font-size: 11px; margin-top: -8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .status-row { display: flex; gap: 4px; } .st { flex: 1; padding: 5px 0; font-size: 11px; text-transform: capitalize; color: var(--dim); }
@@ -276,7 +274,6 @@ kbd { border-radius: 6px; background: var(--well); }
 .chip { background: var(--chip); color: var(--text-2); } .chip.genre { background: rgba(var(--accent-rgb), .1); color: var(--accent-hi); } .chip.artist { background: color-mix(in srgb, var(--sold) 16%, transparent); color: var(--sold); }
 .ver-badge { background: var(--chip); }
 
-.detail { background: linear-gradient(180deg, var(--panel-hi), var(--panel-lo)); border-left-color: var(--line-soft); }
 .title-input { font-size: 18px; font-weight: 700; letter-spacing: -.01em; }
 .st { border-radius: var(--r-btn); } .field label, .ver-label label { letter-spacing: .12em; font-size: 10px; }
 .field .chips { background: var(--well); border-radius: 10px; }
@@ -922,7 +919,6 @@ select.grp { width: auto; margin-left: 4px; padding: 2px 6px; }
 [data-theme='pearl'] .play.on, [data-theme='pearl'] .row:hover .play { background: var(--pearl-fill); color: var(--accent-ink); box-shadow: var(--chrome-fx); border: 0; }
 
 /* detail panel */
-[data-theme='pearl'] .detail { background: transparent; border-left: 0; }
 [data-theme='pearl'] .panel, [data-theme='pearl'] .stat, [data-theme='pearl'] .ocard, [data-theme='pearl'] .scard { background: linear-gradient(180deg, #17171c, #111116); border: 0; box-shadow: var(--card-fx); }
 [data-theme='pearl'] .status-row { padding: 3px; gap: 3px; border-radius: 12px; background: var(--well); box-shadow: var(--recess); }
 [data-theme='pearl'] .st { background: none; box-shadow: none; color: #6c6c7a; border-radius: 9px; padding: 7px 0; }
@@ -1045,15 +1041,7 @@ select.grp { width: auto; margin-left: 4px; padding: 2px 6px; }
 .subbar { padding-top: 14px; }
 .thead, .row { grid-template-columns: 30px minmax(170px, 1.3fr) minmax(110px, 1fr) 46px 54px 46px 72px 84px; }
 .thead { text-transform: none; letter-spacing: 0; font-size: 11.5px; }
-.ready { display: flex; gap: 3px; } .ready i { width: 12px; height: 4px; border-radius: 2px; background: var(--track); } .ready i.f { background: var(--accent); }
-.stg { display: inline-flex; align-items: center; text-transform: capitalize; color: var(--dim); }
 .row .nt .t .projthumb { display: inline-block; width: auto; padding: 1px 6px; margin-left: 8px; font-size: 10px; letter-spacing: .02em; text-transform: none; border-style: dashed; color: var(--dim); }
-.rdy { display: flex; flex-direction: column; gap: 7px; padding: 10px 12px; border: 1px solid var(--line-soft); border-radius: 10px; background: var(--well); }
-.rdy-h { display: flex; justify-content: space-between; align-items: baseline; } .rdy-h span { color: var(--dim); font-size: 11.5px; }
-.rdy-row { display: flex; align-items: center; gap: 9px; color: var(--dim); }
-.rdy-row em { width: 15px; height: 15px; border-radius: 50%; border: 1.5px solid var(--dim); flex: none; display: grid; place-items: center; font-style: normal; font-size: 9px; color: var(--accent-ink); }
-.rdy-row.d { color: var(--text); } .rdy-row.d em { background: var(--finished); border-color: var(--finished); }
-.rdy-x { margin-left: auto; padding: 1px 9px; font-size: 12px; border-radius: 7px; color: var(--accent-text); }
 
 /* ===== Reach look: Pitch CRM, Leads, Content and the pitch window.
    Pure black, grey spaced caps, pill buttons, one chrome heading, a slow ticker. Sizes measured from the reference site. ===== */
@@ -1211,7 +1199,6 @@ select.grp { width: auto; margin-left: 4px; padding: 2px 6px; }
 /* panels, cards and the detail column */
 [data-theme='defied'] .panel, [data-theme='defied'] .stat, [data-theme='defied'] .ocard, [data-theme='defied'] .scard { background: linear-gradient(160deg, rgba(255, 255, 255, .05), rgba(255, 255, 255, 0) 45%), #060607; border: 1px solid var(--line-soft); border-radius: var(--r-card); box-shadow: var(--card-fx); }
 [data-theme='defied'] .stat.hot { border-color: #8a8a8d; } [data-theme='defied'] .stat.hot b { color: #fff; }
-[data-theme='defied'] .detail { background: var(--panel-lo); border-left: 1px solid var(--line-soft); }
 [data-theme='defied'] .title-input { font-family: var(--font-display); text-transform: uppercase; letter-spacing: .04em; font-size: 14px; }
 [data-theme='defied'] .st.on { color: #000; background: var(--chrome-fill); border-color: #fff; }
 [data-theme='defied'] .ver.cur, [data-theme='defied'] .crow.sel { box-shadow: inset 2px 0 #fff; }

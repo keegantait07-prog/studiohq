@@ -8,6 +8,8 @@ import { ago, fmtBpm, fmtDur } from './format'
 import { readiness } from './readiness'
 import { errMsg, fmtDay, money } from './salesUtils'
 import { ReleaseCard } from './ReleaseCard'
+import { Waveform } from './Waveform'
+import { usePlayerTime, type PlayerClock } from './player'
 
 const KIND_LABEL: Record<TagKind, string> = { vibe: 'Vibe', genre: 'Genre', artist: 'Type beat artist' }
 const LOOP_KIND_LABEL: Record<TagKind, string> = { vibe: 'Vibe', genre: 'Genre', artist: 'Sounds like (artist)' }
@@ -43,6 +45,14 @@ function TagEditor({ kind, label, values, suggestions, onChange }: { kind: TagKi
   )
 }
 
+type InspPlayer = PlayerClock & { id: number | null; duration: number; seek: (t: number) => void }
+
+/** The inspector waveform. While this beat plays it follows the playhead and seeks on click; otherwise it is static. */
+function LiveWave({ peaks, player }: { peaks: number[]; player: InspPlayer }) {
+  const time = usePlayerTime(player)
+  return <Waveform peaks={peaks} height={96} progress={player.duration ? time / player.duration : 0} onSeek={(f) => player.duration && player.seek(f * player.duration)} />
+}
+
 interface Props {
   beat: BeatDetail
   /** which vault this is: loops have no sales, splits or videos */
@@ -66,9 +76,10 @@ interface Props {
   compatible: Beat[]
   projectSection: ProjectSection | null
   onProjectSounds: (id: number) => void
+  player?: InspPlayer
 }
 
-export function Detail({ beat, kind, allTags, onSelect, onPlay, refresh, pitchedTo, onPitch, onOpenContact, sales, splitGroup, onLogSale, onEditSplits, onSheet, onError, posts, onContent, onFeedback, compatible, projectSection, onProjectSounds }: Props) {
+export function Detail({ beat, kind, allTags, onSelect, onPlay, refresh, pitchedTo, onPitch, onOpenContact, sales, splitGroup, onLogSale, onEditSplits, onSheet, onError, posts, onContent, onFeedback, compatible, projectSection, onProjectSounds, player }: Props) {
   const [title, setTitle] = useState(beat.title)
   const [bpm, setBpm] = useState(fmtBpm(beat.bpm).replace('–', ''))
   const [key, setKey] = useState(displayKey(beat.key))
@@ -82,51 +93,69 @@ export function Detail({ beat, kind, allTags, onSelect, onPlay, refresh, pitched
   const setBpmNum = (n: number | null) => save({ bpm: n })
   const projectName = beat.projectPath?.split('/').slice(-2).join(' / ')
   const rd = readiness(beat)
+  const stage = beat.status === 'wip' ? 'In progress' : beat.status[0].toUpperCase() + beat.status.slice(1)
+  const sentence = `${stage} ${ago(beat.mtime)}. ${pitchedTo.length ? `${kind === 'loop' ? 'Sent' : 'Pitched'} to ${pitchedTo.length}` : kind === 'loop' ? 'Not sent' : 'Not pitched'}${kind === 'loop' ? '.' : `, ${posts.length ? `${posts.length} post${posts.length === 1 ? '' : 's'}` : 'not posted'}.`}`
   const makeCover = async () => { try { const ok = await window.api.saveCover(beat.id, await artPng({ seed: `g${beat.groupId}`, peaks: beat.thumb, key: beat.key, bpm: beat.bpm })); if (ok) refresh() } catch (e) { onError(errMsg(e)) } }
 
   return (
-    <aside className="detail">
-      <div className="rdy">
-        <div className="rdy-h"><b>Details</b><span>{rd.done} of {rd.total} filled in</span></div>
-        {rd.steps.map((s) => (
-          <div key={s.id} className={`rdy-row ${s.done ? 'd' : ''}`}>
-            <em>{s.done ? '✓' : ''}</em>{s.label}
-            {s.id === 'cover' && <button className="rdy-x" onClick={makeCover} title={s.done ? 'Draw a new cover from this beat' : 'Draw a cover from this beat: key colour, tempo and waveform'}>{s.done ? 'Redraw' : 'Draw one'}</button>}
+    <aside className="insp" data-s={beat.status}>
+      <div className="i-wave">
+        {player && player.id === beat.id ? <LiveWave peaks={beat.peaks} player={player} /> : <Waveform peaks={beat.peaks} height={96} progress={0} />}
+      </div>
+      <section className="i-head">
+        <input className="title-input" aria-label="Title" value={title} onChange={(e) => setTitle(e.target.value)} onBlur={() => title !== beat.title && save({ title })} />
+        <p className="i-sub">{sentence}</p>
+        <div className="filename" title={beat.path}>{beat.filename}</div>
+        {beat.ext === 'flp' && (
+          <div className="notice proj-note">
+            <b>FL project, no audio yet.</b> Studio HQ found this project in FL Studio. When you export a bounce into your beat folder it links up automatically
+            (or use <i>Link .flp…</i> on the bounce). Until then you can track it, tag it, and open it in FL.
+            <div style={{ marginTop: 8 }}><button onClick={() => window.api.openProject(beat.id)}>Open in FL Studio</button></div>
           </div>
-        ))}
-      </div>
-      <input className="title-input" value={title} onChange={(e) => setTitle(e.target.value)} onBlur={() => title !== beat.title && save({ title })} />
-      <div className="filename" title={beat.path}>{beat.filename}</div>
-
-      {beat.ext === 'flp' && (
-        <div className="notice proj-note">
-          <b>FL project, no audio yet.</b> Studio HQ found this project in FL Studio. When you export a bounce into your beat folder it links up automatically
-          (or use <i>Link .flp…</i> on the bounce). Until then you can track it, tag it, and open it in FL.
-          <div style={{ marginTop: 8 }}><button onClick={() => window.api.openProject(beat.id)}>Open in FL Studio</button></div>
+        )}
+        <div className="status-row" role="group" aria-label="Stage">
+          {STATUSES.map((s: Status, i) => (
+            <button key={s} data-s={s} className={`st st-${s} ${beat.status === s ? 'on' : ''}`} aria-pressed={beat.status === s} onClick={() => save({ status: s })} title={`Press ${i + 1}`}>{s === 'wip' ? 'WIP' : s}</button>
+          ))}
         </div>
-      )}
-      <div className="status-row">
-        {STATUSES.map((s: Status, i) => (
-          <button key={s} className={`st st-${s} ${beat.status === s ? 'on' : ''}`} onClick={() => save({ status: s })} title={`Press ${i + 1}`}>{s}</button>
-        ))}
-      </div>
+      </section>
 
-      <div className="two">
-        <div className="field">
-          <label>BPM {beat.bpmSource && <span className="src">{beat.bpmSource}{beat.bpmConfidence === 'low' ? ' · low confidence' : ''}</span>}</label>
+      <section className="i-kvs">
+        <div className="kv">
+          <span>BPM</span>
           <div className="bpm-edit">
-            <input value={bpm} onChange={(e) => setBpm(e.target.value)} onBlur={() => { const n = parseFloat(bpm); if (!isNaN(n) && n !== beat.bpm) setBpmNum(n) }} />
+            <input aria-label="BPM" value={bpm} onChange={(e) => setBpm(e.target.value)} onBlur={() => { const n = parseFloat(bpm); if (!isNaN(n) && n !== beat.bpm) setBpmNum(n) }} />
             <button onClick={() => beat.bpm && setBpmNum(Math.round(beat.bpm * 2 * 10) / 10)} title="Double">×2</button>
             <button onClick={() => beat.bpm && setBpmNum(Math.round(beat.bpm / 2 * 10) / 10)} title="Halve">÷2</button>
           </div>
+          <em>{beat.bpmSource}{beat.bpmConfidence === 'low' ? ' · low confidence' : ''}</em>
         </div>
-        <div className="field">
-          <label>Key {camelot(beat.key) && <span className="cam" style={{ background: keyColor(beat.key) }} title="Camelot wheel code">{camelot(beat.key)}</span>} {beat.keySource && <span className="src">{beat.keySource}{beat.keyConfidence === 'low' ? ' · low confidence' : ''}</span>}</label>
-          <input value={key} placeholder="e.g. Cm, F#" onChange={(e) => setKey(e.target.value)} onBlur={() => key !== displayKey(beat.key) && save({ key })} />
+        <div className="kv">
+          <span>Key</span>
+          <input aria-label="Key" value={key} placeholder="e.g. Cm, F#" onChange={(e) => setKey(e.target.value)} onBlur={() => key !== displayKey(beat.key) && save({ key })} />
+          <em>{camelot(beat.key) && <i className="cam" style={{ background: keyColor(beat.key) }} title="Camelot wheel code">{camelot(beat.key)}</i>} {beat.keySource}{beat.keyConfidence === 'low' ? ' · low confidence' : ''}</em>
         </div>
-      </div>
-      <div className="meta-line">Added {ago(beat.mtime)} · {fmtDur(beat.duration)} · {beat.ext.toUpperCase()} · {(beat.size / 1e6).toFixed(1)} MB{!beat.analyzed && ' · analyzing…'}</div>
+        <div className="kv"><span>Length</span><b>{fmtDur(beat.duration)}</b><em>{beat.ext.toUpperCase()} · {(beat.size / 1e6).toFixed(1)} MB{!beat.analyzed && ' · analyzing…'}</em></div>
+        <div className="kv"><span>Versions</span><b>{beat.versions.length}</b><em>{beat.versionLabel || 'main'}</em></div>
+      </section>
 
+      <section className="i-checks">
+        <h3>Details <span>{rd.done} of {rd.total} filled in</span></h3>
+        {rd.steps.map((s) => (
+          <div key={s.id} className={`check ${s.done ? 'ok' : ''}`}>
+            <i className="box" aria-hidden="true">{s.done ? '✓' : ''}</i><span>{s.label}</span>
+            {s.id === 'cover' ? <button onClick={makeCover} title={s.done ? 'Draw a new cover from this beat' : 'Draw a cover from this beat: key colour, tempo and waveform'}>{s.done ? 'Redraw' : 'Draw one'}</button> : <span />}
+          </div>
+        ))}
+      </section>
+
+      <section className="acts">
+        {beat.ext !== 'flp' && <button className="primary" onClick={onPitch} disabled={beat.status === 'sold'}>{beat.status === 'sold' ? 'Sold. Can’t pitch' : kind === 'loop' ? 'Send this loop…' : 'Pitch this beat…'}</button>}
+        <button onClick={() => window.api.reveal(beat.id)}>Reveal in Finder</button>
+        {beat.ext !== 'flp' && <button onClick={async () => { await window.api.reanalyze(beat.id) }}>Re-analyze</button>}
+      </section>
+
+      <section className="i-more">
       {TAG_KINDS.map((k) => (
         <TagEditor key={k} kind={k} label={(kind === 'loop' ? LOOP_KIND_LABEL : KIND_LABEL)[k]} values={beat.tags[k]} suggestions={allTags[k]} onChange={async (v) => { await window.api.setTags(beat.id, { ...beat.tags, [k]: v }); refresh() }} />
       ))}
@@ -206,14 +235,10 @@ export function Detail({ beat, kind, allTags, onSelect, onPlay, refresh, pitched
             <span className={`pst ps-${pitch.status}`}>{response === 'liked' ? '♥ ' : response === 'passed' ? '✕ ' : ''}{pitch.status}</span>
           </div>
         ))}
-        <button className="wide" onClick={onPitch} disabled={beat.status === 'sold'}>{beat.status === 'sold' ? 'Sold. Can’t pitch' : kind === 'loop' ? 'Send this loop…' : 'Pitch this beat…'}</button>
       </div>
       </>)}
 
-      <div className="actions">
-        <button onClick={() => window.api.reveal(beat.id)}>Reveal in Finder</button>
-        {beat.ext !== 'flp' && <button onClick={async () => { await window.api.reanalyze(beat.id) }}>Re-analyze</button>}
-      </div>
+      </section>
     </aside>
   )
 }

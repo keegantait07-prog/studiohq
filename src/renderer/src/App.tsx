@@ -8,14 +8,12 @@ import { displayKey } from '@shared/key'
 import { parseQuery } from './query'
 import { keysCompatible, bpmCompatible } from '@shared/key'
 import { usePlayer, usePlayerTime, type PlayerClock } from './player'
-import { Waveform } from './Waveform'
-import { readiness } from './readiness'
+import { Thumb, Waveform } from './Waveform'
 const SonicMap = lazy(() => import('./SonicMap').then((m) => ({ default: m.SonicMap })))
 import { Cleanup } from './Cleanup'
 import { hotspot, takesOf } from './audition'
 import { keyColor } from './keyColor'
 import { Detail } from './Detail'
-import { PageHeader } from './PageHeader'
 import { BeatProfile, CoverArt, StatusPill } from './BeatProfile'
 import { Palette, type Command } from './Palette'
 import { Assistant, type AssistantStatus } from './Assistant'
@@ -42,9 +40,10 @@ const ThemesView = lazy(() => import('./ThemesView').then((m) => ({ default: m.T
 import { BrandMark, Defs, Icon } from './Icons'
 import { THEMES, applyTheme, getTheme } from './themes'
 import { fmtClock } from './dashUtils'
-import { fmtBpm, fmtDur } from './format'
+import { ago, agoShort, fmtBpm, fmtDur } from './format'
 
 interface Row { beat: Beat; count: number }
+const STAGE_LABEL: Record<Status | 'all', string> = { all: 'All', idea: 'Idea', wip: 'In progress', finished: 'Finished', sent: 'Pitched', sold: 'Sold' }
 
 function rank(b: Beat): number {
   if (b.versionLabel === 'final') return 3e13 + b.mtime
@@ -58,13 +57,6 @@ function rank(b: Beat): number {
 function PlayerReadout({ player, fallbackDuration }: { player: PlayerClock & { duration: number }; fallbackDuration: number | null }) {
   const time = usePlayerTime(player)
   return <div className="sub mono">{fmtDur(time)} / {fmtDur(player.duration || fallbackDuration || null)}</div>
-}
-
-/** Five small bars, one per detail a beat needs. The tooltip names what is missing. */
-function ReadyMeter({ beat }: { beat: Beat }) {
-  const r = readiness(beat)
-  const missing = r.steps.filter((s) => !s.done).map((s) => s.label)
-  return <span className="ready" title={missing.length ? `Missing: ${missing.join(', ')}` : 'Everything filled in'}>{r.steps.map((s) => <i key={s.id} className={s.done ? 'f' : ''} />)}</span>
 }
 
 /** The waveform with its moving progress line. */
@@ -259,6 +251,13 @@ export function App() {
     for (const b of list) c[b.status] = (c[b.status] ?? 0) + 1
     return c
   }, [list])
+  const { avgBpm, topKey } = useMemo(() => {
+    const bpms = rows.map((r) => r.beat.bpm).filter((n): n is number => n != null)
+    const keys = new Map<string, number>()
+    for (const r of rows) if (r.beat.key) keys.set(r.beat.key, (keys.get(r.beat.key) ?? 0) + 1)
+    const top = [...keys].sort((a, b) => b[1] - a[1])[0]?.[0]
+    return { avgBpm: bpms.length ? Math.round(bpms.reduce((a, n) => a + n, 0) / bpms.length) : null, topKey: top ? displayKey(top) : '' }
+  }, [rows])
 
   const selectedIdx = rows.findIndex((r) => r.beat.id === selectedId || (collapse && r.beat.groupId === list.find((b) => b.id === selectedId)?.groupId))
   const move = useCallback((d: number) => {
@@ -493,115 +492,126 @@ export function App() {
           crm={crm} myName={appSettings?.producerName ?? ''} selected={crmSel} onSelect={setCrmSel} onPitch={(id) => setPitchDlg({ contactId: id })}
           onOpenBeat={(id) => openItem(id)} reload={reloadCrm} newContactSignal={newContactSignal}
         />
-      ) : (<>
-      <main className="main">
-        <header className="toolbar">
-          <div className="searchbox">
-            <input ref={search} value={query} onChange={(e) => setQuery(e.target.value)} placeholder={isLoop ? 'Search: dark, 140+ bpm, unsent, sent, Cm…   ( / )' : 'Search: dark, 140+ bpm, unsold, finished, Cm…   ( / )'} spellCheck={false} />
-            {query && <button onClick={() => setQuery('')}>×</button>}
+      ) : (
+      <section className="vault">
+        <div className="v-list">
+          <div className="v-tools">
+            <h2>{isLoop ? 'Loops' : 'Beats'}</h2>
+            <div className="v-seg" role="group" aria-label="Stage">
+              {(['all', ...STATUSES] as const).map((s) => (
+                <button key={s} data-s={s} className={statusTab === s ? 'on' : ''} aria-pressed={statusTab === s} onClick={() => setStatusTab(s)}>
+                  {s !== 'all' && <i aria-hidden="true" />}{STAGE_LABEL[s]} <span>{counts[s] ?? 0}</span>
+                </button>
+              ))}
+            </div>
+            <div className="v-search">
+              <input ref={search} value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search" placeholder={isLoop ? 'Search: dark, 140+ bpm, unsent, sent, Cm…   ( / )' : 'Search: dark, 140+ bpm, unsold, finished, Cm…   ( / )'} spellCheck={false} />
+              {query && <button onClick={() => setQuery('')} aria-label="Clear search">×</button>}
+            </div>
+            <button className="v-btn" onClick={() => setPalette(true)}>Search everything <kbd>⌘K</kbd></button>
           </div>
-          <button className="ghost" onClick={() => setPalette(true)}>Search everything <kbd>⌘K</kbd></button>
-        </header>
-        <PageHeader eyebrow={isLoop ? 'Your loop library' : 'The vault'} title={isLoop ? 'Loops' : 'Beats'}
-          lede={isLoop ? `${counts.all ?? 0} loops in your library.` : `${counts.all ?? 0} beats. ${counts.finished ?? 0} finished, ${(counts.idea ?? 0) + (counts.wip ?? 0)} still in progress.`}
-          pills={(['all', ...STATUSES] as const).map((s) => ({ id: s, label: s === 'wip' ? 'WIP' : s, count: counts[s] ?? 0 }))} active={statusTab} onPick={(id) => setStatusTab(id as Status | 'all')} pillLabel="Stage" />
-        <div className="subbar">
-          <div className="seg viewseg" role="group" aria-label="View">
-            <button className={vaultView === 'list' ? 'on' : ''} onClick={() => setVaultView('list')}>List</button>
-            <button className={vaultView === 'cards' ? 'on' : ''} onClick={() => setVaultView('cards')}>Cards</button>
+          <div className="v-opts">
+            <div className="v-seg" role="group" aria-label="View">
+              <button className={vaultView === 'list' ? 'on' : ''} aria-pressed={vaultView === 'list'} onClick={() => setVaultView('list')}>List</button>
+              <button className={vaultView === 'cards' ? 'on' : ''} aria-pressed={vaultView === 'cards'} onClick={() => setVaultView('cards')}>Cards</button>
+            </div>
+            <div className="chips-inline">{parsed.chips.map((c, i) => <span key={i} className="qchip">{c}</span>)}</div>
+            {query.trim() && !colls.some((c) => c.q === query) && (naming == null
+              ? <button className="v-btn" onClick={() => setNaming(query.length > 24 ? '' : query)} title="Keep this search in the sidebar">Save search</button>
+              : <span className="savesearch"><input autoFocus aria-label="Search name" value={naming} placeholder="Name it" onChange={(e) => setNaming(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && naming.trim()) { setColls([...colls, { name: naming.trim(), q: query }]); setNaming(null) } if (e.key === 'Escape') setNaming(null) }} />
+                <button className="v-btn primary" disabled={!naming.trim()} onClick={() => { setColls([...colls, { name: naming.trim(), q: query }]); setNaming(null) }}>Save</button></span>)}
+            <label className="v-check"><input type="checkbox" checked={collapse} onChange={(e) => setCollapse(e.target.checked)} /> Group versions</label>
+            {isLoop && (
+              <>
+                <label className="v-check">Group by <select value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupBy)}><option value="folder">Folder</option><option value="bpm">BPM</option><option value="key">Key</option><option value="none">None</option></select></label>
+                {grouped && <><button className="v-btn" onClick={() => setAllSecs(true)}>Collapse all</button><button className="v-btn" onClick={() => setAllSecs(false)}>Expand all</button></>}
+              </>
+            )}
+            <span className="v-gap" />
+            {!isLoop && <button className="v-btn" onClick={() => setCleanup(true)} title="Sift through FL projects and move the ones you don't want to the Trash">Clean up projects…</button>}
+            {!isLoop && <button className="v-btn" disabled={reindexing} onClick={() => reindexNow(true)} title="Look for new FL Studio projects now">{reindexing ? 'Scanning…' : 'Rescan FL projects'}</button>}
           </div>
-          <div className="chips-inline">{parsed.chips.map((c, i) => <span key={i} className="qchip">{c}</span>)}</div>
-          {query.trim() && !colls.some((c) => c.q === query) && (naming == null
-            ? <button className="ghost" onClick={() => setNaming(query.length > 24 ? '' : query)} title="Keep this search in the sidebar">Save search</button>
-            : <span className="savesearch"><input autoFocus value={naming} placeholder="Name it" onChange={(e) => setNaming(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && naming.trim()) { setColls([...colls, { name: naming.trim(), q: query }]); setNaming(null) } if (e.key === 'Escape') setNaming(null) }} />
-              <button className="primary" disabled={!naming.trim()} onClick={() => { setColls([...colls, { name: naming.trim(), q: query }]); setNaming(null) }}>Save</button></span>)}
-          {!isLoop && <button className="ghost" onClick={() => setCleanup(true)} title="Sift through FL projects and move the ones you don't want to the Trash">Clean up projects…</button>}
-          {!isLoop && <button className="ghost" disabled={reindexing} onClick={() => reindexNow(true)} title="Look for new FL Studio projects now">{reindexing ? 'Scanning…' : 'Rescan FL projects'}</button>}
-          <label className="check small"><input type="checkbox" checked={collapse} onChange={(e) => setCollapse(e.target.checked)} /> Group versions</label>
-          {isLoop && (
-            <>
-              <label className="check small">Group by <select className="grp" value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupBy)}><option value="folder">Folder</option><option value="bpm">BPM</option><option value="key">Key</option><option value="none">None</option></select></label>
-              {grouped && <><button className="ghost" onClick={() => setAllSecs(true)}>Collapse all</button><button className="ghost" onClick={() => setAllSecs(false)}>Expand all</button></>}
-            </>
+
+          {vaultView === 'cards' && (
+            <div className="vgrid">
+              {sections.flatMap((sec) => (grouped && isShut(sec.key) ? [] : sec.rows)).map(({ beat: b, count }) => {
+                const isPlaying = player.id === b.id && player.playing
+                return (
+                  <div key={b.id} data-row={b.id} data-s={b.status} className={`vcard ${b.id === selectedId ? 'sel' : ''}`} {...clickable(() => { setSelectedId(b.id); setProfileId(b.id) })}>
+                    <div className="vc-art">
+                      <CoverArt beat={b} />
+                      <button className={`play ${isPlaying ? 'on' : ''}`} aria-label="play" onClick={(e) => { e.stopPropagation(); if (b.ext === 'flp' && !b.hasPreview) return toast('FL project with no preview yet. Play it once with Studio HQ Bridge on the Master and close it.'); player.id === b.id ? player.toggle() : playBeat(b.id) }}>{isPlaying ? '❚❚' : '▶'}</button>
+                    </div>
+                    <div className="vc-t">{b.title}</div>
+                    <div className="vc-m">{fmtBpm(b.bpm)} BPM · {displayKey(b.key) || '–'}{count > 1 ? ` · ${count} versions` : ''}</div>
+                    <div className="vc-p"><StatusPill status={b.status} />{b.tags.genre.slice(0, 1).concat(b.tags.vibe.slice(0, 1)).map((t) => <span key={t} className="spill mini">{t}</span>)}</div>
+                  </div>
+                )
+              })}
+              {loaded && !rows.length && <div className="empty">{list.length === 0 ? (scanning ? `Importing your ${isLoop ? 'loops' : 'beats'}…` : <>No {isLoop ? 'loops' : 'beats'} yet. Add a folder in <a onClick={() => setSettings(true)}>Settings</a>.</>) : `No ${isLoop ? 'loops' : 'beats'} match.`}</div>}
+            </div>
           )}
+          {vaultView === 'list' && <div className="vt">
+            <div className="vt-h">
+              <span /><span>{isLoop ? 'Loop' : 'Beat'}</span><span>Waveform</span><span className="r">BPM</span><span>Key</span><span>Status</span><span className="r">Touched</span>
+            </div>
+            <div className="vt-rows">
+              {sections.map((sec) => (
+                <Fragment key={sec.key}>
+                  {grouped && (
+                    <div className="secrow" {...clickable(() => toggleSec(sec.key))} title={isShut(sec.key) ? 'Click to open' : 'Click to fold'}>
+                      <span className="caret">{isShut(sec.key) ? '▸' : '▾'}</span><b>{sec.label}</b><span className="dim">{sec.rows.length} {isLoop ? (sec.rows.length === 1 ? 'loop' : 'loops') : ''}</span>
+                    </div>
+                  )}
+                  {!isShut(sec.key) && sec.rows.map(({ beat: b, count }) => {
+                    const sel = b.id === selectedId || (collapse && selectedIdx >= 0 && rows[selectedIdx]?.beat.id === b.id)
+                    const isPlaying = player.id === b.id && player.playing
+                    return (
+                      <div key={b.id} data-row={b.id} data-s={b.status} className={`vt-row ${sel ? 'sel' : ''}`} {...clickable(() => setSelectedId(b.id))} onDoubleClick={() => playBeat(b.id)}>
+                        <button className={`vt-play ${isPlaying ? 'on' : ''} ${b.ext === 'flp' && !b.hasPreview ? 'off' : ''}`} onClick={(e) => { e.stopPropagation(); if (b.ext === 'flp' && !b.hasPreview) return toast('FL project with no preview yet. Play it once with Studio HQ Bridge on the Master and close it.'); player.id === b.id ? player.toggle() : playBeat(b.id) }} aria-label={isPlaying ? 'pause' : 'play'}>{isPlaying ? '❚❚' : b.ext === 'flp' && !b.hasPreview ? '–' : '▶'}</button>
+                        <div className="vt-name">
+                          <div className="vt-t">{b.title}{b.ext === 'flp' && <span className="projthumb" title={b.hasPreview ? 'FL Studio project, preview loop' : 'FL Studio project, no audio yet'}>{b.hasPreview ? 'FL loop' : 'FL project'}</span>}{count > 1 && <em className="ver-badge">{count} versions</em>}{!collapse && b.versionLabel && <em className="ver-badge">{b.versionLabel}</em>}</div>
+                          {b.credits && <div className="vt-sub">{b.credits}</div>}
+                        </div>
+                        <div className="vt-wave"><Thumb data={b.thumb} /></div>
+                        <span className={`r mono ${b.bpmConfidence === 'low' ? 'warn' : ''}`} title={b.bpmConfidence === 'low' ? 'Low confidence. Check half/double time.' : ''}>{fmtBpm(b.bpm)}{!b.analyzed && b.bpm == null ? '…' : ''}</span>
+                        <span className="mono keycell" style={b.key ? { color: keyColor(b.key) } : undefined} title={b.keyConfidence === 'low' ? 'Low confidence. Check this by ear.' : undefined}>{b.key && <i className="kdotc" style={{ background: keyColor(b.key) }} />}{displayKey(b.key) || (b.analyzed ? '–' : '…')}{b.keyConfidence === 'low' && '?'}</span>
+                        <span><StatusPill status={b.status} /></span>
+                        <span className="r mono vt-dim" title={ago(b.mtime)}>{agoShort(b.mtime)}</span>
+                      </div>
+                    )
+                  })}
+                </Fragment>
+              ))}
+              {loaded && !rows.length && (
+                <div className="empty">
+                  {list.length === 0 ? (scanning ? `Importing your ${isLoop ? 'loops' : 'beats'}…` : <>No {isLoop ? 'loops' : 'beats'} yet. Add a folder in <a onClick={() => setSettings(true)}>Settings</a>.</>) : `No ${isLoop ? 'loops' : 'beats'} match.`}
+                </div>
+              )}
+            </div>
+            <div className="vt-foot">
+              <span><b>{rows.length}</b> {isLoop ? 'loops' : 'beats'}</span>
+              <span><b>{rows.filter((r) => r.beat.status === 'finished').length}</b> finished</span>
+              {avgBpm != null && <span>Average <b>{avgBpm}</b> BPM</span>}
+              {topKey && <span>Most used key <b>{topKey}</b></span>}
+            </div>
+          </div>}
         </div>
 
-        {vaultView === 'cards' && (
-          <div className="vgrid">
-            {sections.flatMap((sec) => (grouped && isShut(sec.key) ? [] : sec.rows)).map(({ beat: b, count }) => {
-              const isPlaying = player.id === b.id && player.playing
-              return (
-                <div key={b.id} data-row={b.id} className={`vcard ${b.id === selectedId ? 'sel' : ''}`} {...clickable(() => { setSelectedId(b.id); setProfileId(b.id) })}>
-                  <div className="vc-art">
-                    <CoverArt beat={b} />
-                    <button className={`play ${isPlaying ? 'on' : ''}`} aria-label="play" onClick={(e) => { e.stopPropagation(); if (b.ext === 'flp' && !b.hasPreview) return toast('FL project with no preview yet. Play it once with Studio HQ Bridge on the Master and close it.'); player.id === b.id ? player.toggle() : playBeat(b.id) }}>{isPlaying ? '❚❚' : '▶'}</button>
-                  </div>
-                  <div className="vc-t">{b.title}</div>
-                  <div className="vc-m">{fmtBpm(b.bpm)} BPM · {displayKey(b.key) || '–'}{count > 1 ? ` · ${count} versions` : ''}</div>
-                  <div className="vc-p"><StatusPill status={b.status} />{b.tags.genre.slice(0, 1).concat(b.tags.vibe.slice(0, 1)).map((t) => <span key={t} className="spill mini">{t}</span>)}</div>
-                </div>
-              )
-            })}
-            {loaded && !rows.length && <div className="empty">{list.length === 0 ? (scanning ? `Importing your ${isLoop ? 'loops' : 'beats'}…` : <>No {isLoop ? 'loops' : 'beats'} yet. Add a folder in <a onClick={() => setSettings(true)}>Settings</a>.</>) : `No ${isLoop ? 'loops' : 'beats'} match.`}</div>}
-          </div>
+        {detail ? (
+          <Detail beat={detail} kind={vaultKind} allTags={isLoop ? loopTags : allTags} onSelect={setSelectedId} onPlay={playBeat} refresh={reload} pitchedTo={pitchedTo} onPitch={() => setPitchDlg({ beatIds: [detail.id] })} onOpenContact={(id) => { setCrmSel(id); setView('crm') }}
+            sales={salesData.sales.filter((x) => x.groupId === detail.groupId)} splitGroup={salesData.groups.find((g) => g.groupId === detail.groupId)}
+            onLogSale={() => setSaleDlg({ beatId: detail.id })} onEditSplits={() => setSplitsDlg({ groupId: detail.groupId, title: detail.title })}
+            onSheet={async () => { try { const f = await window.api.exportSplitSheet(detail.groupId); if (f) toast(`Split sheet saved: ${f.split('/').pop()}`); reloadSales() } catch (e) { toast(errMsg(e)) } }}
+            projectSection={sounds?.projects.find((x) => x.path === detail.projectPath) ?? null} onProjectSounds={(id) => { setSoundProject(id); setView('sounds') }}
+            compatible={compatible} onFeedback={() => setFbDlg({ beatIds: [detail.id] })} posts={content.posts.filter((x) => x.beatId === detail.id || everything.find((b) => b.id === x.beatId)?.groupId === detail.groupId)} onContent={() => { setContentBeat(detail.id); setView('content') }}
+            onError={toast} player={player} />
+        ) : (
+          <aside className="insp insp-empty"><p>Select a {isLoop ? 'loop' : 'beat'}</p><p className="dim">↑ ↓ to move · Space to play · 1–5 sets status</p></aside>
         )}
-        {vaultView === 'list' && <div className="table">
-          <div className="thead">
-            <span /><span>{isLoop ? 'Loop' : 'Beat'}</span><span>Tags</span><span className="r">BPM</span><span>Key</span><span className="r">Length</span><span>Ready</span><span>Stage</span>
-          </div>
-          <div className="tbody">
-            {sections.map((sec) => (
-              <Fragment key={sec.key}>
-                {grouped && (
-                  <div className="secrow" {...clickable(() => toggleSec(sec.key))} title={isShut(sec.key) ? 'Click to open' : 'Click to fold'}>
-                    <span className="caret">{isShut(sec.key) ? '▸' : '▾'}</span><b>{sec.label}</b><span className="dim">{sec.rows.length} {isLoop ? (sec.rows.length === 1 ? 'loop' : 'loops') : ''}</span>
-                  </div>
-                )}
-                {!isShut(sec.key) && sec.rows.map(({ beat: b, count }) => {
-              const sel = b.id === selectedId || (collapse && selectedIdx >= 0 && rows[selectedIdx]?.beat.id === b.id)
-              const isPlaying = player.id === b.id && player.playing
-              return (
-                <div key={b.id} data-row={b.id} className={`row ${sel ? 'sel' : ''}`} {...clickable(() => setSelectedId(b.id))} onDoubleClick={() => playBeat(b.id)}>
-                  <button className={`play ${isPlaying ? 'on' : ''} ${b.ext === 'flp' && !b.hasPreview ? 'off' : ''}`} onClick={(e) => { e.stopPropagation(); if (b.ext === 'flp' && !b.hasPreview) return toast('FL project with no preview yet. Play it once with Studio HQ Bridge on the Master and close it.'); player.id === b.id ? player.toggle() : playBeat(b.id) }} aria-label="play">{isPlaying ? '❚❚' : b.ext === 'flp' && !b.hasPreview ? '–' : '▶'}</button>
-                  <div className="name">
-                    <div className="nt">
-                      <div className="t">{b.title}{b.ext === 'flp' && <span className="projthumb" title={b.hasPreview ? 'FL Studio project, preview loop' : 'FL Studio project, no audio yet'}>{b.hasPreview ? 'FL loop' : 'FL project'}</span>}{count > 1 && <em className="ver-badge">{count} versions</em>}{!collapse && b.versionLabel && <em className="ver-badge">{b.versionLabel}</em>}</div>
-                      {b.credits && <div className="sub">{b.credits}</div>}
-                    </div>
-                  </div>
-                  <div className="tg">{[...b.tags.genre.map((t) => ['genre', t]), ...b.tags.vibe.map((t) => ['vibe', t]), ...b.tags.artist.map((t) => ['artist', t])].slice(0, 4).map(([k, t]) => <span key={k + t} className={`chip ${k}`}>{t}</span>)}</div>
-                  <span className={`r mono ${b.bpmConfidence === 'low' ? 'warn' : ''}`} title={b.bpmConfidence === 'low' ? 'Low confidence. Check half/double time.' : ''}>{fmtBpm(b.bpm)}{!b.analyzed && b.bpm == null ? '…' : ''}</span>
-                  <span className="mono keycell" style={b.key ? { color: keyColor(b.key) } : undefined} title={b.keyConfidence === 'low' ? 'Low confidence. Check this by ear.' : undefined}>{b.key && <i className="kdotc" style={{ background: keyColor(b.key) }} />}{displayKey(b.key) || (b.analyzed ? '–' : '…')}{b.keyConfidence === 'low' && '?'}</span>
-                  <span className="r mono dim">{fmtDur(b.duration)}</span>
-                  <ReadyMeter beat={b} />
-                  <span className="stg"><StatusPill status={b.status} /></span>
-                </div>
-              )
-            })}
-              </Fragment>
-            ))}
-            {loaded && !rows.length && (
-              <div className="empty">
-                {list.length === 0 ? (scanning ? `Importing your ${isLoop ? 'loops' : 'beats'}…` : <>No {isLoop ? 'loops' : 'beats'} yet. Add a folder in <a onClick={() => setSettings(true)}>Settings</a>.</>) : `No ${isLoop ? 'loops' : 'beats'} match.`}
-              </div>
-            )}
-          </div>
-        </div>}
-      </main>
-
-      {detail ? (
-        <Detail beat={detail} kind={vaultKind} allTags={isLoop ? loopTags : allTags} onSelect={setSelectedId} onPlay={playBeat} refresh={reload} pitchedTo={pitchedTo} onPitch={() => setPitchDlg({ beatIds: [detail.id] })} onOpenContact={(id) => { setCrmSel(id); setView('crm') }}
-          sales={salesData.sales.filter((x) => x.groupId === detail.groupId)} splitGroup={salesData.groups.find((g) => g.groupId === detail.groupId)}
-          onLogSale={() => setSaleDlg({ beatId: detail.id })} onEditSplits={() => setSplitsDlg({ groupId: detail.groupId, title: detail.title })}
-          onSheet={async () => { try { const f = await window.api.exportSplitSheet(detail.groupId); if (f) toast(`Split sheet saved: ${f.split('/').pop()}`); reloadSales() } catch (e) { toast(errMsg(e)) } }}
-          projectSection={sounds?.projects.find((x) => x.path === detail.projectPath) ?? null} onProjectSounds={(id) => { setSoundProject(id); setView('sounds') }}
-          compatible={compatible} onFeedback={() => setFbDlg({ beatIds: [detail.id] })} posts={content.posts.filter((x) => x.beatId === detail.id || everything.find((b) => b.id === x.beatId)?.groupId === detail.groupId)} onContent={() => { setContentBeat(detail.id); setView('content') }}
-          onError={toast} />
-      ) : (
-        <aside className="detail empty-detail"><p>Select a {isLoop ? 'loop' : 'beat'}</p><p className="dim">↑ ↓ to move · Space to play · 1–5 sets status</p></aside>
+      </section>
       )}
-      </>)}
 
       {profileId != null && (() => {
         const pb = list.find((x) => x.id === profileId)

@@ -43,6 +43,22 @@ Files: `docs/design/mockups/v4/index.html` (comparison), `a-deck.html`, `b-crate
 | P2 | All | Only checked at 1440×900 | Check 1024 and 1920 widths in foundation step |
 | P3 | B index | Index links are `<a>` without `href` | Use buttons in the real build |
 
+## Phase 4: foundation, shell + Home (14 Nov 2026, direction A · Deck picked)
+Files: `src/renderer/src/Shell.tsx` (new), `shell.css` (new), `Dashboard.tsx` (rewritten), `App.tsx` (shell swap), `navModel.ts` (Dashboard → Today), `styles.css` (wrapped in `@layer legacy`, 3 contrast tokens), `main.tsx` (imports shell.css). Screenshots: `docs/design/v4/`.
+- Foundation | 21st:21st-cli-use | Spent both daily retrievals: Segmented Control 43122 (the strip underline: left and right edges glide on different durations so the line stretches and settles; no transition on first paint; ResizeObserver) and Records Table 23604 (kept for the Beats rollout).
+- Foundation | 21st:21st-ui-build | Reused project pieces instead of new ones: theme tokens, `PlayerWave`, `PlayerReadout`, `Palette`, `BrandMark`, `clickable`, all Home data logic unchanged.
+- Foundation | design-skills:design-systems / ui-ux-pro-max:design-system | All 8 themes already define one semantic set (`--bg --panel --raise --well --line --text --dim --accent` + status colours + radii + fonts). v4 uses it directly instead of adding a second naming layer; shell.css only adds spacing and motion tokens.
+- Foundation | design-skills:design-elevation | One radius per role from the theme (`--r-btn`, `--r-field`, `--r-card`), tabular numbers, solid colour blocks instead of gradients.
+- Foundation | design-superpowers:design (layout composer) | Frame: transport row 64px, strip 44px, content; Home is main column + 340px rail. Old 3-layer nav (rail, tab bar, page pills) and the bottom player bar removed.
+- Foundation | ecc:design-system (audit) | Legacy CSS wrapped in `@layer legacy` so v4 rules win without specificity fights; a `v4-reset` layer strips old button looks inside v4 parts only.
+- Foundation | design-skills:interaction-design | Home leads with one decision (follow-up → finish → pitch → caught up) and its primary action; "+N more" and stage headers open Beats filtered by status.
+- Foundation | ecc:motion-foundations / ecc:motion-patterns / audit-suite:web-animation-design | 80/180/320 ms tokens, ease-out; underline glide 270/400 ms; no view-entrance animation (styles.test forbids it, it flashed); all off under reduced motion.
+- Foundation | audit-suite:make-interfaces-feel-better / emil-design-engineering | scale(.97) on press, hover only under `(hover:hover)`, no `transition: all`, meters animate `transform` not width.
+- Foundation | ecc:frontend-a11y | Strip uses buttons with `aria-current`, Find has an aria-label with its shortcut, Audition is `aria-pressed`. Contrast fixed in theme tokens: Concrete `--dim` #5a5a54→#4b4b46 (4.18→5.28), Ballpoint `--dim` #657280→#55606c (3.77→4.91), Concrete `--accent-text` #b33000→#922700 (3.78→5.03). Colour blocks flip to white ink in Concrete and Ballpoint.
+- Review | 21st:21st-ui-review | `21st review` on the 3 changed files: autofocus on the goal input (kept: it only appears after you click to edit), 2 hard-coded inks on colour blocks (kept for dark-on-bright themes, flipped for the two light themes).
+- Review | ui-design-review:review + design-skills:design-critique | Screens checked at 1440 in all 8 themes and at 1024 in Defied and Concrete. Fixed: rows stacked into one grid row (specificity), legacy button styles leaking into the strip, strip overflowing at 1024, 4-line lead at 1024, overdue posts flooding the rail (now 3 + link).
+- Verify | superpowers:verification-before-completion | `tsc --noEmit` clean; `vitest run` 63 files, 722 tests passed; no console errors on Home in any theme.
+
 ## Not yet used, and why
 - 21st:21st-ui-build, 21st:21st-ui-review: apply to app code; no app code until a pick.
 - design-superpowers:design (component selection), design-skills:design-systems, design-skills:design-elevation, ecc:design-system (generate mode): foundation step.

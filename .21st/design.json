@@ -1,0 +1,10 @@
+{
+  "decisions": [
+    {
+      "date": "2026-11-14",
+      "decision": "Studio HQ v4 uses direction A, Deck: transport bar as header, one flat section strip, Home built on an Idea to Sold line.",
+      "mockup": "docs/design/mockups/v4/a-deck.html",
+      "references": ["21st 1247 Tallyfold", "21st 40334 Analytics Bento", "21st 23604 Records Table", "21st 45217 Outline Inspector", "21st 18483 Waveform", "21st 43122 Segmented Control"]
+    }
+  ]
+}

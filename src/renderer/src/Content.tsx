@@ -1,4 +1,6 @@
+import { PageHeader } from './PageHeader'
 import { useMemo, useState } from 'react'
+import { Ticker } from './Ticker'
 import type { PlayerClock } from './player'
 import { PLATFORMS, type Beat, type ContentData, type Post, type Sale, type Settings } from '@shared/types'
 import { clickable } from './a11y'
@@ -45,13 +47,10 @@ export function ContentView(p: Props) {
 
   return (
     <section className="contentv">
+      <Ticker items={[{ n: p.content.posts.filter((x) => x.status === 'planned').length, label: 'Posts planned' }, { n: p.content.posts.filter((x) => x.status === 'posted').length, label: 'Posted' }, { n: p.content.videos.length, label: 'Videos made' }]} />
+      <PageHeader eyebrow="Get heard" title="Content Machine" pillLabel="Section" active={tab} onPick={(k) => setTab(k as typeof tab)}
+        pills={[{ id: 'create', label: 'Create' }, { id: 'calendar', label: 'Calendar' }, { id: 'videos', label: 'Videos' }]} />
       <div className="sales-head">
-        <h2>Content Machine</h2>
-        <div className="seg" style={{ width: 'auto' }}>
-          <button className={tab === 'create' ? 'on' : ''} onClick={() => setTab('create')}>Create</button>
-          <button className={tab === 'calendar' ? 'on' : ''} onClick={() => setTab('calendar')}>Calendar</button>
-          <button className={tab === 'videos' ? 'on' : ''} onClick={() => setTab('videos')}>Videos</button>
-        </div>
         <div className="grow" />
         <button className="primary" onClick={() => setDlg({ status: 'planned', beatId: beat?.id })}>+ Plan a post</button>
       </div>

@@ -39,4 +39,14 @@ export function renderTemplate(text: string, v: Partial<TemplateVars>): string {
     .trim()
 }
 
-export const firstName = (full: string) => full.trim().split(/\s+/)[0] || full
+/**
+ * What to call someone in an email. Real names give the first word. An Instagram-style handle such as
+ * "bc_shooter" or "BC__reno" loses the crew tag, underscores and stray digits and becomes "Shooter" / "Reno".
+ */
+export function firstName(full: string): string {
+  const first = full.trim().split(/\s+/)[0] || full
+  if (!/[_\d.]/.test(first)) return first
+  const stripped = (first.includes('_') ? first.replace(/^bc/i, '') : first).replace(/[_.]+/g, ' ').replace(/^\d+|\d+$/g, '').trim().split(/\s+/)[0]
+  const word = stripped && stripped.length >= 2 ? stripped : first.replace(/[_.]+/g, ' ').trim().split(/\s+/)[0] || first
+  return word.charAt(0).toUpperCase() + word.slice(1)
+}

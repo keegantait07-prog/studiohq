@@ -44,6 +44,8 @@ export function Defs() {
 export function BrandMark() {
   return (
     <span className="bm" aria-hidden>
+      <span className="bm-defied">S<b>✦</b></span>
+      <span className="bm-pearl"><i /></span>
       <svg className="bm-signal" viewBox="0 0 22 20"><rect x="0" y="11" width="3.4" height="9" /><rect x="6" y="0" width="3.4" height="20" /><rect x="12" y="6" width="3.4" height="14" /><rect x="18" y="13" width="3.4" height="7" /></svg>
       <svg className="bm-faceplate" viewBox="0 0 22 22"><rect x="9.5" y="1" width="3" height="20" rx="1.5" className="slot" /><rect x="4" y="12" width="14" height="6" rx="1" className="cap" /><path d="M11 13.5v3" className="mark" /></svg>
       <svg className="bm-tape" viewBox="0 0 34 20">

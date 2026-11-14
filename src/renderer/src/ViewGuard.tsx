@@ -10,7 +10,7 @@ class Boundary extends Component<{ name: string; children: ReactNode }, State> {
   render(): ReactNode {
     if (!this.state.error) return this.props.children
     return (
-      <section role="alert" style={{ gridColumn: '2 / -1', gridRow: 1, padding: 32, overflow: 'auto' }}>
+      <section role="alert" style={{ gridColumn: '2 / -1', gridRow: 1, padding: '64px 32px 32px', overflow: 'auto' }}>
         <h2 style={{ marginTop: 0 }}>{this.props.name} hit a problem</h2>
         <p className="dim">Everything else still works. Your data is untouched. If this keeps happening, restart the app.</p>
         <pre className="mono dim" style={{ whiteSpace: 'pre-wrap' }}>{this.state.error.message}</pre>

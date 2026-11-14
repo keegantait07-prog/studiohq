@@ -5,7 +5,7 @@ export type SectionId = 'home' | 'make' | 'sell' | 'reach' | 'studio'
 export interface NavSection { id: SectionId; label: string; /** an existing Icon name, so every theme restyles it */ icon: string; tabs: { view: ViewId; label: string }[] }
 
 export const SECTIONS: NavSection[] = [
-  { id: 'home', label: 'Home', icon: 'dashboard', tabs: [{ view: 'dashboard', label: 'Dashboard' }] },
+  { id: 'home', label: 'Home', icon: 'dashboard', tabs: [{ view: 'dashboard', label: 'Today' }] },
   { id: 'make', label: 'Make', icon: 'vault', tabs: [{ view: 'vault', label: 'Beats' }, { view: 'loops', label: 'Loops' }, { view: 'sounds', label: 'Sounds' }, { view: 'kits', label: 'Kits' }, { view: 'map', label: 'Map' }] },
   { id: 'sell', label: 'Sell', icon: 'sales', tabs: [{ view: 'store', label: 'Store' }, { view: 'sales', label: 'Sales' }] },
   { id: 'reach', label: 'Reach', icon: 'crm', tabs: [{ view: 'crm', label: 'Pitch CRM' }, { view: 'leads', label: 'Leads' }, { view: 'content', label: 'Content' }, { view: 'feedback', label: 'Feedback' }] },

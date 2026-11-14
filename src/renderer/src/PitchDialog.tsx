@@ -84,7 +84,7 @@ export function PitchDialog({ beats, crm, myName, hasToken, contactId: c0, beatI
       : undefined
     return (
       <div className="overlay">
-        <div className="modal wide-modal" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="modal wide-modal reach" onMouseDown={(e) => e.stopPropagation()}>
           <header><h2>Pitch to {contact.name}</h2><button onClick={onClose}>Close</button></header>
           <OptOutGate email={contact.email} name={contact.name}>
           <DraftPanel

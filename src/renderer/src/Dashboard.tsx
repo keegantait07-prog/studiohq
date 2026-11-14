@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { Beat, ContentData, CrmData, FeedbackData, SalesData, Settings, Status, StudioSession } from '@shared/types'
 import { isDue, daysSince } from './crmUtils'
+import { clickable } from './a11y'
 import { useNow } from './useNow'
 import { activity, beatsMadeSince, dayKey, DAY, fmtClock, fmtHM, isActive, sessionMs, startOfDay, streaks, weekStart } from './dashUtils'
 import { money, net } from './salesUtils'
@@ -25,13 +26,21 @@ interface Props {
   reloadSessions: () => void
 }
 
+const STAGES: { s: Status; label: string; empty: string }[] = [
+  { s: 'idea', label: 'Idea', empty: 'No ideas saved.' },
+  { s: 'wip', label: 'In progress', empty: 'Nothing in progress.' },
+  { s: 'finished', label: 'Finished', empty: 'Nothing finished yet.' },
+  { s: 'sent', label: 'Pitched', empty: 'Nothing out yet. Send a finished beat to start replies coming back.' },
+  { s: 'sold', label: 'Sold', empty: 'Your first sale lands here.' }
+]
+
 function Goal({ label, value, goal, onGoal }: { label: string; value: number; goal: number; onGoal: (n: number) => void }) {
   const [edit, setEdit] = useState(false)
   const pct = Math.min(1, value / Math.max(1, goal))
   return (
-    <div className="goal">
-      <div className="gh"><span>{label}</span><span className="mono">{value} / {edit ? <input autoFocus defaultValue={goal} style={{ width: 44 }} onBlur={(e) => { const n = parseInt(e.target.value, 10); if (n > 0) onGoal(n); setEdit(false) }} onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} /> : <a onClick={() => setEdit(true)} title="Click to change your goal">{goal}</a>}</span></div>
-      <div className="gtrack"><div className={`gfill ${pct >= 1 ? 'done' : ''}`} style={{ width: `${pct * 100}%` }} /></div>
+    <div className="h-goal">
+      <div className="h-goal-top"><span>{label}</span><span>{value} of {edit ? <input autoFocus aria-label={`${label} goal`} defaultValue={goal} style={{ width: 44 }} onBlur={(e) => { const n = parseInt(e.target.value, 10); if (n > 0) onGoal(n); setEdit(false) }} onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} /> : <button className="h-link" onClick={() => setEdit(true)} title="Change your goal">{goal}</button>}</span></div>
+      <div className="h-meter"><i className={pct >= 1 ? 'done' : ''} style={{ transform: `scaleX(${pct})` }} /></div>
     </div>
   )
 }
@@ -50,13 +59,13 @@ function CatalogHealth({ beats, onQuery }: { beats: Beat[]; onQuery: (q: string)
   const audioN = beats.filter((b) => b.ext !== 'flp').length
   const score = audioN ? Math.round(100 * (1 - Math.min(1, rows.slice(0, 3).reduce((a, r) => a + r.n, 0) / (audioN * 3)))) : 100
   return (
-    <div className="panel health">
-      <h3>Catalog health <span className="hscore">{score}%</span></h3>
-      <div className="gtrack"><div className={`gfill ${score >= 90 ? 'done' : ''}`} style={{ width: `${score}%` }} /></div>
-      {issues === 0 ? <p className="dim">Everything is tagged and up to date.</p> : rows.filter((r) => r.n > 0).map((r) => (
-        <div key={r.q} className="drow"><a onClick={() => onQuery(r.q)}>{r.n} {r.label}</a><span className="dim">{r.hint}</span></div>
+    <section className="h-panel" aria-labelledby="h-health">
+      <h3 id="h-health">Catalogue health <span className="h-count">{score}%</span></h3>
+      <div className="h-meter"><i className={score >= 90 ? 'done' : ''} style={{ transform: `scaleX(${score / 100})` }} /></div>
+      {issues === 0 ? <p className="h-quiet">Everything is tagged and up to date.</p> : rows.filter((r) => r.n > 0).map((r) => (
+        <div key={r.q} className="h-kv"><button className="h-link" onClick={() => onQuery(r.q)}>{r.n} {r.label}</button><span>{r.hint}</span></div>
       ))}
-    </div>
+    </section>
   )
 }
 
@@ -87,73 +96,123 @@ export function Dashboard(p: Props) {
   const unseen = feedback.comments.filter((c) => !c.seen)
   const monthStart = new Date(new Date(now).getFullYear(), new Date(now).getMonth(), 1).getTime()
   const revenue = sales.sales.filter((s) => s.soldAt >= monthStart).reduce((a, s) => a + net(s), 0)
-  const unsold = beats.filter((b) => b.status !== 'sold' && b.status !== 'idea').length
-  const hr = new Date(now).getHours()
-  const name = settings?.producerName
   const title = (id: number) => beats.find((b) => b.id === id)?.title ?? 'a beat'
+
+  // one card per beat (versions share a group), newest first, for the Idea → Sold line
+  const line = useMemo(() => {
+    const byGroup = new Map<number, Beat>()
+    for (const b of [...beats].sort((a, b) => b.mtime - a.mtime)) if (!byGroup.has(b.groupId)) byGroup.set(b.groupId, b)
+    const all = [...byGroup.values()]
+    return STAGES.map((st) => ({ ...st, beats: all.filter((b) => b.status === st.s) }))
+  }, [beats])
 
   // 15-week activity heatmap, Monday-first columns
   const weeks = Array.from({ length: 15 }, (_, w) => Array.from({ length: 7 }, (_, d) => wk - (14 - w) * 7 * DAY + d * DAY))
 
-  const needs = due.length + planned.length + unseen.length
-  const bits = [
-    due.length ? `${due.length} follow-up${due.length === 1 ? ' is' : 's are'} due` : '',
-    ready.length ? `${ready.length} finished beat${ready.length === 1 ? ' hasn\'t' : 's haven\'t'} been pitched` : '',
-    wip.length ? `${wip.length} ${wip.length === 1 ? 'beat is' : 'beats are'} close to finished` : ''
-  ].filter(Boolean)
+  const next = due[0] ? 'due' : wip[0] ? 'wip' : ready[0] ? 'ready' : 'none'
+  const w0 = wip[0], r0 = ready[0], d0 = due[0]
+  const openWip = (b: Beat) => (b.projectPath ? void window.api.openProject(b.id) : p.onOpenBeat(b.id))
+  const outCount = ready.length === 1 ? 'One finished beat has' : `${ready.length} finished beats have`
 
   return (
-    <section className="dash hm">
-      <div className="hm-top">
-        <div className="hm-hello">{hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening'}{name ? `, ${name}` : ''} · {new Date(now).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</div>
-        <h1>{needs === 0 ? 'You are all caught up.' : `${needs} thing${needs === 1 ? '' : 's'} ${needs === 1 ? 'needs' : 'need'} you today.`}</h1>
-        <p className="hm-lede">{bits.length ? `${bits.join('. ')}.` : 'Nothing is waiting on you. A good time to make something.'}</p>
-      </div>
+    <section className="h-home">
+      <div className="h-main">
+        <header className="h-lead">
+          <div>
+            <h1>{next === 'due' ? `Follow up with ${d0.contactName}` : next === 'wip' ? `Finish ${w0.title} before you start anything new` : next === 'ready' ? `Pitch ${r0.title}` : 'You are caught up. Make something new.'}</h1>
+            <p>
+              {next === 'due' && `You sent ${d0.beats.map((b) => b.title).join(', ') || d0.subject} ${daysSince(d0.sentAt, now)} days ago and have not heard back.`}
+              {next === 'wip' && `It is the newest beat in progress, last touched ${daysSince(w0.mtime, now)} days ago.`}
+              {next === 'ready' && 'It is finished and has never been pitched or posted.'}
+              {next === 'none' && 'Nothing is due, nothing is half done.'}
+              {next !== 'ready' && ready.length > 0 && ` ${outCount} never been pitched or posted.`}
+            </p>
+          </div>
+          <div className="h-cta">
+            {next === 'due' && <button className="h-btn primary" onClick={() => p.onOpenContact(d0.contactId)}>Open {d0.contactName}</button>}
+            {next === 'wip' && <button className="h-btn primary" onClick={() => openWip(w0)}>{w0.projectPath ? 'Open in FL Studio' : `Open ${w0.title}`}</button>}
+            {next === 'ready' && <button className="h-btn primary" onClick={() => p.onPitchBeat(r0.id)}>Pitch {r0.title}</button>}
+            {next === 'none' && <button className="h-btn primary" onClick={() => p.onGo('vault')}>Open Beats</button>}
+            <button className="h-btn" onClick={() => p.onGo('crm')}>Pitch a beat</button>
+          </div>
+        </header>
 
-      <div className="hm-strip">
-        <div><b>{money(Math.round(revenue))}</b><span>earned this month</span></div>
-        <div><b>{awaiting}</b><span>pitches awaiting a reply</span></div>
-        <div><b>{unsold}</b><span>beats available</span></div>
-        <div><b>{current}</b><span>day{current === 1 ? '' : 's'} beat-making streak</span></div>
-      </div>
+        <section className="h-line" aria-labelledby="h-line-t">
+          <header><h2 id="h-line-t">Where your beats are</h2><span>{line.reduce((a, s) => a + s.beats.length, 0)} beats, versions counted once</span></header>
+          <div className="h-stages">
+            {line.map((st) => (
+              <div key={st.s} className="h-stage" style={{ ['--c' as string]: `var(--${st.s})` }}>
+                <button className="h-gate" onClick={() => p.onQuery(st.s)} title={`Show every ${st.label.toLowerCase()} beat`}><i aria-hidden="true" /><b>{st.label}</b><span>{st.beats.length}</span></button>
+                <div className="h-stack">
+                  {st.beats.slice(0, 4).map((b) => (
+                    <div key={b.id} className={`h-tick ${(next === 'wip' && b.id === w0.id) || (next === 'ready' && b.id === r0.id) ? 'next' : ''}`} {...clickable(() => p.onOpenBeat(b.id))}>
+                      <span>{b.title}</span><small>{daysSince(b.mtime, now)}d</small>
+                    </div>
+                  ))}
+                  {st.beats.length > 4 && <button className="h-tick more" onClick={() => p.onQuery(st.s)}>{st.beats.length - 4} more</button>}
+                  {!st.beats.length && <p className="h-none">{st.empty}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
 
-      <div className="hm-cols">
-        <div className="hm-main">
-          <h3>Do next</h3>
-          {due.slice(0, 5).map((x) => <div key={x.id} className="hm-row"><span className="hm-dot warn" /><span>Follow up with <a onClick={() => p.onOpenContact(x.contactId)}>{x.contactName}</a></span><span className="dim hm-sub">{x.beats.map((b) => b.title).join(', ') || x.subject}</span><span className="warn hm-when">{daysSince(x.sentAt, now)}d</span></div>)}
-          {due.length > 5 && <div className="hm-row"><a onClick={() => p.onGo('crm')}>+{due.length - 5} more follow-ups</a></div>}
-          {planned.map((x) => <div key={x.id} className="hm-row"><span className="hm-dot warn" /><span>Post <b>{title(x.beatId)}</b> on {x.platform}</span><span className={`hm-when ${startOfDay(x.date) < today0 ? 'warn' : 'dim'}`}>{startOfDay(x.date) < today0 ? 'overdue' : 'today'}</span></div>)}
-          {unseen.slice(0, 3).map((c) => <div key={c.id} className="hm-row"><span className="hm-dot warn" /><span><b>{c.name || 'Anonymous'}</b> commented on {c.beatId ? title(c.beatId) : 'a beat'}</span><span className="dim hm-sub">{c.text.slice(0, 60)}</span><a className="hm-when" onClick={() => p.onGo('feedback')}>Open</a></div>)}
-          {ready.slice(0, 5).map((b) => <div key={b.id} className="hm-row"><span className="hm-dot" /><span>Pitch <a onClick={() => p.onOpenBeat(b.id)}>{b.title}</a></span><span className="dim hm-sub">finished, never pitched or posted</span><span className="hm-acts"><button onClick={() => p.onPitchBeat(b.id)}>Pitch</button><button onClick={() => p.onMakeVideo(b.id)}>Video</button></span></div>)}
-          {wip.slice(0, 5).map((b) => <div key={b.id} className="hm-row"><span className="hm-dot" /><span>Finish <a onClick={() => p.onOpenBeat(b.id)}>{b.title}</a></span><span className="dim hm-sub">{daysSince(b.mtime, now)}d since you touched it</span><span className="hm-acts"><button onClick={() => p.onSetStatus(b.id, 'finished')}>Mark finished</button></span></div>)}
-          {needs === 0 && !ready.length && !wip.length && <p className="help">Nothing to do. <a onClick={() => p.onGo('content')}>Plan some posts</a> or <a onClick={() => p.onGo('vault')}>open the Vault</a>.</p>}
+        <div className="h-bento">
+          <div className="h-blk" style={{ ['--c' as string]: 'var(--finished)' }}><small>Finished, not out yet</small><b>{ready.length}</b></div>
+          <div className="h-blk" style={{ ['--c' as string]: 'var(--wip)' }}><small>Made this week</small><b>{madeWeek}</b></div>
+          <div className="h-blk" style={{ ['--c' as string]: 'var(--sent)' }}><small>Day streak, best {best}</small><b>{current}</b></div>
+          <div className="h-blk dim"><small>Earned this month</small><b>{money(Math.round(revenue))}</b></div>
         </div>
 
-        <div className="hm-side">
-          <h3>This week</h3>
-          <Goal label="Beats made" value={madeWeek} goal={settings?.goalBeats ?? 3} onGoal={(n) => window.api.setSetting({ goalBeats: n })} />
-          <Goal label="Pitches sent" value={pitchesWeek} goal={settings?.goalPitches ?? 5} onGoal={(n) => window.api.setSetting({ goalPitches: n })} />
-          <Goal label="Posts published" value={postsWeek} goal={settings?.goalPosts ?? 3} onGoal={(n) => window.api.setSetting({ goalPosts: n })} />
-          <div className="help">Weeks run Monday to Sunday. Click a goal number to change it.</div>
-
-          <h3 className="hm-gap">Studio session</h3>
-          <div className={`clock ${open ? 'run' : ''}`}>{fmtClock(open ? now - open.startedAt : 0)}</div>
-          <div className="timer-row">
-            {open ? <button className="primary" onClick={async () => { await window.api.stopSession(); p.reloadSessions() }}>Stop session</button> : <button className="primary" onClick={async () => { await window.api.startSession(); p.reloadSessions() }}>Start session</button>}
-            <span className="dim">{open?.auto ? 'Started automatically with FL Studio' : open ? 'Running' : 'Not running'}</span>
-          </div>
-          <div className="dim" style={{ marginTop: 10 }}>Today {fmtHM(todayMs)} · this week {fmtHM(weekMs)}</div>
-          <label className="check small" style={{ marginTop: 8 }}><input type="checkbox" checked={!!settings?.autoTrackFL} onChange={(e) => window.api.setSetting({ autoTrackFL: e.target.checked })} /> Time sessions automatically while FL Studio is open</label>
-
-          <h3 className="hm-gap">Streak <span className="dim hm-best">best {best}</span></h3>
-          <div className="heat">
-            {weeks.map((w, i) => <div key={i} className="hcol">{w.map((t) => { const d = act.get(dayKey(t)); const n = d ? d.bounces + (isActive({ bounces: 0, ms: d.ms }) ? 1 : 0) : 0; return <i key={t} title={`${new Date(t).toLocaleDateString()}: ${d?.bounces ?? 0} bounce${d?.bounces === 1 ? '' : 's'}, ${fmtHM(d?.ms ?? 0)}`} className={`hc ${t > now ? 'future' : n >= 3 ? 'l3' : n === 2 ? 'l2' : n === 1 ? 'l1' : ''} ${t === today0 ? 'today' : ''}`} /> })}</div>)}
-          </div>
-          <div className="help">A day counts when you bounce a beat or log 15+ minutes in the studio.</div>
-
-          <div className="hm-health"><CatalogHealth beats={p.beats} onQuery={p.onQuery} /></div>
+        <div className="h-row">
+          <section className="h-panel" aria-labelledby="h-week">
+            <h3 id="h-week">This week</h3>
+            <Goal label="Beats made" value={madeWeek} goal={settings?.goalBeats ?? 3} onGoal={(n) => window.api.setSetting({ goalBeats: n })} />
+            <Goal label="Pitches sent" value={pitchesWeek} goal={settings?.goalPitches ?? 5} onGoal={(n) => window.api.setSetting({ goalPitches: n })} />
+            <Goal label="Posts published" value={postsWeek} goal={settings?.goalPosts ?? 3} onGoal={(n) => window.api.setSetting({ goalPosts: n })} />
+            <p className="h-quiet">Weeks run Monday to Sunday. Click a goal number to change it.</p>
+          </section>
+          <section className="h-panel" aria-labelledby="h-streak">
+            <h3 id="h-streak">Beat-making streak <span className="h-count">{current} day{current === 1 ? '' : 's'}</span></h3>
+            <div className="h-heat">
+              {weeks.map((w, i) => <div key={i}>{w.map((t) => { const d = act.get(dayKey(t)); const n = d ? d.bounces + (isActive({ bounces: 0, ms: d.ms }) ? 1 : 0) : 0; return <i key={t} title={`${new Date(t).toLocaleDateString()}: ${d?.bounces ?? 0} bounce${d?.bounces === 1 ? '' : 's'}, ${fmtHM(d?.ms ?? 0)}`} className={`${t > now ? 'future' : n >= 3 ? 'l3' : n === 2 ? 'l2' : n === 1 ? 'l1' : ''} ${t === today0 ? 'today' : ''}`} /> })}</div>)}
+            </div>
+            <p className="h-quiet">A day counts when you bounce a beat or log 15+ minutes in the studio.</p>
+          </section>
+          <CatalogHealth beats={p.beats} onQuery={p.onQuery} />
         </div>
       </div>
+
+      <aside className="h-rail" aria-label="Waiting on you">
+        <section>
+          <h3>Waiting on you <span className="h-count">{due.length + Math.min(3, wip.length) + Math.min(3, ready.length) + Math.min(3, planned.length)}</span></h3>
+          {due.slice(0, 5).map((x) => <div key={`f${x.id}`} className="h-todo" style={{ ['--c' as string]: 'var(--sent)' }}><i /><div>Follow up with {x.contactName}<small>{x.beats.map((b) => b.title).join(', ') || x.subject}, {daysSince(x.sentAt, now)} days ago</small></div><button className="h-go" onClick={() => p.onOpenContact(x.contactId)}>Open</button></div>)}
+          {due.length > 5 && <button className="h-link" onClick={() => p.onGo('crm')}>{due.length - 5} more follow-ups</button>}
+          {wip.slice(0, 3).map((b) => <div key={`w${b.id}`} className="h-todo" style={{ ['--c' as string]: 'var(--wip)' }}><i /><div>Finish {b.title}<small>Last touched {daysSince(b.mtime, now)} days ago</small></div><button className="h-go" onClick={() => p.onSetStatus(b.id, 'finished')} title="Mark it finished">Done</button></div>)}
+          {ready.slice(0, 3).map((b) => <div key={`r${b.id}`} className="h-todo" style={{ ['--c' as string]: 'var(--finished)' }}><i /><div>Pitch or post {b.title}<small>Finished, never sent</small></div><span className="h-gos"><button className="h-go" onClick={() => p.onPitchBeat(b.id)}>Pitch</button><button className="h-go" onClick={() => p.onMakeVideo(b.id)}>Video</button></span></div>)}
+          {planned.slice(0, 3).map((x) => <div key={`p${x.id}`} className="h-todo" style={{ ['--c' as string]: 'var(--sold)' }}><i /><div>Post {title(x.beatId)} on {x.platform}<small>{startOfDay(x.date) < today0 ? 'Overdue' : 'Planned for today'}</small></div><button className="h-go" onClick={() => p.onGo('content')}>Open</button></div>)}
+          {planned.length > 3 && <button className="h-link" onClick={() => p.onGo('content')}>{planned.length - 3} more posts planned</button>}
+          {!due.length && !wip.length && !ready.length && !planned.length && <p className="h-empty"><b>Nothing waiting</b>Every beat is finished and out. Start a new one in FL Studio.</p>}
+        </section>
+
+        <section className="h-session">
+          <h3>Studio session</h3>
+          <div className={`h-clock ${open ? 'run' : ''}`}>{fmtClock(open ? now - open.startedAt : 0)}</div>
+          <div className="h-session-row">
+            {open ? <button className="h-btn primary" onClick={async () => { await window.api.stopSession(); p.reloadSessions() }}>Stop session</button> : <button className="h-btn" onClick={async () => { await window.api.startSession(); p.reloadSessions() }}>Start session</button>}
+            <span>{open?.auto ? 'Started with FL Studio' : open ? 'Running' : 'Not running'}</span>
+          </div>
+          <p className="h-quiet">Today {fmtHM(todayMs)}, this week {fmtHM(weekMs)}</p>
+          <label className="h-check"><input type="checkbox" checked={!!settings?.autoTrackFL} onChange={(e) => window.api.setSetting({ autoTrackFL: e.target.checked })} /> Time sessions while FL Studio is open</label>
+        </section>
+
+        <section>
+          <h3>Replies and feedback {unseen.length > 0 && <span className="h-count hot">{unseen.length} new</span>}</h3>
+          {unseen.slice(0, 3).map((c) => <div key={c.id} className="h-todo" style={{ ['--c' as string]: 'var(--accent)' }}><i /><div>{c.name || 'Someone'} on {c.beatId ? title(c.beatId) : 'a beat'}<small>{c.text.slice(0, 70)}</small></div></div>)}
+          {unseen.length > 0 && <button className="h-link" onClick={() => p.onGo('feedback')}>Open Feedback</button>}
+          {!unseen.length && <p className="h-empty"><b>{awaiting ? `${awaiting} pitch${awaiting === 1 ? '' : 'es'} out, no replies yet` : 'No replies to read'}</b>{awaiting ? 'Replies and comments show up here.' : 'Pitch a finished beat or send a feedback link, and replies show up here.'}</p>}
+        </section>
+      </aside>
     </section>
   )
 }

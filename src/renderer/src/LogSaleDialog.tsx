@@ -86,8 +86,8 @@ export function LogSaleDialog({ beats, sales, licenses, contacts, beatId: b0, ed
 
   return (
     <div className="overlay" onMouseDown={onClose}>
-      <div className="modal" onMouseDown={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Escape') onClose(); if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && valid) save() }}>
-        <header><h2>{edit ? 'Edit sale' : 'Log a sale'}</h2><button onClick={onClose}>Cancel</button></header>
+      <div className="modal formcard" onMouseDown={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Escape') onClose(); if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && valid) save() }}>
+        <header className="fc-head"><div className="ph-eyebrow">Money in</div><h2 className="ph-title fc-title">{edit ? 'Edit sale.' : 'Log a sale.'}</h2><button className="fc-x" onClick={onClose} aria-label="Cancel">Cancel</button></header>
 
         <div className="field"><label>Beat</label>
           {beat ? (
@@ -109,20 +109,20 @@ export function LogSaleDialog({ beats, sales, licenses, contacts, beatId: b0, ed
         {blocked && lock && <div className="notice err">🔒 “{beat?.title}” was sold exclusively to {lock.buyer} on {fmtDay(lock.soldAt)}. It can’t be sold again{!exclusive ? ' unless this sale happened before that date' : ''}.</div>}
         {!blocked && beat && groupSales.length > 0 && !edit && <div className="help">Already sold {groupSales.length}×: {groupSales.slice(0, 3).map((s) => `${s.licenseName} to ${s.buyer}`).join(', ')}{groupSales.length > 3 ? '…' : ''}</div>}
 
-        <div className="two">
+        <div className="stack">
           <div className="field"><label>Buyer</label><input list="buyers" value={buyer} onChange={(e) => onBuyer(e.target.value)} /><datalist id="buyers">{buyerOptions.map((b) => <option key={b} value={b} />)}</datalist></div>
           <div className="field"><label>Buyer email (optional)</label><input value={email} onChange={(e) => setEmail(e.target.value)} /></div>
         </div>
-        <div className="two">
+        <div className="stack">
           <div className="field"><label>License</label>
             {edit ? <input value={edit.licenseName} readOnly /> : (
-              <select value={licId} onChange={(e) => pickLicense(e.target.value)}>
-                {licenses.map((l) => <option key={l.id} value={l.id}>{l.name}{l.exclusive ? ' (exclusive)' : ''}</option>)}
-                <option value="custom">Custom…</option>
-              </select>
+              <div className="chipset" role="radiogroup" aria-label="License">
+                {licenses.map((l) => <button type="button" role="radio" aria-checked={licId === l.id} key={l.id} className={`fpill ${licId === l.id ? 'on' : ''}`} onClick={() => pickLicense(String(l.id))}>{l.name}{l.exclusive ? ' · excl.' : ''}</button>)}
+                <button type="button" role="radio" aria-checked={licId === 'custom'} className={`fpill ${licId === 'custom' ? 'on' : ''}`} onClick={() => pickLicense('custom')}>Custom…</button>
+              </div>
             )}
           </div>
-          <div className="field"><label>Source</label><select value={source} onChange={(e) => setSource(e.target.value as SaleSource)}>{SALE_SOURCES.map((s) => <option key={s} value={s}>{s === 'beatstars' ? 'BeatStars' : s === 'cashapp' ? 'Cash App' : s[0].toUpperCase() + s.slice(1)}</option>)}</select></div>
+          <div className="field"><label>Source</label><div className="chipset" role="radiogroup" aria-label="Source">{SALE_SOURCES.map((x) => <button type="button" role="radio" aria-checked={source === x} key={x} className={`fpill ${source === x ? 'on' : ''}`} onClick={() => setSource(x)}>{x === 'beatstars' ? 'BeatStars' : x === 'cashapp' ? 'Cash App' : x[0].toUpperCase() + x.slice(1)}</button>)}</div></div>
         </div>
         {!edit && licId === 'custom' && (
           <div className="two">
@@ -140,7 +140,7 @@ export function LogSaleDialog({ beats, sales, licenses, contacts, beatId: b0, ed
 
         {exclusive && !edit && !blocked && <div className="notice">Exclusive: this marks “{beat?.title ?? 'the beat'}”{beat && beats.filter((b) => b.groupId === beat.groupId).length > 1 ? ` and its ${beats.filter((b) => b.groupId === beat.groupId).length - 1} other version(s)` : ''} as <b>sold</b> and blocks any future sale.</div>}
         {error && <div className="notice err">{error}</div>}
-        <div className="draft-actions"><span className="flash" /><button className="primary" disabled={!valid || busy} onClick={save}>{edit ? 'Save' : exclusive ? 'Log exclusive · lock beat' : 'Log sale'} <kbd>⌘↵</kbd></button></div>
+        <div className="draft-actions fc-submit"><span className="flash" /><button className="primary" disabled={!valid || busy} onClick={save}>{edit ? 'Save' : exclusive ? 'Log exclusive · lock beat' : 'Log sale'} <kbd>⌘↵</kbd></button></div>
       </div>
     </div>
   )

@@ -2,7 +2,7 @@
 // as the live preview. When WebCodecs can encode H.264 here, Mediabunny encodes the frames straight
 // off the canvas and streams the MP4 to main (no pixel readback); otherwise the RGBA pixels go to
 // main, which pipes them into ffmpeg.
-import { canEncodeVideo, CanvasSource, Mp4OutputFormat, Output, QUALITY_HIGH, StreamTarget, type StreamTargetChunk } from 'mediabunny'
+import { canEncodeVideo, CanvasSource, Mp4OutputFormat, Output, StreamTarget, type StreamTargetChunk } from 'mediabunny'
 import { createScene, loadSceneFonts, motionScale, type SceneDraw } from '@shared/vizScene'
 import { drawOverlay } from '@shared/vizOverlay'
 import type { VizJob } from '@shared/types'
@@ -16,7 +16,7 @@ async function loadCover(url: string | null): Promise<HTMLImageElement | null> {
 }
 
 const canEncode = (W: number, H: number) =>
-  typeof VideoEncoder === 'undefined' ? Promise.resolve(false) : canEncodeVideo('avc', { width: W, height: H, bitrate: QUALITY_HIGH }).catch(() => false)
+  typeof VideoEncoder === 'undefined' ? Promise.resolve(false) : canEncodeVideo('avc', { width: W, height: H, bitrate: 12_000_000 }).catch(() => false)
 
 export function startVizWorker(): void {
   const api = window.api.vizWorker
@@ -73,7 +73,7 @@ export function startVizWorker(): void {
         format: new Mp4OutputFormat(),
         target: new StreamTarget(new WritableStream<StreamTargetChunk>({ write: (c) => api.chunk(id, c.position, c.data) }), { chunked: true, chunkSize: 4 * 1024 * 1024 })
       })
-      const src = new CanvasSource(enc, { codec: 'avc', quality: QUALITY_HIGH, keyFrameInterval: 2, latencyMode: 'quality' })
+      const src = new CanvasSource(enc, { codec: 'avc', bitrate: 12_000_000, keyFrameInterval: 2, latencyMode: 'quality' }) // a quality setting has no ceiling, and grainy looks ran to 38 Mbps
       output.addVideoTrack(src, { frameRate: j.features.fps })
       await output.start()
       const fps = j.features.fps

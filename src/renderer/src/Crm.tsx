@@ -8,6 +8,7 @@ import { OptOutGate } from './OptOutGate'
 import { errMsg } from './salesUtils'
 import { withOptOut } from '@shared/leads'
 import { Templates } from './Templates'
+import { Ticker } from './Ticker'
 import { DAY, copy, daysSince, dueLabel, fmtDate, isAwaiting, isDue, varsFor } from './crmUtils'
 
 interface Props {
@@ -51,6 +52,7 @@ export function Crm({ crm, myName, selected, onSelect, onPitch, onOpenBeat, relo
 
   return (
     <section className="crm">
+      <Ticker items={[{ n: crm.contacts.length, label: 'Contacts' }, { n: dueAll.length, label: 'Follow-ups due' }, { n: crm.pitches.length, label: 'Pitches sent' }, { n: crm.templates.length, label: 'Templates' }]} />
       <aside className="crm-list">
         <div className="crm-head">
           <h2>Pitch CRM</h2>

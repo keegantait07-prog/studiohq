@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react'
 import { STATUSES, TAG_KINDS, type Beat, type BeatDetail, type Pitch, type Post, type ProjectSection, type Sale, type SplitGroup, type Status, type TagKind, type VaultKind } from '@shared/types'
 import { clickable } from './a11y'
 import { displayKey, camelot } from '@shared/key'
-import { artUrl, artPng } from './genart'
+import { artPng } from './genart'
 import { keyColor } from './keyColor'
-import { fmtBpm, fmtDur } from './format'
+import { ago, fmtBpm, fmtDur } from './format'
+import { readiness } from './readiness'
 import { errMsg, fmtDay, money } from './salesUtils'
 import { ReleaseCard } from './ReleaseCard'
 
@@ -80,15 +81,19 @@ export function Detail({ beat, kind, allTags, onSelect, onPlay, refresh, pitched
   const save = async (patch: Parameters<typeof window.api.updateBeat>[1]) => { try { await window.api.updateBeat(beat.id, patch) } catch (e) { onError(errMsg(e)) } refresh() }
   const setBpmNum = (n: number | null) => save({ bpm: n })
   const projectName = beat.projectPath?.split('/').slice(-2).join(' / ')
+  const rd = readiness(beat)
+  const makeCover = async () => { try { const ok = await window.api.saveCover(beat.id, await artPng({ seed: `g${beat.groupId}`, peaks: beat.thumb, key: beat.key, bpm: beat.bpm })); if (ok) refresh() } catch (e) { onError(errMsg(e)) } }
 
   return (
     <aside className="detail">
-      <div className="arthero">
-        <img src={artUrl({ seed: `g${beat.groupId}`, peaks: beat.thumb, key: beat.key, bpm: beat.bpm })} alt="" />
-        <div className="arthero-side">
-          <button onClick={async () => { try { const ok = await window.api.saveCover(beat.id, await artPng({ seed: `g${beat.groupId}`, peaks: beat.thumb, key: beat.key, bpm: beat.bpm })); if (ok) refresh() } catch (e) { onError(errMsg(e)) } }}>Use as cover art</button>
-          <span className="help">{beat.coverPath ? 'A cover is set for videos.' : 'Drawn from this beat: key colour, tempo and waveform.'}</span>
-        </div>
+      <div className="rdy">
+        <div className="rdy-h"><b>Details</b><span>{rd.done} of {rd.total} filled in</span></div>
+        {rd.steps.map((s) => (
+          <div key={s.id} className={`rdy-row ${s.done ? 'd' : ''}`}>
+            <em>{s.done ? '✓' : ''}</em>{s.label}
+            {s.id === 'cover' && <button className="rdy-x" onClick={makeCover} title={s.done ? 'Draw a new cover from this beat' : 'Draw a cover from this beat: key colour, tempo and waveform'}>{s.done ? 'Redraw' : 'Draw one'}</button>}
+          </div>
+        ))}
       </div>
       <input className="title-input" value={title} onChange={(e) => setTitle(e.target.value)} onBlur={() => title !== beat.title && save({ title })} />
       <div className="filename" title={beat.path}>{beat.filename}</div>
@@ -120,7 +125,7 @@ export function Detail({ beat, kind, allTags, onSelect, onPlay, refresh, pitched
           <input value={key} placeholder="e.g. Cm, F#" onChange={(e) => setKey(e.target.value)} onBlur={() => key !== displayKey(beat.key) && save({ key })} />
         </div>
       </div>
-      <div className="meta-line">{fmtDur(beat.duration)} · {beat.ext.toUpperCase()} · {(beat.size / 1e6).toFixed(1)} MB{!beat.analyzed && ' · analyzing…'}</div>
+      <div className="meta-line">Added {ago(beat.mtime)} · {fmtDur(beat.duration)} · {beat.ext.toUpperCase()} · {(beat.size / 1e6).toFixed(1)} MB{!beat.analyzed && ' · analyzing…'}</div>
 
       {TAG_KINDS.map((k) => (
         <TagEditor key={k} kind={k} label={(kind === 'loop' ? LOOP_KIND_LABEL : KIND_LABEL)[k]} values={beat.tags[k]} suggestions={allTags[k]} onChange={async (v) => { await window.api.setTags(beat.id, { ...beat.tags, [k]: v }); refresh() }} />

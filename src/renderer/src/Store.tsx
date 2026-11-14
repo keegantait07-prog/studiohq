@@ -1,3 +1,4 @@
+import { PageHeader } from './PageHeader'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Beat, SiteEntry, SiteRowState, SiteStatus } from '@shared/types'
 import { AddToStoreDialog } from './AddToStoreDialog'
@@ -49,9 +50,8 @@ export function Store({ beats, toast, openSettings, onChanged }: { beats: Beat[]
   if (!st) return null
   return (
     <section className="sales">
+      <PageHeader eyebrow="Your storefront" title="Store" lede={`${entries.length} beat${entries.length === 1 ? '' : 's'} on the site${st.pending ? ' · changes not published' : ''}`} />
       <div className="sales-head">
-        <h2>Store</h2>
-        <span className="dim">{entries.length} beat{entries.length === 1 ? '' : 's'} on the site{st.pending ? ' · changes not published' : ''}</span>
         <div className="grow" />
         <button onClick={() => setAdding(true)}>+ Add beats</button>
         <button disabled={!!busy || !entries.length} onClick={() => run('Building…', () => window.api.siteBuildPreview())}>Preview</button>

@@ -1,3 +1,4 @@
+import { PageHeader } from './PageHeader'
 import { useMemo, useState } from 'react'
 import type { Beat, License, Sale, SalesData } from '@shared/types'
 import { ImportSalesDialog } from './ImportSalesDialog'
@@ -31,11 +32,9 @@ export function SalesView(p: Props) {
   }
   return (
     <section className="sales" onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) e.preventDefault() }} onDrop={dropped}>
+      <PageHeader eyebrow="Money in" title="Sales & Collabs" pillLabel="Section" active={tab} onPick={(k) => setTab(k as typeof tab)}
+        pills={[{ id: 'sales', label: 'Sales' }, { id: 'revenue', label: 'Revenue' }, { id: 'collabs', label: 'Collabs & splits' }, { id: 'licenses', label: 'Licenses' }]} />
       <div className="sales-head">
-        <h2>Sales & Collabs</h2>
-        <div className="seg" style={{ width: 'auto' }}>
-          {([['sales', 'Sales'], ['revenue', 'Revenue'], ['collabs', 'Collabs & splits'], ['licenses', 'Licenses']] as const).map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>)}
-        </div>
         <div className="grow" />
         {tab === 'sales' && <button onClick={async () => { try { const f = await window.api.exportSalesCsv(); if (f) p.toast(`Exported ${f.split('/').pop()}`) } catch (e) { p.toast(errMsg(e)) } }}>Export CSV</button>}
         <button onClick={pick}>Import BeatStars sales…</button>

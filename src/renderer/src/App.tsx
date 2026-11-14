@@ -1,21 +1,22 @@
 import { lazy, useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react'
 import { STATUSES, type Beat, type BeatDetail, type ContentData, type CrmData, type FeedbackData, type SoundList, type SoundStatus, type StudioSession, type SalesData, type Sale, type ScanStatus, type Settings as AppSettings, type Status, type TagKind, type NetlifyStatus, type VaultKind } from '@shared/types'
 import { clickable } from './a11y'
-import { SideNav, type TabBadges } from './Nav'
-import { sectionOf, type SectionId, type ViewId } from './navModel'
+import { SectionStrip, Transport, type TabBadges } from './Shell'
 import { ViewGuard } from './ViewGuard'
 import { useNow } from './useNow'
 import { displayKey } from '@shared/key'
 import { parseQuery } from './query'
 import { keysCompatible, bpmCompatible } from '@shared/key'
 import { usePlayer, usePlayerTime, type PlayerClock } from './player'
-import { Thumb, Waveform } from './Waveform'
-import { artUrl } from './genart'
+import { Waveform } from './Waveform'
+import { readiness } from './readiness'
 const SonicMap = lazy(() => import('./SonicMap').then((m) => ({ default: m.SonicMap })))
 import { Cleanup } from './Cleanup'
 import { hotspot, takesOf } from './audition'
 import { keyColor } from './keyColor'
 import { Detail } from './Detail'
+import { PageHeader } from './PageHeader'
+import { BeatProfile, CoverArt, StatusPill } from './BeatProfile'
 import { Palette, type Command } from './Palette'
 import { Assistant, type AssistantStatus } from './Assistant'
 import { Settings } from './Settings'
@@ -41,7 +42,7 @@ const ThemesView = lazy(() => import('./ThemesView').then((m) => ({ default: m.T
 import { BrandMark, Defs, Icon } from './Icons'
 import { THEMES, applyTheme, getTheme } from './themes'
 import { fmtClock } from './dashUtils'
-import { ago, fmtBpm, fmtDur } from './format'
+import { fmtBpm, fmtDur } from './format'
 
 interface Row { beat: Beat; count: number }
 
@@ -59,6 +60,13 @@ function PlayerReadout({ player, fallbackDuration }: { player: PlayerClock & { d
   return <div className="sub mono">{fmtDur(time)} / {fmtDur(player.duration || fallbackDuration || null)}</div>
 }
 
+/** Five small bars, one per detail a beat needs. The tooltip names what is missing. */
+function ReadyMeter({ beat }: { beat: Beat }) {
+  const r = readiness(beat)
+  const missing = r.steps.filter((s) => !s.done).map((s) => s.label)
+  return <span className="ready" title={missing.length ? `Missing: ${missing.join(', ')}` : 'Everything filled in'}>{r.steps.map((s) => <i key={s.id} className={s.done ? 'f' : ''} />)}</span>
+}
+
 /** The waveform with its moving progress line. */
 function PlayerWave({ player, peaks }: { player: PlayerClock & { duration: number; seek: (t: number) => void }; peaks: number[] }) {
   const time = usePlayerTime(player)
@@ -68,13 +76,12 @@ function PlayerWave({ player, peaks }: { player: PlayerClock & { duration: numbe
 /** The running-session timer in the sidebar. It owns the 1-second tick, so the rest of the app does not re-render every second. */
 function SessionPill({ startedAt, onClick }: { startedAt: number; onClick: () => void }) {
   const now = useNow(1000)
-  return <a className="timerpill" {...clickable(onClick)} title={`Studio session running · ${fmtClock(now - startedAt)}`} aria-label={`Studio session running, ${fmtClock(now - startedAt)}`}>●</a>
+  return <button className="tp-session" onClick={onClick} title="Studio session running"><i aria-hidden="true" />Session {fmtClock(now - startedAt)}</button>
 }
 
 export function App() {
   const [beats, setBeats] = useState<Beat[]>([])
   const [loaded, setLoaded] = useState(false)
-  const [lastTab, setLastTab] = useState<Partial<Record<SectionId, ViewId>>>({})
   const [siteInfo, setSiteInfo] = useState({ count: 0, pending: false })
   useEffect(() => { void window.api.siteStatus().then((s) => setSiteInfo({ count: s.entries.length, pending: s.pending })).catch(() => undefined) }, [])
   const [view, setView] = useState<'dashboard' | 'vault' | 'loops' | 'map' | 'crm' | 'leads' | 'sales' | 'store' | 'content' | 'sounds' | 'kits' | 'plugins' | 'feedback' | 'themes'>('dashboard')
@@ -87,6 +94,9 @@ export function App() {
   const query = queries[vaultKind]
   const statusTab = tabs[vaultKind]
   const selectedId = selectedIds[vaultKind]
+  const [profileId, setProfileId] = useState<number | null>(null)
+  const [vaultView, setVaultViewRaw] = useState<'list' | 'cards'>(() => (localStorage.getItem('shq.vaultView') === 'list' ? 'list' : 'cards'))
+  const setVaultView = (v: 'list' | 'cards') => { setVaultViewRaw(v); localStorage.setItem('shq.vaultView', v) }
   const setQuery = useCallback((q: string) => setQueries((o) => ({ ...o, [vaultKind]: q })), [vaultKind])
   const setStatusTab = useCallback((t: Status | 'all') => setTabs((o) => ({ ...o, [vaultKind]: t })), [vaultKind])
   const setSelectedId = useCallback((id: number | null) => setSelectedIds((o) => ({ ...o, [vaultKind]: id })), [vaultKind])
@@ -104,7 +114,6 @@ export function App() {
   const [naming, setNaming] = useState<string | null>(null)
   const [whatsNew, setWhatsNew] = useState(() => { try { return localStorage.getItem('shq.seen') == null } catch { return false } })
   useEffect(() => { try { localStorage.setItem('shq.collections', JSON.stringify(collections)) } catch { /* private mode */ } }, [collections])
-  useEffect(() => { setLastTab((o) => (o[sectionOf(view).id] === view ? o : { ...o, [sectionOf(view).id]: view })) }, [view])
   const openCollection = (q: string) => { setView('vault'); setTabs((o) => ({ ...o, beat: 'all' })); setQueries((o) => ({ ...o, beat: q })) }
   const openLoopCollection = (q: string) => { setView('loops'); setTabs((o) => ({ ...o, loop: 'all' })); setQueries((o) => ({ ...o, loop: q })) }
   const colls = isLoop ? loopCollections : collections
@@ -415,17 +424,34 @@ export function App() {
     </div>
   ) : null
   return (
-    <div className="app">
+    <div className="app v4">
       <Defs />
-      <div className="titlebar" />
-      <SideNav view={view} onGo={setView} badges={tabBadges} brand={<BrandMark />} onSearch={() => setPalette(true)} extra={tabExtra}>
-        {openSession && <SessionPill startedAt={openSession.startedAt} onClick={() => setView('dashboard')} />}
-        <button className={`ghost as-btn nav rail-item ${assistantOpen ? 'on' : ''}`} onClick={() => setAssistantOpen((o) => !o)} title="Assistant (⌘J). Ask it to look things up or make changes." aria-label="Assistant">
-          <em className="nl"><Icon name="assistant" /></em><span className="sn-lbl">Assistant</span>
-          {assistantStatus === 'approval' ? <i className="rail-dot hot" aria-label="Needs your approval" /> : assistantStatus === 'working' ? <span className="as-dot rail-work" title="Working…" /> : null}
+      <Transport
+        brand={<BrandMark />}
+        onFind={() => setPalette(true)}
+        deck={<>
+          <button className="dk-play" onClick={() => (player.id == null && selectedId != null ? safePlay(selectedId) : player.toggle())} aria-label={player.playing ? 'Pause' : 'Play'}>{player.playing ? '❚❚' : '▶'}</button>
+          <div className="dk-now">
+            <b>{playingDetail?.title ?? 'Nothing playing'}</b>
+            <small>{playingDetail ? [playingDetail.bpm && `${Math.round(playingDetail.bpm)} BPM`, playingDetail.key].filter(Boolean).join(', ') || 'No BPM or key yet' : 'Space plays the selected beat'}</small>
+          </div>
+          <div className="dk-wave"><PlayerWave player={player} peaks={playingDetail?.peaks ?? []} /></div>
+          <PlayerReadout player={player} fallbackDuration={playingDetail?.duration ?? null} />
+          <button className={`dk-chip ${audition ? 'on' : ''}`} onClick={() => setAudition((a) => !a)} aria-pressed={audition} title="Audition mode (A): play beats from their fullest part as you move through them">Audition</button>
+          <button className="dk-chip" onClick={flipTake} disabled={player.id == null || takesOf(beats, player.id).length < 2} title="A/B the takes of this beat at the same moment (B)">A/B</button>
+        </>}
+        right={<>
+          {scanning && <span className="tp-scan" title="Reading BPM and key">Analyzing {scan.total - scan.pending} of {scan.total}</span>}
+          {openSession && <SessionPill startedAt={openSession.startedAt} onClick={() => setView('dashboard')} />}
+        </>}
+      />
+      <SectionStrip view={view} onGo={setView} badges={tabBadges} end={<>
+        {tabExtra}
+        <button className={`st-tab st-tool ${assistantOpen ? 'on-tool' : ''}`} onClick={() => setAssistantOpen((o) => !o)} aria-pressed={assistantOpen} title="Assistant (⌘J). Ask it to look things up or make changes.">
+          Assistant{assistantStatus === 'approval' ? <span className="st-badge" aria-label="Needs your approval">!</span> : assistantStatus === 'working' ? <span className="as-dot" title="Working…" /> : null}
         </button>
-        <button className="ghost nav rail-item" onClick={() => setSettings(true)} title="Settings (⌘,)" aria-label="Settings"><em className="nl"><Icon name="settings" /></em><span className="sn-lbl">Settings</span></button>
-      </SideNav>
+        <button className="st-tab st-tool" onClick={() => setSettings(true)} title="Settings (⌘,)">Settings</button>
+      </>} />
 
       {view === 'dashboard' ? (
         <Dashboard
@@ -476,11 +502,13 @@ export function App() {
           </div>
           <button className="ghost" onClick={() => setPalette(true)}>Search everything <kbd>⌘K</kbd></button>
         </header>
+        <PageHeader eyebrow={isLoop ? 'Your loop library' : 'The vault'} title={isLoop ? 'Loops' : 'Beats'}
+          lede={isLoop ? `${counts.all ?? 0} loops in your library.` : `${counts.all ?? 0} beats. ${counts.finished ?? 0} finished, ${(counts.idea ?? 0) + (counts.wip ?? 0)} still in progress.`}
+          pills={(['all', ...STATUSES] as const).map((s) => ({ id: s, label: s === 'wip' ? 'WIP' : s, count: counts[s] ?? 0 }))} active={statusTab} onPick={(id) => setStatusTab(id as Status | 'all')} pillLabel="Stage" />
         <div className="subbar">
-          <div className="tabs">
-            {(['all', ...STATUSES] as const).map((s) => (
-              <button key={s} className={`tab ${statusTab === s ? 'on' : ''}`} onClick={() => setStatusTab(s)}>{s} <span>{counts[s] ?? 0}</span></button>
-            ))}
+          <div className="seg viewseg" role="group" aria-label="View">
+            <button className={vaultView === 'list' ? 'on' : ''} onClick={() => setVaultView('list')}>List</button>
+            <button className={vaultView === 'cards' ? 'on' : ''} onClick={() => setVaultView('cards')}>Cards</button>
           </div>
           <div className="chips-inline">{parsed.chips.map((c, i) => <span key={i} className="qchip">{c}</span>)}</div>
           {query.trim() && !colls.some((c) => c.q === query) && (naming == null
@@ -499,9 +527,28 @@ export function App() {
           )}
         </div>
 
-        <div className="table">
+        {vaultView === 'cards' && (
+          <div className="vgrid">
+            {sections.flatMap((sec) => (grouped && isShut(sec.key) ? [] : sec.rows)).map(({ beat: b, count }) => {
+              const isPlaying = player.id === b.id && player.playing
+              return (
+                <div key={b.id} data-row={b.id} className={`vcard ${b.id === selectedId ? 'sel' : ''}`} {...clickable(() => { setSelectedId(b.id); setProfileId(b.id) })}>
+                  <div className="vc-art">
+                    <CoverArt beat={b} />
+                    <button className={`play ${isPlaying ? 'on' : ''}`} aria-label="play" onClick={(e) => { e.stopPropagation(); if (b.ext === 'flp' && !b.hasPreview) return toast('FL project with no preview yet. Play it once with Studio HQ Bridge on the Master and close it.'); player.id === b.id ? player.toggle() : playBeat(b.id) }}>{isPlaying ? '❚❚' : '▶'}</button>
+                  </div>
+                  <div className="vc-t">{b.title}</div>
+                  <div className="vc-m">{fmtBpm(b.bpm)} BPM · {displayKey(b.key) || '–'}{count > 1 ? ` · ${count} versions` : ''}</div>
+                  <div className="vc-p"><StatusPill status={b.status} />{b.tags.genre.slice(0, 1).concat(b.tags.vibe.slice(0, 1)).map((t) => <span key={t} className="spill mini">{t}</span>)}</div>
+                </div>
+              )
+            })}
+            {loaded && !rows.length && <div className="empty">{list.length === 0 ? (scanning ? `Importing your ${isLoop ? 'loops' : 'beats'}…` : <>No {isLoop ? 'loops' : 'beats'} yet. Add a folder in <a onClick={() => setSettings(true)}>Settings</a>.</>) : `No ${isLoop ? 'loops' : 'beats'} match.`}</div>}
+          </div>
+        )}
+        {vaultView === 'list' && <div className="table">
           <div className="thead">
-            <span /><span>{isLoop ? 'Loop' : 'Beat'}</span><span>Tags</span><span className="r">BPM</span><span>Key</span><span className="r">Length</span><span>Status</span><span className="r">Added</span>
+            <span /><span>{isLoop ? 'Loop' : 'Beat'}</span><span>Tags</span><span className="r">BPM</span><span>Key</span><span className="r">Length</span><span>Ready</span><span>Stage</span>
           </div>
           <div className="tbody">
             {sections.map((sec) => (
@@ -518,10 +565,8 @@ export function App() {
                 <div key={b.id} data-row={b.id} className={`row ${sel ? 'sel' : ''}`} {...clickable(() => setSelectedId(b.id))} onDoubleClick={() => playBeat(b.id)}>
                   <button className={`play ${isPlaying ? 'on' : ''} ${b.ext === 'flp' && !b.hasPreview ? 'off' : ''}`} onClick={(e) => { e.stopPropagation(); if (b.ext === 'flp' && !b.hasPreview) return toast('FL project with no preview yet. Play it once with Studio HQ Bridge on the Master and close it.'); player.id === b.id ? player.toggle() : playBeat(b.id) }} aria-label="play">{isPlaying ? '❚❚' : b.ext === 'flp' && !b.hasPreview ? '–' : '▶'}</button>
                   <div className="name">
-                    <img className="arttile" alt="" src={artUrl({ seed: `g${b.groupId}`, peaks: b.thumb, key: b.key, bpm: b.bpm })} />
-                    {b.ext === 'flp' ? <span className="projthumb" title={b.hasPreview ? 'FL Studio project, preview loop' : 'FL Studio project, no audio yet'}>{b.hasPreview ? 'FL loop' : 'FL project'}</span> : <Thumb data={b.thumb} />}
                     <div className="nt">
-                      <div className="t">{b.title}{count > 1 && <em className="ver-badge">{count} versions</em>}{!collapse && b.versionLabel && <em className="ver-badge">{b.versionLabel}</em>}</div>
+                      <div className="t">{b.title}{b.ext === 'flp' && <span className="projthumb" title={b.hasPreview ? 'FL Studio project, preview loop' : 'FL Studio project, no audio yet'}>{b.hasPreview ? 'FL loop' : 'FL project'}</span>}{count > 1 && <em className="ver-badge">{count} versions</em>}{!collapse && b.versionLabel && <em className="ver-badge">{b.versionLabel}</em>}</div>
                       {b.credits && <div className="sub">{b.credits}</div>}
                     </div>
                   </div>
@@ -529,8 +574,8 @@ export function App() {
                   <span className={`r mono ${b.bpmConfidence === 'low' ? 'warn' : ''}`} title={b.bpmConfidence === 'low' ? 'Low confidence. Check half/double time.' : ''}>{fmtBpm(b.bpm)}{!b.analyzed && b.bpm == null ? '…' : ''}</span>
                   <span className="mono keycell" style={b.key ? { color: keyColor(b.key) } : undefined} title={b.keyConfidence === 'low' ? 'Low confidence. Check this by ear.' : undefined}>{b.key && <i className="kdotc" style={{ background: keyColor(b.key) }} />}{displayKey(b.key) || (b.analyzed ? '–' : '…')}{b.keyConfidence === 'low' && '?'}</span>
                   <span className="r mono dim">{fmtDur(b.duration)}</span>
-                  <span><i className={`dot st-${b.status}`} />{b.status}</span>
-                  <span className="r dim">{ago(b.mtime)}</span>
+                  <ReadyMeter beat={b} />
+                  <span className="stg"><StatusPill status={b.status} /></span>
                 </div>
               )
             })}
@@ -542,7 +587,7 @@ export function App() {
               </div>
             )}
           </div>
-        </div>
+        </div>}
       </main>
 
       {detail ? (
@@ -558,21 +603,14 @@ export function App() {
       )}
       </>)}
 
-      <footer className="player">
-        <button className="big-play" onClick={() => (player.id == null && selectedId != null ? safePlay(selectedId) : player.toggle())}>{player.playing ? '❚❚' : '▶'}</button>
-        <div className="now">
-          <div className="t">{playingDetail?.title ?? 'Nothing playing'}</div>
-          <PlayerReadout player={player} fallbackDuration={playingDetail?.duration ?? null} />
-        </div>
-        <div className="wavewrap">
-          <PlayerWave player={player} peaks={playingDetail?.peaks ?? []} />
-        </div>
-        <div className="pchips">
-          <button className={`pchip2 ${audition ? 'on' : ''}`} onClick={() => setAudition((a) => !a)} title="Audition mode (A): play beats from their fullest part as you move through them">Audition</button>
-          <button className="pchip2" onClick={flipTake} disabled={player.id == null || takesOf(beats, player.id).length < 2} title="A/B the takes of this beat at the same moment (B)">A/B</button>
-        </div>
-        {scanning && <div className="scan">Analyzing {scan.total - scan.pending}/{scan.total}<div className="bar"><div style={{ width: `${((scan.total - scan.pending) / Math.max(1, scan.total)) * 100}%` }} /></div></div>}
-      </footer>
+      {profileId != null && (() => {
+        const pb = list.find((x) => x.id === profileId)
+        if (!pb) return null
+        return <BeatProfile beat={pb} detail={detail} order={navRows.map((r) => r.beat)} player={player}
+          onClose={() => setProfileId(null)} onGo={(id) => { setSelectedId(id); setProfileId(id) }} onPlay={(id) => (player.id === id ? player.toggle() : playBeat(id))}
+          onStatus={(st) => setStatus(pb.id, st)} onEdit={() => { setSelectedId(pb.id); setProfileId(null) }} onSeek={(f) => player.duration && player.seek(f * player.duration)} />
+      })()}
+
 
       {palette && <Palette beats={everything} contacts={crm?.contacts ?? []} sales={salesData.sales} sounds={sounds?.items ?? []} onPickSound={(x) => { setSoundQuery(x.n); setView('sounds') }} onPickSale={(sale) => { setSalesQuery(sale.beatTitle); setView('sales') }} commands={commands} onPickBeat={(b) => openItem(b.id, true)} onPickContact={(c) => { setCrmSel(c.id); setView('crm') }} onClose={() => setPalette(false)} />}
       {whatsNew && (

@@ -6,6 +6,11 @@ import '@fontsource/barlow-semi-condensed/latin-600.css'
 import '@fontsource/ibm-plex-mono/latin-400.css'
 import '@fontsource/ibm-plex-mono/latin-500.css'
 import '@fontsource/ibm-plex-mono/latin-600.css'
+import '@fontsource/unbounded/latin-500.css'
+import '@fontsource/unbounded/latin-700.css'
+import '@fontsource/unbounded/latin-900.css'
+import '@fontsource/inter/latin-400.css'
+import '@fontsource/inter/latin-500.css'
 import '@fontsource/cinzel/latin-500.css'
 import '@fontsource/cinzel/latin-600.css'
 import '@fontsource/source-serif-4/latin-400.css'
@@ -19,9 +24,11 @@ import '@fontsource/barlow-condensed/latin-500.css'
 import '@fontsource/barlow-condensed/latin-600.css'
 import '@fontsource/barlow-condensed/latin-700.css'
 import './styles.css'
+import './shell.css'
 import { applyTheme, getTheme } from './themes'
 import { startVizWorker } from './vizWorker'
 import { installDialogA11y } from './a11y'
+import { installSmoothScroll } from './smoothScroll'
 
 if (location.hash === '#viz-worker') startVizWorker() // the hidden export window draws frames, no UI
 else {
@@ -31,4 +38,5 @@ else {
 for (const t of ['dragover', 'drop']) window.addEventListener(t, (e) => e.preventDefault())
 
 createRoot(document.getElementById('root')!).render(<App />)
+installSmoothScroll()
 }

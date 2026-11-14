@@ -143,7 +143,7 @@ export function Detail({ beat, kind, allTags, onSelect, onPlay, refresh, pitched
         <h3>Details <span>{rd.done} of {rd.total} filled in</span></h3>
         {rd.steps.map((s) => (
           <div key={s.id} className={`check ${s.done ? 'ok' : ''}`}>
-            <i className="box" aria-hidden="true">{s.done ? '✓' : ''}</i><span>{s.label}</span>
+            <i className="box" aria-hidden="true">{s.done ? '✓' : ''}</i><span><span className="sr-only">{s.done ? 'Done: ' : 'Missing: '}</span>{s.label}</span>
             {s.id === 'cover' ? <button onClick={makeCover} title={s.done ? 'Draw a new cover from this beat' : 'Draw a cover from this beat: key colour, tempo and waveform'}>{s.done ? 'Redraw' : 'Draw one'}</button> : <span />}
           </div>
         ))}

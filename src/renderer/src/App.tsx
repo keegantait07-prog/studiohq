@@ -569,12 +569,12 @@ export function App() {
                     const isPlaying = player.id === b.id && player.playing
                     return (
                       <div key={b.id} data-row={b.id} data-s={b.status} className={`vt-row ${sel ? 'sel' : ''}`} {...clickable(() => setSelectedId(b.id))} onDoubleClick={() => playBeat(b.id)}>
-                        <button className={`vt-play ${isPlaying ? 'on' : ''} ${b.ext === 'flp' && !b.hasPreview ? 'off' : ''}`} onClick={(e) => { e.stopPropagation(); if (b.ext === 'flp' && !b.hasPreview) return toast('FL project with no preview yet. Play it once with Studio HQ Bridge on the Master and close it.'); player.id === b.id ? player.toggle() : playBeat(b.id) }} aria-label={isPlaying ? 'pause' : 'play'}>{isPlaying ? '❚❚' : b.ext === 'flp' && !b.hasPreview ? '–' : '▶'}</button>
+                        {b.ext === 'flp' && !b.hasPreview ? <span /> : <button className={`vt-play ${isPlaying ? 'on' : ''}`} onClick={(e) => { e.stopPropagation(); player.id === b.id ? player.toggle() : playBeat(b.id) }} aria-label={isPlaying ? 'pause' : 'play'}>{isPlaying ? '❚❚' : '▶'}</button>}
                         <div className="vt-name">
                           <div className="vt-t">{b.title}{b.ext === 'flp' && <span className="projthumb" title={b.hasPreview ? 'FL Studio project, preview loop' : 'FL Studio project, no audio yet'}>{b.hasPreview ? 'FL loop' : 'FL project'}</span>}{count > 1 && <em className="ver-badge">{count} versions</em>}{!collapse && b.versionLabel && <em className="ver-badge">{b.versionLabel}</em>}</div>
                           {b.credits && <div className="vt-sub">{b.credits}</div>}
                         </div>
-                        <div className="vt-wave"><Thumb data={b.thumb} /></div>
+                        <div className="vt-wave">{b.ext === 'flp' && !b.hasPreview ? <span className="vt-none">No audio yet</span> : <Thumb data={b.thumb} />}</div>
                         <span className={`r mono ${b.bpmConfidence === 'low' ? 'warn' : ''}`} title={b.bpmConfidence === 'low' ? 'Low confidence. Check half/double time.' : ''}>{fmtBpm(b.bpm)}{!b.analyzed && b.bpm == null ? '…' : ''}</span>
                         <span className="mono keycell" style={b.key ? { color: keyColor(b.key) } : undefined} title={b.keyConfidence === 'low' ? 'Low confidence. Check this by ear.' : undefined}>{b.key && <i className="kdotc" style={{ background: keyColor(b.key) }} />}{displayKey(b.key) || (b.analyzed ? '–' : '…')}{b.keyConfidence === 'low' && '?'}</span>
                         <span><StatusPill status={b.status} /></span>

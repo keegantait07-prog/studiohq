@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Studio HQ v4: pick a direction</title>
+<style>
+body{margin:0;background:#111;color:#e8e8ea;font:15px/1.55 system-ui,sans-serif}
+main{max-width:1100px;margin:0 auto;padding:40px 28px 80px}
+h1{font-size:28px;margin:0 0 6px}
+p.lede{color:#a6a6ad;max-width:70ch}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:28px}
+article{background:#1a1a1d;border:1px solid #2c2c31;border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:10px}
+article h2{margin:0;font-size:20px}
+article a.open{align-self:flex-start;background:#fff;color:#000;text-decoration:none;font-weight:600;padding:8px 14px;border-radius:999px}
+dl{margin:0;display:grid;grid-template-columns:96px 1fr;gap:6px 10px;font-size:13.5px}
+dt{color:#8a8a92}
+dd{margin:0}
+table{width:100%;border-collapse:collapse;margin-top:32px;font-size:13.5px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid #2c2c31;vertical-align:top}
+th{color:#8a8a92;font-weight:500}
+h3{margin-top:36px}
+</style>
+</head>
+<body>
+<main>
+<h1>Three directions for Studio HQ v4</h1>
+<p class="lede">Each one covers the shell, Home, a dense view (Beats) and a dialog (Pitch). Each can be flipped between Defied and Concrete with the control in the corner, to show that the themes stay their own worlds on the new component system. Content is your real library: beat names, BPM, keys, counts, leads.</p>
+<div class="grid">
+<article>
+<h2>A · Deck</h2>
+<p>The app is an instrument. The player is the header, sections sit in one flat strip, Home shows every beat on a line from Idea to Sold.</p>
+<dl><dt>Navigation</dt><dd>Transport bar + one section strip with a gliding underline. No sidebar.</dd><dt>Home</dt><dd>One sentence telling you what to do, the Idea→Sold line, four solid colour blocks.</dd><dt>Beats</dt><dd>Dense table with waveforms and a sticky inspector.</dd><dt>Pitch</dt><dd>A routing grid: beats across the top, people down the side, tick who gets what.</dd><dt>21st refs</dt><dd>Tallyfold 1247, Analytics Bento 40334, Records Table 23604, Outline Inspector 45217, Waveform 18483, Segmented Control 43122</dd></dl>
+<a class="open" href="a-deck.html">Open A</a>
+</article>
+<article>
+<h2>B · Crate</h2>
+<p>Your catalogue as physical records. Every beat gets a printed sleeve made from its own name. Home puts one beat on the table.</p>
+<dl><dt>Navigation</dt><dd>A typographic index on the left: words and counts, no icons.</dd><dt>Home</dt><dd>One record on the table, its liner notes, what is next on the pile.</dd><dt>Beats</dt><dd>A wall of sleeves with stamped statuses; details slide over as a sheet.</dd><dt>Pitch</dt><dd>An envelope: the sleeves you are sending, address labels, the letter.</dd><dt>21st refs</dt><dd>Solenne 1290, Tweenly KPI 39900 (halftone), Curated Recommendations 1392, Toast Gravity 33302, Dashboard Shell 43212</dd></dl>
+<a class="open" href="b-crate.html">Open B</a>
+</article>
+<article>
+<h2>C · Console</h2>
+<p>Command-first. One line at the top does everything, Home is a numbered queue, a Now rail keeps the player and numbers in view.</p>
+<dl><dt>Navigation</dt><dd>⌘K command line + a small dock at the bottom. No sidebar.</dd><dt>Home</dt><dd>Your queue, ordered by what gets a beat closest to money; "Since you left" feed.</dd><dt>Beats</dt><dd>A board you drag beats across.</dd><dt>Pitch</dt><dd>Type it: "pitch spider to south", preview, review emails.</dd><dt>21st refs</dt><dd>Command Palette 2075 and 46285, Music Player Widget 12709, KPI Tile 40086, Kanban 26936, Timeline 35051, Dock Nav 19177</dd></dl>
+<a class="open" href="c-console.html">Open C</a>
+</article>
+</div>
+
+<h3>How they differ</h3>
+<table>
+<tr><th></th><th>A · Deck</th><th>B · Crate</th><th>C · Console</th></tr>
+<tr><td>Feels like</td><td>A DAW / hardware deck</td><td>A record shop, liner notes</td><td>Raycast / Linear</td></tr>
+<tr><td>Density</td><td>Highest (table, ~14 beats a screen)</td><td>Lowest (art first, ~12 sleeves a screen)</td><td>Middle (board, cards)</td></tr>
+<tr><td>Player</td><td>Always in the header</td><td>Floats in only while playing</td><td>Always in the right rail</td></tr>
+<tr><td>Best at</td><td>Working through many beats fast</td><td>Making the catalogue feel like a body of work</td><td>Doing the next thing with the keyboard</td></tr>
+<tr><td>Risk</td><td>Can read as a spreadsheet if themes stay flat</td><td>Covers are generated; weaker for 400+ loops</td><td>Hides sections; relies on you using ⌘K</td></tr>
+</table>
+
+<h3>What stays the same in all three</h3>
+<p class="lede">Same token layer (semantic names copied from how 21st themes are built), same motion rules (80/180/320 ms, ease-out on enter, no animation on keyboard row moves, reduced motion respected), same data, same features. The giant page titles, the three stacked nav layers and the always-on empty player bar are gone in all three.</p>
+<p class="lede">Audit of the current app: <a style="color:#9cf" href="../../audit/audit-2026-11-14.md">audit-2026-11-14.md</a>. References: <a style="color:#9cf" href="../21st-references/README.md">21st-references</a>.</p>
+</main>
+</body>
+</html>

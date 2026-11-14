@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en" data-w="defied">
+<head>
+<meta charset="utf-8">
+<title>Studio HQ v4 · C · Console</title>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Inter:wght@400;500;600;700&family=Barlow+Condensed:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* Direction C: CONSOLE. Command-first, no navigation chrome.
+   Shell: one command line at the top (type to go anywhere or do anything), a queue of next actions on the left,
+   a persistent "Now" rail on the right (player + live numbers). Sections live in a small dock, bottom centre.
+   Beats is a board you drag between stages. Pitch is a 3-step sheet from the command line.
+   21st refs: Command Palette 2075 + 46285 (grouped results, preview pane, shortcut keys), Music Player Widget 12709
+   (dot-grid meter), KPI Tile 40086 (rolling digits), Kanban 26936 (lanes that survive real data),
+   Timeline 35051 (grouped by day), Dock Nav 19177 (bottom dock), Underwater Dashboard 46319 (depth behind UI). */
+:root{--dur-1:.08s;--dur-2:.18s;--dur-3:.32s;--ease-out:cubic-bezier(.23,1,.32,1);--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px}
+[data-w=defied]{
+  --background:#000;--card:#0d0d0e;--raised:#161618;--well:#060607;--muted:#1d1d21;--border:rgba(255,255,255,.09);--border-2:rgba(255,255,255,.17);
+  --foreground:#f4f4f5;--fg-2:#a9a9af;--fg-3:#6b6b72;--primary:#fff;--on-primary:#000;--ring:#fff;
+  --idea:#9d8cff;--wip:#ffc24b;--done:#3ee6a0;--sent:#5cb8ff;--sold:#ff6b57;
+  --r-ctl:999px;--r-card:16px;--r-tile:10px;
+  --font-display:'Unbounded',sans-serif;--font:'Inter',sans-serif;
+  --title-fill:linear-gradient(180deg,#fff 0%,#dadade 40%,#77777f 54%,#ececf0 72%,#8a8a92 100%);
+}
+[data-w=concrete]{
+  --background:#c8c6c0;--card:#d6d4ce;--raised:#e2e0da;--well:#b8b6b0;--muted:#bdbbb5;--border:rgba(0,0,0,.14);--border-2:rgba(0,0,0,.3);
+  --foreground:#141414;--fg-2:#3b3b39;--fg-3:#62615d;--primary:#141414;--on-primary:#efede7;--ring:#ff5a1f;
+  --idea:#6d5bd0;--wip:#d98b00;--done:#13804f;--sent:#1f63b8;--sold:#ff5a1f;
+  --r-ctl:0;--r-card:0;--r-tile:0;
+  --font-display:'Barlow Condensed',sans-serif;--font:'Barlow Condensed',sans-serif;
+  --title-fill:linear-gradient(#141414,#141414);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--background);color:var(--foreground);font:400 13.5px/1.45 var(--font);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+[data-w=concrete] body{font-size:15px;background-image:radial-gradient(rgba(0,0,0,.08) 1px,transparent 1.2px),radial-gradient(rgba(255,255,255,.25) 1px,transparent 1.2px);background-size:7px 7px,11px 11px;background-position:0 0,3px 5px}
+:is(button,input){font:inherit;color:inherit;background:none;border:0}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
+.app{display:grid;grid-template-columns:1fr 340px;grid-template-rows:76px 1fr;height:100vh}
+
+/* command line */
+.top{grid-column:1/-1;display:grid;grid-template-columns:200px 1fr 200px;align-items:center;padding:0 var(--s5);gap:var(--s5)}
+.mark{font:800 15px var(--font-display);text-transform:uppercase;background:var(--title-fill);-webkit-background-clip:text;color:transparent}
+[data-w=concrete] .mark{font-size:24px}
+.cmd{justify-self:center;width:min(640px,100%);display:flex;align-items:center;gap:var(--s3);height:46px;padding:0 var(--s4);border-radius:var(--r-ctl);background:var(--card);border:1px solid var(--border-2);color:var(--fg-3);font-size:15px;cursor:text;transition:border-color var(--dur-2) ease}
+.cmd:hover{border-color:var(--fg-3)}
+.cmd .crumb{color:var(--foreground);font-weight:600}
+.cmd kbd{margin-left:auto;font:500 12px var(--font);padding:2px 7px;border:1px solid var(--border-2);border-radius:6px;color:var(--fg-2)}
+.who{justify-self:end;display:flex;align-items:center;gap:var(--s2);color:var(--fg-2);font-size:12.5px}
+.rec{width:7px;height:7px;border-radius:50%;background:var(--sold);animation:pulse 2s infinite}
+@keyframes pulse{50%{opacity:.35}}
+
+main{min-height:0;overflow:auto;padding:var(--s2) var(--s6) 110px}
+.view{display:none}.view.on{display:block;animation:in var(--dur-3) var(--ease-out) both}
+@keyframes in{from{opacity:0;transform:translateY(6px)}}
+
+/* HOME: queue */
+.qhead{display:flex;align-items:end;justify-content:space-between;margin:var(--s4) 0 var(--s4)}
+.qhead h1{font:700 26px/1.1 var(--font-display);text-transform:uppercase;background:var(--title-fill);-webkit-background-clip:text;color:transparent}
+[data-w=concrete] .qhead h1{font-size:42px;font-weight:800}
+.qhead p{color:var(--fg-2)}
+.queue{display:flex;flex-direction:column;gap:var(--s2)}
+.job{display:grid;grid-template-columns:28px 1fr auto auto;gap:var(--s4);align-items:center;padding:var(--s4) var(--s5);border-radius:var(--r-tile);background:var(--card);border:1px solid var(--border);transition:border-color var(--dur-2) ease,transform var(--dur-2) var(--ease-out)}
+@media (hover:hover){.job:hover{border-color:var(--border-2)}}
+.job .n{font:700 13px var(--font-display);color:var(--fg-3)}
+.job b{font-weight:600;font-size:15px}
+[data-w=concrete] .job b{font-size:19px;text-transform:uppercase}
+.job small{display:block;color:var(--fg-3)}
+.job .key{font-size:12px;color:var(--fg-3);border:1px solid var(--border-2);border-radius:5px;padding:1px 6px}
+.job.first{padding:var(--s5);border-color:var(--c);background:linear-gradient(90deg,color-mix(in srgb,var(--c) 14%,var(--card)),var(--card) 60%)}
+.job.first b{font-size:20px}
+[data-w=concrete] .job.first b{font-size:28px}
+.btn{height:36px;padding:0 var(--s4);border-radius:var(--r-ctl);display:inline-flex;align-items:center;gap:var(--s2);font-weight:600;white-space:nowrap;transition:background-color var(--dur-2) ease,transform var(--dur-1) var(--ease-out)}
+[data-w=concrete] .btn{text-transform:uppercase;letter-spacing:.04em;font-size:15px}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:var(--primary);color:var(--on-primary)}
+.btn.ghost{border:1px solid var(--border-2)}
+.btn.ghost:hover{background:var(--muted)}
+.feed{margin-top:var(--s6)}
+.feed h2{font-size:13px;font-weight:600;color:var(--fg-2);margin-bottom:var(--s2)}
+.day{font-size:12px;color:var(--fg-3);padding:var(--s3) 0 6px}
+.ev{display:grid;grid-template-columns:10px 1fr auto;gap:var(--s3);align-items:center;padding:8px 0;border-bottom:1px solid var(--border)}
+.ev i{width:8px;height:8px;border-radius:50%;background:var(--c)}
+.ev small{color:var(--fg-3)}
+
+/* NOW rail */
+.now{grid-row:2;grid-column:2;border-left:1px solid var(--border);padding:var(--s4) var(--s5) 110px;overflow:auto;display:flex;flex-direction:column;gap:var(--s5)}
+.deck{border-radius:var(--r-card);background:var(--card);border:1px solid var(--border);overflow:hidden}
+.dots{height:120px;background:var(--well);position:relative}
+.dots canvas{position:absolute;inset:0;width:100%;height:100%}
+.deck .meta{display:grid;grid-template-columns:1fr auto;gap:var(--s2);padding:var(--s3) var(--s4)}
+.deck .meta b{font-weight:600;font-size:15px}
+.deck .meta small{display:block;color:var(--fg-3)}
+.deck .ctl{display:flex;align-items:center;gap:var(--s3);padding:0 var(--s4) var(--s4)}
+.pp{width:40px;height:40px;border-radius:50%;background:var(--primary);color:var(--on-primary);display:grid;place-items:center}
+.scrub{flex:1;height:4px;border-radius:2px;background:var(--muted);position:relative}
+.scrub i{position:absolute;left:0;top:0;bottom:0;width:38%;background:var(--wip);border-radius:2px}
+.scrub i::after{content:"";position:absolute;right:-6px;top:-4px;width:12px;height:12px;border-radius:50%;background:var(--foreground)}
+.t{font-size:12px;color:var(--fg-3)}
+.nums{display:grid;grid-template-columns:1fr 1fr;gap:var(--s2)}
+.num{padding:var(--s3) var(--s4);border-radius:var(--r-tile);background:var(--card);border:1px solid var(--border)}
+.num small{display:block;color:var(--fg-3);font-size:12px}
+.roll{display:inline-flex;align-items:flex-start;height:34px;overflow:hidden;font:700 30px/34px var(--font-display)}
+[data-w=concrete] .roll{font-size:44px;height:46px;line-height:46px;font-weight:800}
+.roll span{display:flex;flex-direction:column;transition:transform .9s var(--ease-out)}
+.num em{font-style:normal;font-size:12px;color:var(--done);margin-left:6px}
+.now h3{font-size:13px;font-weight:600;color:var(--fg-2);margin-bottom:var(--s2)}
+.empty{padding:var(--s4);border-radius:var(--r-tile);border:1px dashed var(--border-2);color:var(--fg-2)}
+.empty b{display:block;color:var(--foreground)}
+
+/* BEATS: board */
+.board{display:grid;grid-template-columns:repeat(5,minmax(200px,1fr));gap:var(--s3);align-items:start}
+.lane{border-radius:var(--r-card);background:var(--well);border:1px solid var(--border);padding:var(--s2);min-height:420px}
+.lane header{display:flex;align-items:center;gap:var(--s2);padding:var(--s2) var(--s2) var(--s3);font-weight:600}
+.lane header i{width:9px;height:9px;border-radius:3px;background:var(--c)}
+.lane header span{margin-left:auto;color:var(--fg-3);font-weight:400}
+.card{display:grid;grid-template-columns:1fr auto;gap:2px var(--s2);padding:10px 12px;margin-bottom:6px;border-radius:var(--r-tile);background:var(--card);border:1px solid var(--border);cursor:grab;transition:transform var(--dur-2) var(--ease-out),box-shadow var(--dur-2) ease}
+.card:active{cursor:grabbing;transform:rotate(-1.5deg) scale(1.02);box-shadow:0 16px 30px rgba(0,0,0,.4)}
+.card b{font-weight:600}
+[data-w=concrete] .card b{font-size:17px;text-transform:uppercase}
+.card small{color:var(--fg-3);font-size:12px;grid-column:1}
+.card canvas{grid-column:1/-1;width:100%;height:18px;margin-top:4px}
+.card .age{font-size:11.5px;color:var(--fg-3)}
+.card.stale{box-shadow:inset 3px 0 0 var(--wip)}
+.lane .drop{border:1.5px dashed var(--border-2);border-radius:var(--r-tile);padding:var(--s4) var(--s3);color:var(--fg-3);font-size:12.5px;text-align:center}
+.boardbar{display:flex;align-items:center;gap:var(--s3);margin:var(--s4) 0}
+.boardbar h1{font:700 24px var(--font-display);text-transform:uppercase}
+[data-w=concrete] .boardbar h1{font-size:40px;font-weight:800}
+.boardbar p{color:var(--fg-3)}
+.boardbar .r{margin-left:auto;display:flex;gap:var(--s2)}
+
+/* dock */
+.dock{position:fixed;left:calc(50% - 170px);bottom:18px;transform:translateX(-50%);display:flex;gap:4px;padding:6px;border-radius:calc(var(--r-ctl) + 4px);background:color-mix(in srgb,var(--raised) 86%,transparent);backdrop-filter:blur(14px);border:1px solid var(--border-2);box-shadow:0 20px 50px rgba(0,0,0,.5);z-index:4}
+[data-w=concrete] .dock{border-radius:0}
+.dock button{position:relative;height:40px;padding:0 14px;border-radius:var(--r-ctl);color:var(--fg-2);font-weight:500;display:flex;align-items:center;gap:6px}
+[data-w=concrete] .dock button{text-transform:uppercase;font-weight:600}
+.dock button:hover{color:var(--foreground)}
+.dock button.on{background:var(--primary);color:var(--on-primary)}
+.dock .due{width:6px;height:6px;border-radius:50%;background:var(--sold);position:absolute;top:8px;right:6px}
+
+/* palette */
+.scrim{position:fixed;inset:0;display:none;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);z-index:6;justify-content:center;padding-top:9vh}
+[data-w=concrete] .scrim{background:rgba(60,58,54,.45)}
+.scrim.on{display:flex;animation:fade var(--dur-2) ease-out both}
+@keyframes fade{from{opacity:0}}
+.pal{width:780px;height:460px;display:grid;grid-template-columns:1fr 300px;grid-template-rows:auto 1fr auto;border-radius:calc(var(--r-card) + 2px);background:var(--card);border:1px solid var(--border-2);box-shadow:0 40px 100px rgba(0,0,0,.6);overflow:hidden;animation:pop var(--dur-2) var(--ease-out) both}
+@keyframes pop{from{opacity:0;transform:scale(.97) translateY(-6px)}}
+.pal .in{grid-column:1/-1;display:flex;align-items:center;gap:var(--s3);padding:0 var(--s5);height:56px;border-bottom:1px solid var(--border)}
+.pal .in input{flex:1;font-size:17px;color:var(--foreground)}
+.pal .in .chip{padding:3px 8px;border-radius:6px;background:var(--muted);font-size:12.5px}
+.res{overflow:auto;padding:var(--s2)}
+.res h4{font-size:11.5px;color:var(--fg-3);font-weight:600;padding:var(--s2) var(--s3) 4px}
+.opt{display:flex;align-items:center;gap:var(--s3);height:38px;padding:0 var(--s3);border-radius:8px;cursor:pointer}
+.opt i{width:8px;height:8px;border-radius:2px;background:var(--c,var(--fg-3))}
+.opt kbd{margin-left:auto;font:500 11.5px var(--font);color:var(--fg-3)}
+.opt.on{background:var(--muted)}
+.pv{border-left:1px solid var(--border);padding:var(--s4);display:flex;flex-direction:column;gap:var(--s3);background:var(--well)}
+.pv canvas{width:100%;height:70px}
+.pv h3{font:700 18px var(--font-display);text-transform:uppercase}
+[data-w=concrete] .pv h3{font-size:28px}
+.pv .steps{display:flex;flex-direction:column;gap:6px;color:var(--fg-2)}
+.pv .steps b{color:var(--foreground)}
+.pal footer{grid-column:1/-1;display:flex;gap:var(--s4);padding:10px var(--s5);border-top:1px solid var(--border);font-size:12px;color:var(--fg-3)}
+.pal footer .r{margin-left:auto}
+
+.mock{position:fixed;left:12px;bottom:12px;z-index:9;display:flex;gap:3px;padding:4px;background:#000;border:1px solid #555;border-radius:9px;font:500 12px system-ui;color:#bbb}
+.mock button{padding:6px 9px;border-radius:6px;font:inherit;color:inherit}
+.mock button.on{background:#fff;color:#000}
+.mock i{width:1px;background:#444;margin:3px 2px}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="mark">Studio HQ</div>
+    <div class="cmd" role="button" tabindex="0" data-open="pal"><span class="crumb" id="crumb">Today</span><span>Type a beat, a person, or what you want to do</span><kbd>⌘K</kbd></div>
+    <div class="who"><span class="rec" aria-hidden="true"></span>Session 1h 12m</div>
+  </header>
+  <main>
+    <section class="view on" id="home" aria-label="Today">
+      <div class="qhead"><h1>Your queue</h1><p>Ordered by what gets a beat closest to money</p></div>
+      <div class="queue">
+        <div class="job first" style="--c:var(--wip)"><span class="n">1</span><div><b>Finish rouge</b><small>Closest to done. Last touched 3 days ago in FL Studio.</small></div><span class="key">↵</span><button class="btn primary">Open in FL Studio</button></div>
+        <div class="job"><span class="n">2</span><div><b>Pitch Spider to 3 Southside leads</b><small>Finished 4 days ago, never sent. moneyman, hunxho, bc_shooter fit.</small></div><span class="key">P</span><button class="btn ghost" data-open="pal">Pitch</button></div>
+        <div class="job"><span class="n">3</span><div><b>Post Retroville</b><small>Finished, never posted. A video template is ready.</small></div><span class="key">V</span><button class="btn ghost">Make video</button></div>
+        <div class="job"><span class="n">4</span><div><b>Finish glo gang</b><small>11 days idle. Archive it if you are done with it.</small></div><span class="key">A</span><button class="btn ghost">Open</button></div>
+      </div>
+      <div class="feed">
+        <h2>Since you left</h2>
+        <div class="day">Today</div>
+        <div class="ev" style="--c:var(--done)"><i></i><span>State Of Anarchy marked finished</span><small>10:42</small></div>
+        <div class="ev" style="--c:var(--sent)"><i></i><span>18 new leads added from Ladder list</span><small>09:15</small></div>
+        <div class="day">Yesterday</div>
+        <div class="ev" style="--c:var(--wip)"><i></i><span>rouge saved in FL Studio (v3)</span><small>23:58</small></div>
+        <div class="ev" style="--c:var(--idea)"><i></i><span>New idea: 808 sketch</span><small>21:30</small></div>
+      </div>
+    </section>
+
+    <section class="view" id="beats" aria-label="Beats">
+      <div class="boardbar"><h1>Beats</h1><p>Drag a beat to move it on. 79 total.</p><div class="r"><button class="btn ghost">Table view</button><button class="btn ghost">Rescan FL</button></div></div>
+      <div class="board" id="board"></div>
+    </section>
+  </main>
+  <aside class="now" aria-label="Now">
+    <div class="deck">
+      <div class="dots"><canvas id="dots" aria-hidden="true"></canvas></div>
+      <div class="meta"><div><b>State Of Anarchy</b><small>143 BPM, B minor</small></div><button class="btn ghost" style="height:30px">Queue</button></div>
+      <div class="ctl"><button class="pp" aria-label="Pause"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 2h2v8H3zM7 2h2v8H7z" fill="currentColor"/></svg></button><div class="scrub" role="slider" aria-label="Position" aria-valuenow="38" tabindex="0"><i></i></div><span class="t">1:12</span></div>
+    </div>
+    <div class="nums">
+      <div class="num"><small>Ready to sell</small><span class="roll" data-to="54"></span></div>
+      <div class="num"><small>Made this week</small><span class="roll" data-to="3"></span><em>+2</em></div>
+      <div class="num"><small>Day streak</small><span class="roll" data-to="3"></span></div>
+      <div class="num"><small>Earned</small><span class="roll" data-to="0" data-pre="$"></span></div>
+    </div>
+    <div><h3>Replies</h3><div class="empty"><b>Nothing out yet</b>Pitch a finished beat and replies land here.</div></div>
+  </aside>
+</div>
+
+<nav class="dock" aria-label="Sections">
+  <button data-v="home" class="on">Today</button>
+  <button data-v="beats">Beats</button>
+  <button>Sounds</button>
+  <button>Leads</button>
+  <button>Pitches<span class="due" aria-label="2 due"></span></button>
+  <button>Money</button>
+  <button>More</button>
+</nav>
+
+<div class="scrim" id="pal" role="dialog" aria-modal="true" aria-label="Command">
+  <div class="pal">
+    <div class="in"><span class="chip">Pitch</span><input id="q" value="spider to south" aria-label="Command"></div>
+    <div class="res">
+      <h4>Do</h4>
+      <div class="opt on" style="--c:var(--sent)"><i></i>Pitch Spider to Southside leads<kbd>↵</kbd></div>
+      <div class="opt" style="--c:var(--sent)"><i></i>Pitch Spider to one person…<kbd>⌘↵</kbd></div>
+      <h4>Beats</h4>
+      <div class="opt" style="--c:var(--done)"><i></i>Spider<kbd>120, A♯ min</kbd></div>
+      <h4>People</h4>
+      <div class="opt" style="--c:var(--idea)"><i></i>moneyman<kbd>Southside, melodic</kbd></div>
+      <div class="opt" style="--c:var(--idea)"><i></i>hunxho<kbd>Hard</kbd></div>
+      <h4>Go to</h4>
+      <div class="opt"><i></i>Leads, filtered to Southside<kbd>G L</kbd></div>
+    </div>
+    <div class="pv">
+      <canvas id="pvw" aria-hidden="true"></canvas>
+      <h3>Pitch Spider</h3>
+      <div class="steps"><span><b>18</b> Southside leads with an email</span><span><b>3</b> already heard a beat from you</span><span>Template <b>Short and direct</b></span></div>
+      <button class="btn primary" style="margin-top:auto;justify-content:center">Review 18 emails</button>
+    </div>
+    <footer><span>↑↓ move</span><span>↵ run</span><span>Tab add a filter</span><span class="r">Esc close</span></footer>
+  </div>
+</div>
+
+<div class="mock" aria-label="Mockup controls"><button data-v="home" class="on">Home</button><button data-v="beats">Beats</button><button data-open="pal">Palette (pitch)</button><i></i><button data-w="defied" class="on">Defied</button><button data-w="concrete">Concrete</button></div>
+
+<script>
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim()
+function rng(s){return()=>(s=Math.sin(s*9301+49297)*233280,s-Math.floor(s))}
+function wave(c,seed,col){const d=devicePixelRatio||1,w=c.clientWidth,h=c.clientHeight;if(!w)return;c.width=w*d;c.height=h*d;const x=c.getContext('2d');x.scale(d,d);const r=rng(seed),n=Math.floor(w/3);for(let i=0;i<n;i++){const env=Math.sin(Math.PI*i/n)**.35,a=Math.max(2,(.25+.75*r())*env*h);x.fillStyle=col;x.fillRect(i*3,(h-a)/2,2,a)}}
+/* dot-grid level meter (21st 12709); pauses when the tab is hidden */
+let t0=0,raf;function dots(t){const c=document.getElementById('dots');const d=devicePixelRatio||1,w=c.clientWidth,h=c.clientHeight;if(c.width!==w*d){c.width=w*d;c.height=h*d}const x=c.getContext('2d');x.setTransform(d,0,0,d,0,0);x.clearRect(0,0,w,h);const g=8,cols=Math.floor(w/g),rows=Math.floor(h/g);const on=css('--wip'),off=css('--muted');for(let i=0;i<cols;i++){const lv=(Math.sin(i*.35+t/380)*.5+.5)*(Math.sin(i*.11-t/900)*.5+.5)*.9+.08;for(let j=0;j<rows;j++){const lit=(rows-j)/rows<lv;x.fillStyle=lit?on:off;x.beginPath();x.arc(i*g+g/2,j*g+g/2,lit?2.4:1.6,0,7);x.fill()}}raf=requestAnimationFrame(dots)}
+if(!matchMedia('(prefers-reduced-motion: reduce)').matches){raf=requestAnimationFrame(dots);document.addEventListener('visibilitychange',()=>{if(document.hidden)cancelAnimationFrame(raf);else raf=requestAnimationFrame(dots)})}else{requestAnimationFrame(t=>{dots(t);cancelAnimationFrame(raf)})}
+/* rolling digits (21st 40086) */
+document.querySelectorAll('.roll').forEach(el=>{const s=(el.dataset.pre||'')+el.dataset.to;el.innerHTML=[...s].map(ch=>/\d/.test(ch)?`<span data-d="${ch}">${[...'0123456789'].map(n=>`<b style="font:inherit">${n}</b>`).join('')}</span>`:ch).join('');setTimeout(()=>el.querySelectorAll('span').forEach(sp=>sp.style.transform=`translateY(-${sp.dataset.d*10}%)`),300)})
+const L=[['idea','Idea',[['huhhh idea','2d'],['808 sketch','5d']]],['wip','In progress',[['rouge','3d',1],['Retroville','5d'],['huhhh','7d'],['glo gang','11d',1],['glo','12d',1]]],['done','Finished',[['State Of Anarchy','2d'],['Spider','4d'],['SAYWHAT','5d'],['FALLING','6d'],['TITAN','8d']]],['sent','Pitched',[]],['sold','Sold',[]]]
+document.getElementById('board').innerHTML=L.map(([k,n,cards])=>`<div class="lane" style="--c:var(--${k})"><header><i></i>${n}<span>${{idea:4,wip:21,done:54,sent:0,sold:0}[k]}</span></header>${cards.map(([t,a,st],i)=>`<div class="card${st?' stale':''}" tabindex="0"><b>${t}</b><span class="age">${a}</span><small>${k==='done'?'ready to pitch':k==='wip'?'last saved in FL':'idea'}</small><canvas data-seed="${t.length*5+i}" data-c="--${k}"></canvas></div>`).join('')}${k==='done'?'<div class="drop">+ 49 more</div>':''}${!cards.length?`<div class="drop">${k==='sent'?'Drag a finished beat here to pitch it':'Sold beats land here'}</div>`:''}</div>`).join('')
+function draw(){document.querySelectorAll('canvas[data-seed]').forEach(c=>wave(c,+c.dataset.seed,css(c.dataset.c)));wave(document.getElementById('pvw'),33,css('--done'))}
+function show(v){document.querySelectorAll('.view').forEach(x=>x.classList.toggle('on',x.id===v));document.querySelectorAll('[data-v]').forEach(b=>b.classList.toggle('on',b.dataset.v===v));document.getElementById('crumb').textContent=v==='home'?'Today':'Beats';requestAnimationFrame(draw)}
+document.querySelectorAll('[data-v]').forEach(b=>b.addEventListener('click',()=>show(b.dataset.v)))
+document.querySelectorAll('.mock [data-w]').forEach(b=>b.addEventListener('click',()=>{document.documentElement.dataset.w=b.dataset.w;document.querySelectorAll('.mock [data-w]').forEach(x=>x.classList.toggle('on',x===b));setTimeout(draw,60)}))
+document.querySelectorAll('[data-open]').forEach(b=>b.addEventListener('click',()=>{document.getElementById(b.dataset.open).classList.add('on');requestAnimationFrame(draw);document.getElementById('q').focus()}))
+document.getElementById('pal').addEventListener('click',e=>{if(e.target.id==='pal')e.currentTarget.classList.remove('on')})
+addEventListener('keydown',e=>{if(e.key==='Escape')document.getElementById('pal').classList.remove('on');if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();document.getElementById('pal').classList.add('on');requestAnimationFrame(draw)}})
+document.fonts.ready.then(draw);addEventListener('resize',draw)
+</script>
+</body>
+</html>

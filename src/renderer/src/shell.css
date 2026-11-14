@@ -169,8 +169,6 @@
   .h-main { padding: var(--s4) var(--s5) var(--s5); }
   .h-lead { grid-template-columns: 1fr; align-items: start; }
   .h-lead h1 { font-size: 24px; max-width: 30ch; }
-  .vault { grid-template-columns: minmax(0, 1fr) 300px; }
-  .vt-h, .vt-row { grid-template-columns: 36px minmax(100px, 1.3fr) minmax(60px, 1fr) 44px 56px 100px 44px; gap: var(--s2); padding: 0 var(--s3); }
 }
 @media (prefers-reduced-motion: reduce) {
   .st-line, .h-tick, .h-btn, .h-meter i, .dk-play, .v-seg button, .v-btn, .vt-row, .vt-play { transition: none; }
@@ -300,3 +298,8 @@
 .i-more { display: flex; flex-direction: column; gap: var(--s3); border-bottom: 0; }
 .insp-empty { align-items: center; justify-content: center; text-align: center; color: var(--text-2); }
 .insp-empty p { margin: 0 0 var(--s2); }
+
+@media (max-width: 1180px) {
+  .vault { grid-template-columns: minmax(0, 1fr) 300px; }
+  .vt-h, .vt-row { grid-template-columns: 36px minmax(100px, 1.3fr) minmax(60px, 1fr) 44px 56px 100px 44px; gap: var(--s2); padding: 0 var(--s3); }
+}

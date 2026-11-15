@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Studio HQ · Pitching and Socials · mockup v1 (inspired by defiedmgmt.com)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Unbounded:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --black:#000; --bone:#f5f5f5; --grey:#8a8a8a; --grey2:#b5b5b5; --line:#2a2a2c; --well:#0b0b0c; --hot:#f5f5f5;
+  --chrome:linear-gradient(180deg,#fff 0%,#d9dadd 30%,#7d7f86 52%,#e9eaed 70%,#9a9ca3 100%);
+}
+*{box-sizing:border-box;margin:0}
+html,body{background:#000;color:var(--bone);font:14px/1.5 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--bone);outline-offset:3px}
+
+/* picker bar (not part of the design) */
+.pick{position:sticky;top:0;z-index:20;display:flex;gap:8px;align-items:center;padding:10px 20px;background:#111;border-bottom:1px solid var(--line);font-size:12px;color:var(--grey2)}
+.pick b{color:var(--bone);font-weight:600;margin-right:6px}
+.pick button{background:none;border:1px solid var(--line);border-radius:100px;padding:5px 14px}
+.pick button.on{background:var(--bone);color:#000;border-color:var(--bone)}
+.pick .sp{flex:1}
+
+.wm{font-family:Unbounded,sans-serif;font-weight:900;letter-spacing:-.01em;background:var(--chrome);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;filter:drop-shadow(0 1px 0 rgba(255,255,255,.08))}
+.caps{font-size:11px;letter-spacing:1.76px;text-transform:uppercase;color:var(--grey);font-weight:500}
+.pill{display:inline-flex;align-items:center;gap:8px;border-radius:100px;height:48px;padding:0 26px;font-size:11.5px;letter-spacing:1.84px;text-transform:uppercase;font-weight:400;border:1px solid #3a3a3c;background:rgba(0,0,0,.25);color:var(--bone)}
+.pill.solid{background:#f5f5f5;color:#000;border-color:#f5f5f5}
+.pill.sm{height:36px;padding:0 16px;font-size:11px;letter-spacing:1.76px;border-color:#2a2a2c;color:#b5b5b5}
+.dim{color:var(--grey)}
+
+/* ===== OPTION A: top navigation, like the site ===== */
+.A .top{display:flex;align-items:center;gap:36px;height:64px;padding:0 41px;background:rgba(0,0,0,.88)}
+.A .logo{font-family:Unbounded;font-weight:900;font-size:18px}
+.A .top nav{display:flex;gap:30px;margin-left:auto;align-items:center}
+.A .top nav a{font-size:12.5px;letter-spacing:2px;text-transform:uppercase;color:var(--grey);font-weight:500;cursor:pointer;padding:6px 0;border-bottom:1px solid transparent}
+.A .top nav a.on{color:var(--bone);border-color:var(--bone)}
+.A .top nav a:hover{color:var(--bone)}
+
+/* ===== OPTION B: slim rail, header strip ===== */
+.B .shell{display:grid;grid-template-columns:72px 1fr;min-height:calc(100vh - 45px)}
+.B .rail{border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:6px;padding:18px 0}
+.B .rail .logo{font-family:Unbounded;font-weight:900;font-size:14px;margin-bottom:18px}
+.B .rail a{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;color:var(--grey);cursor:pointer;font-size:10px;letter-spacing:.1em;text-transform:uppercase}
+.B .rail a.on{color:#000;background:var(--bone)}
+.B .rail a:hover:not(.on){color:var(--bone)}
+.B .shell > div{min-width:0}
+.A .shell{display:block}
+.A .rail{display:none}
+.B .top{display:none}
+
+/* ticker: the one moving thing */
+.ticker{overflow:hidden;white-space:nowrap}
+.ticker div{display:inline-flex;gap:48px;padding:12px 0;animation:tick 38s linear infinite}
+.ticker span{display:inline-flex;gap:10px;align-items:baseline}
+.ticker b{font-family:Unbounded;font-weight:400;font-size:20px;letter-spacing:.6px}
+.ticker i{font-style:normal;font-size:9px;letter-spacing:1.44px;text-transform:uppercase;color:#7d7d7f}
+@keyframes tick{to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion:reduce){.ticker div{animation:none}}
+
+main{padding:36px}
+.hd{display:flex;align-items:flex-end;gap:24px;margin-bottom:28px;flex-wrap:wrap}
+.hd h1{font-size:clamp(40px,6vw,76px);line-height:.95}
+.hd p{color:var(--grey);max-width:44ch;margin-bottom:8px}
+.hd .act{margin-left:auto;display:flex;gap:10px}
+
+.screen{display:none}.screen.on{display:block}
+
+/* ===== PITCHING ===== */
+.pitch{display:grid;grid-template-columns:minmax(300px,380px) 1fr;gap:0;border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.list{border-right:1px solid var(--line);background:var(--well)}
+.tabs{display:flex;gap:8px;padding:14px;border-bottom:1px solid var(--line)}
+.tabs button{background:none;border:1px solid var(--line);border-radius:100px;padding:5px 13px;font-size:11px;color:var(--grey2)}
+.tabs button.on{background:var(--bone);color:#000;border-color:var(--bone)}
+.lead{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:14px 18px;border-bottom:1px solid var(--line);cursor:pointer}
+.lead:hover{background:#111}
+.lead.sel{background:#141415;box-shadow:inset 2px 0 0 var(--bone)}
+.lead strong{font-weight:600;font-size:15px}
+.lead .h{color:var(--grey);font-size:12px}
+.lead .st{grid-row:1/3;grid-column:2;align-self:center;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--grey)}
+.lead .st.due{color:var(--bone)}
+.lead .st.due::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--bone);margin-right:7px;vertical-align:1px}
+.comp{padding:28px 32px;display:flex;flex-direction:column;gap:20px}
+.comp .to{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.comp .to h2{font-family:Unbounded;font-weight:700;font-size:26px;letter-spacing:-.01em}
+.field label{display:block;margin-bottom:6px}
+.box{background:var(--well);border:1px solid var(--line);border-radius:12px;padding:14px 16px;font-size:14.5px;line-height:1.6;white-space:pre-wrap}
+.box.subj{padding:10px 16px}
+.beats{border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.beat{display:grid;grid-template-columns:36px 1fr auto auto;gap:14px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)}
+.beat:last-child{border:0}
+.play{width:30px;height:30px;border-radius:50%;border:1px solid var(--grey);display:grid;place-items:center;font-size:10px;background:none}
+.beat b{font-weight:600}
+.beat .m{font-size:12px;color:var(--grey)}
+.chk{width:18px;height:18px;border-radius:50%;border:1px solid var(--grey)}
+.chk.on{background:var(--bone);border-color:var(--bone);box-shadow:inset 0 0 0 4px #000}
+.bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.bar .sp{flex:1}
+.note{font-size:12px;color:var(--grey)}
+
+/* ===== SOCIALS ===== */
+.soc{display:grid;grid-template-columns:1fr minmax(300px,380px);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.week{background:var(--well)}
+.day{display:grid;grid-template-columns:96px 1fr;border-bottom:1px solid var(--line)}
+.day:last-child{border:0}
+.day .d{padding:18px;border-right:1px solid var(--line)}
+.day .d b{display:block;font-family:Unbounded;font-weight:700;font-size:22px;line-height:1}
+.day.today .d{background:var(--bone);color:#000}
+.day.today .d .caps{color:#444}
+.posts{display:flex;flex-direction:column}
+.post{display:grid;grid-template-columns:54px 1fr auto;gap:14px;align-items:center;padding:13px 18px;border-bottom:1px solid var(--line);cursor:pointer}
+.post:last-child{border:0}
+.post:hover{background:#111}
+.post.sel{background:#141415;box-shadow:inset 2px 0 0 var(--bone)}
+.th{width:54px;height:54px;border-radius:10px;background:#161617;border:1px solid var(--line);display:grid;place-items:center;overflow:hidden}
+.th svg{width:34px;height:20px}
+.post strong{font-weight:600}
+.post .c{font-size:12.5px;color:var(--grey);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:46ch}
+.plat{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;border:1px solid var(--line);border-radius:100px;padding:3px 10px;color:var(--grey2);margin-right:8px}
+.empty{padding:18px;color:var(--grey);font-size:13px}
+.side{padding:26px 28px;display:flex;flex-direction:column;gap:18px;border-left:1px solid var(--line)}
+.side h2{font-family:Unbounded;font-weight:700;font-size:22px;letter-spacing:-.01em}
+.seg{display:flex;gap:8px;flex-wrap:wrap}
+.seg button{background:none;border:1px solid var(--line);border-radius:100px;padding:5px 13px;font-size:11px;color:var(--grey2)}
+.seg button.on{background:var(--bone);color:#000;border-color:var(--bone)}
+.meter{display:flex;gap:4px}.meter i{flex:1;height:3px;background:var(--line);border-radius:2px}.meter i.f{background:var(--bone)}
+
+@media (max-width:900px){.pitch,.soc{grid-template-columns:1fr}.list{border-right:0;border-bottom:1px solid var(--line)}.side{border-left:0;border-top:1px solid var(--line)}main{padding:20px}.A .top{padding:14px 20px;gap:16px}.A .top nav{gap:16px}}
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:50;opacity:.06;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E")}
+</style>
+</head>
+<body class="A">
+<div class="pick">
+  <b>Mockup v1</b>
+  Layout
+  <button class="on" data-l="A">A · top bar, like the site</button>
+  <button data-l="B">B · slim rail</button>
+  <span class="sp"></span>
+  Screen
+  <button class="on" data-s="pitch">Pitching</button>
+  <button data-s="social">Socials</button>
+</div>
+
+<div class="shell">
+  <aside class="rail">
+    <div class="logo wm">S</div>
+    <a>Beats</a><a class="on" data-nav="pitch">Pitch</a><a data-nav="social">Posts</a><a>Sales</a><a>Sounds</a>
+  </aside>
+  <div>
+    <header class="top">
+      <div class="logo wm">STUDIO HQ</div>
+      <nav>
+        <a>Beats</a><a>Loops</a><a class="on" data-nav="pitch">Pitching</a><a data-nav="social">Socials</a><a>Sales</a><a>Sounds</a><button class="pill sm">Settings</button>
+      </nav>
+    </header>
+
+    <div class="ticker" aria-label="This week">
+      <div>
+        <span><b>12</b><i>Pitched this week</i></span><span><b>3</b><i>Follow-ups due</i></span><span><b>156</b><i>Leads</i></span><span><b>4</b><i>Posts planned</i></span><span><b>9</b><i>Beats ready to send</i></span>
+        <span><b>12</b><i>Pitched this week</i></span><span><b>3</b><i>Follow-ups due</i></span><span><b>156</b><i>Leads</i></span><span><b>4</b><i>Posts planned</i></span><span><b>9</b><i>Beats ready to send</i></span>
+      </div>
+    </div>
+
+    <main>
+    <!-- ================= PITCHING ================= -->
+    <section class="screen on" id="pitch">
+      <div class="hd">
+        <h1 class="wm">PITCHING</h1>
+        <p>156 leads. Pick someone, pick beats, send. 3 are waiting on a follow-up.</p>
+        <div class="act"><button class="pill">Add leads</button><button class="pill solid">New pitch</button></div>
+      </div>
+
+      <div class="pitch">
+        <div class="list">
+          <div class="tabs"><button class="on">All</button><button>Big</button><button>Small</button><button>Team</button><button>Follow up</button></div>
+          <div class="lead sel"><strong>Shooter</strong><span class="st due">Follow up</span><span class="h">@bc_shooter · Moneyman</span></div>
+          <div class="lead"><strong>Demon</strong><span class="st">New</span><span class="h">@bc__demon · Moneyman</span></div>
+          <div class="lead"><strong>Reno</strong><span class="st due">Follow up</span><span class="h">@BC__reno · Moneyman</span></div>
+          <div class="lead"><strong>Savage</strong><span class="st">Pitched</span><span class="h">@bc__savage · Moneyman</span></div>
+          <div class="lead"><strong>Blitzboy</strong><span class="st">New</span><span class="h">@bc_blitzboy · Moneyman</span></div>
+          <div class="lead"><strong>Marse</strong><span class="st">New</span><span class="h">@bc_marse · Moneyman</span></div>
+          <div class="lead"><strong>Dolla</strong><span class="st due">Follow up</span><span class="h">@bc_dolla · Moneyman</span></div>
+        </div>
+
+        <div class="comp">
+          <div class="to"><h2>Shooter</h2><span class="dim">shooter@example.com</span><span class="plat" style="margin-left:auto">Email</span></div>
+
+          <div class="field"><label class="caps">Beats</label>
+            <div class="beats">
+              <div class="beat"><button class="play" aria-label="Play MOON">▶</button><div><b>MOON</b></div><span class="m">121 BPM · G# minor</span><span class="chk on"></span></div>
+              <div class="beat"><button class="play" aria-label="Play GHOST">▶</button><div><b>GHOST</b></div><span class="m">148 BPM · C# minor</span><span class="chk on"></span></div>
+              <div class="beat"><button class="play" aria-label="Play DUST">▶</button><div><b>DUST</b></div><span class="m">140 BPM · F minor</span><span class="chk"></span></div>
+            </div>
+          </div>
+
+          <div class="field"><label class="caps">Subject</label><div class="box subj">heat for you Shooter</div></div>
+          <div class="field"><label class="caps">Message</label>
+<div class="box">yoo Shooter,
+
+got some beats I think fit ur sound:
+
+• MOON (121 BPM, G# minor)
+• GHOST (148 BPM, C# minor)
+
+listen here: https://studiohq.example/p/abc123/
+
+if anything hits just hit me back and I'll send the files
+
+- smalls
+@smalls.mp3</div></div>
+
+          <div class="bar">
+            <button class="pill solid">Open in mail</button>
+            <button class="pill">Copy message</button>
+            <span class="sp"></span>
+            <span class="note">Logging it marks both beats as sent and starts the follow-up timer.</span>
+            <button class="pill">I sent it</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= SOCIALS ================= -->
+    <section class="screen" id="social">
+      <div class="hd">
+        <h1 class="wm">SOCIALS</h1>
+        <p>4 posts planned this week. Today's post still needs a caption.</p>
+        <div class="act"><button class="pill">Make a video</button><button class="pill solid">Plan a post</button></div>
+      </div>
+
+      <div class="soc">
+        <div class="week">
+          <div class="day today"><div class="d"><span class="caps">Today</span><b>12</b></div>
+            <div class="posts">
+              <div class="post sel"><div class="th"><svg viewBox="0 0 34 20" fill="#f5f5f5"><rect x="0" y="8" width="2" height="4"/><rect x="4" y="4" width="2" height="12"/><rect x="8" y="1" width="2" height="18"/><rect x="12" y="6" width="2" height="8"/><rect x="16" y="3" width="2" height="14"/><rect x="20" y="7" width="2" height="6"/><rect x="24" y="2" width="2" height="16"/><rect x="28" y="6" width="2" height="8"/><rect x="32" y="9" width="2" height="2"/></svg></div>
+                <div><strong>MOON</strong><div class="c">No caption yet</div></div><div><span class="plat">TikTok</span><span class="caps">Draft</span></div></div>
+            </div></div>
+          <div class="day"><div class="d"><span class="caps">Fri</span><b>13</b></div>
+            <div class="posts">
+              <div class="post"><div class="th"><svg viewBox="0 0 34 20" fill="#8a8a8a"><rect x="0" y="6" width="2" height="8"/><rect x="4" y="2" width="2" height="16"/><rect x="8" y="5" width="2" height="10"/><rect x="12" y="1" width="2" height="18"/><rect x="16" y="7" width="2" height="6"/><rect x="20" y="3" width="2" height="14"/><rect x="24" y="6" width="2" height="8"/><rect x="28" y="4" width="2" height="12"/></svg></div>
+                <div><strong>GHOST</strong><div class="c">dark one for the gang, send numbers for the mp3</div></div><div><span class="plat">Reels</span><span class="caps">Ready</span></div></div>
+              <div class="post"><div class="th"><svg viewBox="0 0 34 20" fill="#8a8a8a"><rect x="0" y="6" width="2" height="8"/><rect x="4" y="2" width="2" height="16"/><rect x="8" y="5" width="2" height="10"/><rect x="12" y="1" width="2" height="18"/><rect x="16" y="7" width="2" height="6"/><rect x="20" y="3" width="2" height="14"/></svg></div>
+                <div><strong>GHOST</strong><div class="c">dark one for the gang, send numbers for the mp3</div></div><div><span class="plat">Shorts</span><span class="caps">Ready</span></div></div>
+            </div></div>
+          <div class="day"><div class="d"><span class="caps">Sat</span><b>14</b></div>
+            <div class="posts"><div class="empty">Nothing planned. Plan a post for this day.</div></div></div>
+          <div class="day"><div class="d"><span class="caps">Sun</span><b>15</b></div>
+            <div class="posts">
+              <div class="post"><div class="th"><svg viewBox="0 0 34 20" fill="#8a8a8a"><rect x="0" y="8" width="2" height="4"/><rect x="4" y="3" width="2" height="14"/><rect x="8" y="6" width="2" height="8"/><rect x="12" y="2" width="2" height="16"/><rect x="16" y="5" width="2" height="10"/></svg></div>
+                <div><strong>DUST</strong><div class="c">new loop pack out tomorrow</div></div><div><span class="plat">TikTok</span><span class="caps">Planned</span></div></div>
+            </div></div>
+        </div>
+
+        <aside class="side">
+          <div><span class="caps">Post for today</span><h2 style="margin-top:8px">MOON</h2></div>
+          <div class="field"><label class="caps">Platform</label><div class="seg"><button class="on">TikTok</button><button>Reels</button><button>Shorts</button></div></div>
+          <div class="field"><label class="caps">Caption</label><div class="box" style="min-height:110px;color:var(--grey)">yoo this one hits different. send numbers for the mp3 #typebeat #producer</div></div>
+          <div class="field"><label class="caps">Ready to post</label>
+            <div class="meter"><i class="f"></i><i class="f"></i><i class="f"></i><i></i></div>
+            <p class="note" style="margin-top:8px">Beat, video and platform set. Caption still a draft.</p>
+          </div>
+          <div class="bar"><button class="pill solid">Save caption</button><button class="pill">Mark posted</button></div>
+        </aside>
+      </div>
+    </section>
+    </main>
+  </div>
+</div>
+
+<script>
+const body=document.body;
+document.querySelectorAll('[data-l]').forEach(b=>b.onclick=()=>{body.className=b.dataset.l;document.querySelectorAll('[data-l]').forEach(x=>x.classList.toggle('on',x===b))});
+function show(s){document.querySelectorAll('.screen').forEach(x=>x.classList.toggle('on',x.id===s));
+  document.querySelectorAll('[data-s]').forEach(x=>x.classList.toggle('on',x.dataset.s===s));
+  document.querySelectorAll('[data-nav]').forEach(x=>x.classList.toggle('on',x.dataset.nav===s));}
+document.querySelectorAll('[data-s],[data-nav]').forEach(b=>b.onclick=()=>show(b.dataset.s||b.dataset.nav));
+</script>
+</body>
+</html>

@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Studio HQ — Chrome Pearl mockup</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{
+  --ink:#0b0b0e; --p0:#101014; --p1:#16161b; --p2:#1c1c22; --p3:#24242c;
+  --line:rgba(255,255,255,.06); --line2:rgba(255,255,255,.11);
+  --fg:#ececf1; --dim:#9a9aa8; --mute:#62626f;
+  --pink:#ff9ad5; --cyan:#7fe7ff; --violet:#a58cff; --mint:#8ff0cf;
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter","Segoe UI",system-ui,sans-serif;
+  --mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,monospace;
+  --pearl:conic-gradient(from 200deg,#ffd6ef,#a9f1ff,#cdbcff,#ffe0ee,#b4f5e6,#c3b3ff,#ffd6ef);
+  --metal:linear-gradient(145deg,#fdfdff 0%,#9c9cab 28%,#e9e9f2 46%,#5b5b69 72%,#c9c9d6 100%);
+}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{font:13px/1.4 var(--font);color:var(--fg);background:#050507;overflow:hidden;
+  font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+
+/* ---- chrome material (hero only) ---- */
+.pearl{position:relative;border-radius:50%;
+  background:
+    radial-gradient(120% 90% at 30% 15%,rgba(255,255,255,.85),rgba(255,255,255,0) 38%),
+    radial-gradient(90% 70% at 70% 100%,rgba(20,10,60,.55),rgba(0,0,0,0) 55%),
+    var(--pearl);
+  box-shadow:
+    inset 0 1.5px 1px rgba(255,255,255,.95),
+    inset 0 -3px 5px rgba(40,20,90,.55),
+    inset 0 0 0 1px rgba(255,255,255,.35),
+    0 1px 0 rgba(255,255,255,.2),
+    0 8px 16px rgba(0,0,0,.65),
+    0 0 26px rgba(165,140,255,.28);}
+.bezel{border-radius:50%;padding:5px;background:var(--metal);
+  box-shadow:inset 0 1px 1px #fff,inset 0 -2px 3px rgba(0,0,0,.6),0 10px 22px rgba(0,0,0,.75),0 2px 4px rgba(0,0,0,.8)}
+.well{border-radius:50%;background:#050507;padding:3px;box-shadow:inset 0 3px 6px #000,0 1px 0 rgba(255,255,255,.08)}
+
+/* ---- window ---- */
+.app{position:fixed;inset:0;display:grid;grid-template-columns:232px 1fr 340px;grid-template-rows:44px 1fr 96px;
+  background:
+    radial-gradient(900px 500px at 55% -10%,rgba(150,120,255,.07),transparent 60%),
+    linear-gradient(180deg,#111115,#0a0a0d);}
+.app::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;mix-blend-mode:overlay;z-index:50;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .5 0'/></filter><rect width='160' height='160' filter='url(%23n)' opacity='.35'/></svg>")}
+
+/* titlebar */
+.top{grid-column:1/4;display:flex;align-items:center;gap:14px;padding:0 16px;border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,#1b1b21,#131318);box-shadow:inset 0 1px 0 rgba(255,255,255,.07)}
+.lights{display:flex;gap:8px}.lights i{width:12px;height:12px;border-radius:50%;background:#2a2a32;box-shadow:inset 0 1px 1px rgba(255,255,255,.2),inset 0 -1px 2px #000}
+.search{margin:0 auto;width:420px;height:28px;border-radius:9px;display:flex;align-items:center;gap:8px;padding:0 12px;color:var(--mute);
+  background:#0a0a0d;box-shadow:inset 0 2px 5px rgba(0,0,0,.8),0 1px 0 rgba(255,255,255,.06)}
+.search kbd{margin-left:auto;font:11px var(--mono);color:var(--mute);padding:1px 6px;border-radius:5px;background:#17171c;box-shadow:0 1px 0 rgba(255,255,255,.08)}
+.top .r{display:flex;align-items:center;gap:10px;color:var(--dim);font-size:12px}
+.pill{padding:3px 9px;border-radius:99px;background:#17171c;box-shadow:inset 0 1px 0 rgba(255,255,255,.07)}
+
+/* sidebar */
+.side{padding:14px 12px;display:flex;flex-direction:column;gap:2px;border-right:1px solid var(--line);
+  background:linear-gradient(180deg,#131318,#0e0e12);box-shadow:inset -1px 0 0 rgba(0,0,0,.6)}
+.brand{display:flex;align-items:center;gap:11px;padding:4px 8px 16px;font-weight:600;letter-spacing:.01em;font-size:14px}
+.brand .bezel{width:34px;height:34px;padding:3px}
+.brand .pearl{width:100%;height:100%}
+.sec{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);padding:14px 10px 6px}
+.nav{position:relative;display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:9px;color:var(--dim);cursor:pointer;transition:.15s}
+.nav:hover{background:rgba(255,255,255,.04);color:var(--fg)}
+.nav svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;opacity:.85}
+.nav b{margin-left:auto;font:500 11px var(--mono);color:var(--mute)}
+.nav.on{color:#fff;background:linear-gradient(180deg,#26262e,#1c1c22);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.1),inset 0 -1px 0 rgba(0,0,0,.5),0 4px 10px rgba(0,0,0,.45)}
+.nav.on::before{content:"";position:absolute;left:-12px;top:6px;bottom:6px;width:5px;border-radius:0 5px 5px 0;background:var(--pearl);
+  box-shadow:0 0 12px rgba(165,140,255,.7),inset 0 1px 0 #fff}
+.nav.on svg{stroke:var(--cyan);opacity:1}
+.badge{margin-left:auto;font:600 10.5px var(--font)!important;color:#1a0f2a!important;padding:1px 7px;border-radius:99px;background:var(--pearl);box-shadow:inset 0 1px 0 #fff}
+.grow{flex:1}
+.vault{margin:8px 4px 0;padding:12px;border-radius:12px;background:#0b0b0e;box-shadow:inset 0 2px 8px #000,0 1px 0 rgba(255,255,255,.06)}
+.vault small{color:var(--mute);font-size:11px}
+.meter{height:6px;margin-top:8px;border-radius:9px;background:#18181d;box-shadow:inset 0 1px 2px #000;overflow:hidden}
+.meter i{display:block;height:100%;width:62%;border-radius:9px;background:linear-gradient(90deg,var(--cyan),var(--violet),var(--pink))}
+
+/* main */
+.main{padding:20px 22px 0;display:flex;flex-direction:column;min-width:0;min-height:0}
+.head{display:flex;align-items:flex-end;gap:14px;margin-bottom:16px}
+.head h1{font-size:24px;font-weight:650;letter-spacing:-.02em}
+.head p{color:var(--mute);margin-top:2px}
+.seg{margin-left:auto;display:flex;padding:3px;border-radius:11px;background:#0a0a0d;box-shadow:inset 0 2px 5px #000,0 1px 0 rgba(255,255,255,.06)}
+.seg button{padding:5px 13px;border-radius:8px;color:var(--dim);transition:.15s}
+.seg button.on{color:#fff;background:linear-gradient(180deg,#30303a,#22222a);box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 3px 8px rgba(0,0,0,.6)}
+.filters{display:flex;gap:8px;margin-bottom:14px}
+.chip{padding:5px 12px;border-radius:99px;background:linear-gradient(180deg,#1d1d23,#17171c);color:var(--dim);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 1px 2px rgba(0,0,0,.5)}
+.chip.on{color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 0 0 1px rgba(165,140,255,.45),0 0 16px rgba(165,140,255,.25)}
+
+.table{flex:1;min-height:0;display:flex;flex-direction:column;border-radius:16px;background:linear-gradient(180deg,#131318,#0f0f13);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 0 0 1px rgba(255,255,255,.04),0 18px 40px rgba(0,0,0,.55);overflow:hidden}
+.row{display:grid;grid-template-columns:52px minmax(160px,1.6fr) minmax(120px,1.1fr) 62px 62px 62px 92px 74px;align-items:center;gap:10px;padding:0 16px}
+.thead{height:38px;color:var(--mute);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,#1a1a20,#141419);box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
+.r{text-align:right}
+.tbody{overflow:auto;flex:1}
+.tbody .row{height:54px;border-bottom:1px solid rgba(255,255,255,.035);cursor:pointer;position:relative;transition:background .12s}
+.tbody .row:hover{background:rgba(255,255,255,.025)}
+.tbody .row.sel{background:linear-gradient(90deg,rgba(165,140,255,.14),rgba(127,231,255,.05) 60%,transparent);}
+.tbody .row.sel::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--pearl);box-shadow:0 0 14px rgba(165,140,255,.8)}
+.art{width:38px;height:38px;border-radius:9px;position:relative;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12),0 3px 8px rgba(0,0,0,.6)}
+.art::after{content:"";position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.28),transparent 45%)}
+.name{display:flex;flex-direction:column;min-width:0}.name b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.name span{color:var(--mute);font-size:11.5px}
+.tags{display:flex;gap:5px;overflow:hidden}.tag{padding:2px 8px;border-radius:6px;background:#1c1c22;color:var(--dim);font-size:11.5px;box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
+.num{font:500 12.5px var(--mono);color:var(--fg)}.dim{color:var(--dim)}
+.st{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:99px;font-size:11.5px;font-weight:500;width:max-content;
+  background:#17171c;box-shadow:inset 0 1px 0 rgba(255,255,255,.07)}
+.st::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--c);box-shadow:0 0 8px var(--c)}
+.st-idea{--c:#8a8a99}.st-wip{--c:#ffc46b}.st-finished{--c:var(--mint)}.st-sent{--c:var(--cyan)}.st-sold{--c:var(--pink)}
+.mini{position:absolute;left:30px;bottom:8px}
+
+/* detail */
+.detail{margin:20px 20px 0 0;display:flex;flex-direction:column;gap:14px;min-height:0;overflow:auto;padding-bottom:16px}
+.card{border-radius:16px;padding:14px;background:linear-gradient(180deg,#17171c,#111116);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 0 0 1px rgba(255,255,255,.04),0 14px 30px rgba(0,0,0,.5)}
+.cover{aspect-ratio:1.55;border-radius:12px;position:relative;overflow:hidden;
+  background:radial-gradient(120% 120% at 20% 10%,#7e5cff,transparent 55%),radial-gradient(100% 100% at 90% 90%,#ff7ac8,transparent 55%),#1a1230;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.14),0 10px 24px rgba(0,0,0,.6)}
+.cover svg{position:absolute;inset:auto 0 0 0;width:100%;height:55%;opacity:.9}
+.cover h2{position:absolute;left:14px;top:12px;font-size:20px;letter-spacing:-.02em;text-shadow:0 2px 10px rgba(0,0,0,.5)}
+.cover span{position:absolute;left:14px;top:40px;color:rgba(255,255,255,.7);font-size:12px}
+.lbl{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);margin-bottom:8px;display:flex;gap:8px;align-items:center}
+.stseg{display:grid;grid-template-columns:repeat(5,1fr);gap:3px;padding:3px;border-radius:11px;background:#09090c;box-shadow:inset 0 2px 5px #000}
+.stseg button{height:28px;border-radius:8px;color:var(--mute);font-size:11.5px;text-transform:capitalize;transition:.15s}
+.stseg button.on{color:#14101f;font-weight:600;background:var(--pearl);box-shadow:inset 0 1px 0 #fff,inset 0 -2px 3px rgba(40,20,90,.4),0 3px 10px rgba(0,0,0,.6),0 0 14px rgba(165,140,255,.3)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.field{padding:9px 11px;border-radius:11px;background:#0a0a0d;box-shadow:inset 0 2px 5px #000,0 1px 0 rgba(255,255,255,.05)}
+.field small{color:var(--mute);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase}
+.field div{font:600 19px var(--mono);margin-top:2px;display:flex;align-items:baseline;gap:8px}
+.field em{font:500 11px var(--font);color:var(--mint);font-style:normal}
+.btn{height:34px;padding:0 14px;border-radius:10px;background:linear-gradient(180deg,#2a2a33,#1e1e25);box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 3px 8px rgba(0,0,0,.5)}
+.btn.hero{width:100%;margin-top:12px;font-weight:600;color:#14101f;background:var(--pearl);box-shadow:inset 0 1px 0 #fff,inset 0 -3px 4px rgba(40,20,90,.35),0 6px 16px rgba(0,0,0,.6),0 0 22px rgba(165,140,255,.3)}
+.btn.hero:active{transform:translateY(1px)}
+
+/* transport */
+.transport{grid-column:1/4;display:grid;grid-template-columns:232px 1fr 340px;align-items:center;border-top:1px solid var(--line2);
+  background:linear-gradient(180deg,#1a1a20,#0f0f13);box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 -12px 30px rgba(0,0,0,.5)}
+.now{display:flex;align-items:center;gap:10px;padding:0 16px;min-width:0}
+.now .art{width:44px;height:44px}
+.deck{display:flex;align-items:center;gap:18px;padding:0 18px}
+.ctl{width:30px;height:30px;color:var(--dim);display:grid;place-items:center;border-radius:50%}
+.ctl:hover{color:#fff}.ctl svg{width:18px;height:18px;fill:currentColor}
+.play{width:62px;height:62px;flex:none}.play .bezel{width:100%;height:100%}
+.play .well{width:100%;height:100%}.play .pearl{width:100%;height:100%;display:grid;place-items:center;transition:transform .12s}
+.play:active .pearl{transform:scale(.97)}
+.play svg{width:22px;height:22px;fill:#1a1030;filter:drop-shadow(0 1px 0 rgba(255,255,255,.6))}
+.scrub{flex:1;display:flex;align-items:center;gap:12px;min-width:0}
+.wave{position:relative;flex:1;height:54px;border-radius:10px;background:#08080b;box-shadow:inset 0 3px 8px #000,0 1px 0 rgba(255,255,255,.06);overflow:hidden;cursor:pointer}
+.wave canvas{position:absolute;inset:0;width:100%;height:100%}
+.head-t{position:absolute;top:0;bottom:0;width:2px;background:#fff;box-shadow:0 0 12px #fff,0 0 22px var(--violet);left:38%}
+.head-t::before{content:"";position:absolute;top:-1px;left:-6px;width:14px;height:10px;border-radius:3px;background:var(--pearl);box-shadow:inset 0 1px 0 #fff,0 2px 6px #000}
+.time{font:500 12px var(--mono);color:var(--dim);width:48px}
+.right{display:flex;align-items:center;gap:22px;padding:0 20px;justify-content:flex-end}
+.knob{width:54px;height:54px;position:relative}
+.knob .bezel{width:100%;height:100%;padding:4px}.knob .well{width:100%;height:100%;padding:3px}
+.knob .pearl{width:100%;height:100%}
+.knob .pearl::after{content:"";position:absolute;left:50%;top:6%;width:3px;height:30%;margin-left:-1.5px;border-radius:2px;background:#1a1030;transform-origin:50% 160%}
+.knob i{position:absolute;inset:-9px;border-radius:50%;background:conic-gradient(from 220deg,var(--cyan) 0 var(--v,200deg),#222 var(--v,200deg) 280deg,transparent 280deg);
+  -webkit-mask:radial-gradient(circle,transparent 31px,#000 32px,#000 34px,transparent 35px);mask:radial-gradient(circle,transparent 31px,#000 32px,#000 34px,transparent 35px);opacity:.9}
+.knob small{position:absolute;left:0;right:0;bottom:-18px;text-align:center;font-size:10px;letter-spacing:.12em;color:var(--mute);text-transform:uppercase}
+.vu{display:flex;gap:3px;height:46px;align-items:flex-end}
+.vu span{width:7px;border-radius:2px;background:linear-gradient(0deg,var(--mint),var(--cyan) 55%,var(--pink));box-shadow:0 0 8px rgba(127,231,255,.35);height:30%}
+.sc{position:absolute;left:0;top:0;width:1px;height:1px}
+::-webkit-scrollbar{width:10px}::-webkit-scrollbar-thumb{background:#2a2a33;border-radius:9px;border:3px solid #0f0f13}
+</style></head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="lights"><i></i><i></i><i></i></div>
+    <div class="search"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Search beats, tags, keys…<kbd>⌘K</kbd></div>
+    <div class="r"><span class="pill">130 beats</span><span class="pill">Synced</span></div>
+  </header>
+
+  <nav class="side">
+    <div class="brand"><div class="bezel"><div class="pearl"></div></div>Studio HQ</div>
+    <div class="nav"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Dashboard</div>
+    <div class="sec">Library</div>
+    <div class="nav on"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>Beat Vault<b>130</b></div>
+    <div class="nav"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 16 0 8 8 0 0 0-16 0M12 8v8M8 12h8"/></svg>Loop Vault<b>412</b></div>
+    <div class="nav"><svg viewBox="0 0 24 24"><circle cx="7" cy="8" r="2"/><circle cx="16" cy="6" r="2"/><circle cx="12" cy="16" r="2"/><path d="m8.5 9.5 3 5M14.7 7.7l-2 6.7"/></svg>Sonic Map</div>
+    <div class="nav"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 8l9 6 9-6"/></svg>Pitch CRM<span class="badge">3</span></div>
+    <div class="sec">Business</div>
+    <div class="nav"><svg viewBox="0 0 24 24"><path d="M12 3v18M16 7H9.5a2.5 2.5 0 0 0 0 5h5a2.5 2.5 0 0 1 0 5H7"/></svg>Sales &amp; Collabs<b>0</b></div>
+    <div class="nav"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/></svg>Content<b>5</b></div>
+    <div class="nav"><svg viewBox="0 0 24 24"><path d="M12 20V4M8 20v-8M4 20v-4M16 20V9M20 20v-6"/></svg>Feedback<b>0</b></div>
+    <div class="sec">Tools</div>
+    <div class="nav"><svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>Sound Library<b>25,018</b></div>
+    <div class="nav"><svg viewBox="0 0 24 24"><path d="M12 2 2 7l10 5 10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>Kit Maker</div>
+    <div class="nav"><svg viewBox="0 0 24 24"><path d="M10 2v6M14 2v6M7 8h10v4a5 5 0 0 1-10 0zM12 17v5"/></svg>Plugins</div>
+    <div class="grow"></div>
+    <div class="vault"><small>Vault storage</small><div style="font:600 15px var(--mono);margin-top:2px">38.2 GB <span style="color:var(--mute);font-weight:400">/ 61</span></div><div class="meter"><i></i></div></div>
+  </nav>
+
+  <main class="main">
+    <div class="head">
+      <div><h1>Beat Vault</h1><p>130 beats · 105 finished · sorted by added</p></div>
+      <div class="seg" id="view"><button class="on">List</button><button>Grid</button><button>Groups</button></div>
+    </div>
+    <div class="filters" id="filters">
+      <button class="chip on">All</button><button class="chip">Idea</button><button class="chip">WIP</button><button class="chip">Finished</button><button class="chip">Sent</button><button class="chip">Sold</button>
+    </div>
+    <section class="table">
+      <div class="row thead"><span></span><span>Beat</span><span>Tags</span><span class="r">BPM</span><span>Key</span><span class="r">Length</span><span>Status</span><span class="r">Added</span></div>
+      <div class="tbody" id="rows"></div>
+    </section>
+  </main>
+
+  <aside class="detail">
+    <div class="card">
+      <div class="cover"><h2 id="dTitle">Ghost Protocol</h2><span id="dSub">Dark trap · v3</span>
+        <svg viewBox="0 0 300 80" preserveAspectRatio="none"><path id="dWave" fill="rgba(255,255,255,.35)"/></svg></div>
+    </div>
+    <div class="card">
+      <div class="lbl">Status</div>
+      <div class="stseg" id="stseg"></div>
+    </div>
+    <div class="card">
+      <div class="grid2">
+        <div class="field"><small>BPM</small><div id="dBpm">140</div></div>
+        <div class="field"><small>Key</small><div id="dKey">F♯m</div></div>
+        <div class="field"><small>Loudness</small><div id="dLufs">−9.4<em>LUFS</em></div></div>
+        <div class="field"><small>Length</small><div id="dLen">2:48</div></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px"><button class="btn">×2</button><button class="btn">÷2</button><button class="btn" style="margin-left:auto">Re-analyse</button></div>
+      <button class="btn hero">Pitch this beat…</button>
+    </div>
+    <div class="card">
+      <div class="lbl">Pitch history</div>
+      <div style="color:var(--mute)">Not pitched yet. 3 artists match this sound.</div>
+    </div>
+  </aside>
+
+  <footer class="transport">
+    <div class="now"><div class="art" id="nArt"></div><div class="name"><b id="nT">Ghost Protocol</b><span>Studio HQ</span></div></div>
+    <div class="deck">
+      <button class="ctl"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
+      <button class="play" id="play"><div class="bezel"><div class="well"><div class="pearl"><svg viewBox="0 0 24 24" id="pIco"><path d="M8 5v14l11-7z"/></svg></div></div></div></button>
+      <button class="ctl"><svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+      <div class="scrub"><span class="time" id="t1">1:04</span>
+        <div class="wave" id="wave"><canvas id="cv"></canvas><div class="head-t" id="ph"></div></div>
+        <span class="time r" id="t2">2:48</span></div>
+    </div>
+    <div class="right">
+      <div class="vu" id="vu"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+      <div class="knob"><i id="kArc"></i><div class="bezel"><div class="well"><div class="pearl" id="kn" style="transform:rotate(40deg)"></div></div></div><small>Vol</small></div>
+    </div>
+  </footer>
+</div>
+
+<script>
+const beats=[
+ ["Ghost Protocol","Dark trap",["trap","dark"],140,"F♯m","2:48","finished","2d",260],
+ ["Velvet Hours","R&B",["rnb","smooth"],72,"A♭",  "3:12","sent","3d",300],
+ ["Kintsugi","Lo-fi",["lofi","jazz"],84,"Dm","2:05","finished","4d",190],
+ ["Neon Parish","Synthwave",["synth","drive"],118,"Cm","3:30","wip","5d",330],
+ ["Sable","Drill",["drill","uk"],142,"Gm","2:36","finished","6d",20],
+ ["Orchid Rain","Melodic",["melodic","pad"],159,"E","2:58","sold","8d",350],
+ ["Static Bloom","Hyperpop",["hyper","bright"],160,"B♭m","2:11","idea","9d",300],
+ ["Marble Arcade","Boom bap",["boombap","dusty"],90,"Fm","2:44","finished","11d",35],
+ ["Last Train North","Cinematic",["cinema","strings"],66,"C♯m","4:02","wip","12d",250],
+ ["Halcyon","Afrobeats",["afro","warm"],104,"G","3:05","finished","14d",160]
+];
+const st=["idea","wip","finished","sent","sold"];let sel=0,playing=false,prog=.38,vol=.7;
+const $=s=>document.querySelector(s);
+function seedRand(s){return()=>(s=(s*1664525+1013904223)%4294967296)/4294967296}
+function peaks(n,seed){const r=seedRand(seed*97+13);let a=[];for(let i=0;i<n;i++){const env=.35+.65*Math.abs(Math.sin(i/n*Math.PI*3.1+seed));a.push(Math.max(.06,env*(.35+r()*.65)))}return a}
+function artBg(h){return`linear-gradient(135deg,hsl(${h} 70% 55%),hsl(${(h+70)%360} 65% 28%))`}
+function renderRows(){
+  $("#rows").innerHTML=beats.map((b,i)=>`<div class="row ${i==sel?"sel":""}" data-i="${i}">
+   <div class="art" style="background:${artBg(b[8])}"></div>
+   <div class="name"><b>${b[0]}</b><span>${b[1]}</span></div>
+   <div class="tags">${b[2].map(t=>`<span class="tag">${t}</span>`).join("")}</div>
+   <span class="num r">${b[3]}</span><span class="num dim">${b[4]}</span><span class="num r dim">${b[5]}</span>
+   <span class="st st-${b[6]}">${b[6]}</span><span class="r dim">${b[7]}</span></div>`).join("");
+}
+function renderDetail(){
+  const b=beats[sel];
+  $("#dTitle").textContent=b[0];$("#dSub").textContent=b[1]+" · v1";
+  $("#dBpm").textContent=b[3];$("#dKey").textContent=b[4];$("#dLen").textContent=b[5];
+  $("#nT").textContent=b[0];$("#nArt").style.background=artBg(b[8]);
+  $("#t2").textContent=b[5];
+  $("#stseg").innerHTML=st.map(s=>`<button class="${s==b[6]?"on":""}" data-s="${s}">${s}</button>`).join("");
+  const p=peaks(60,sel+1);let d="M0 80";p.forEach((v,i)=>d+=` L${i*5} ${80-v*70}`);d+=" L300 80Z";$("#dWave").setAttribute("d",d);
+  drawWave();
+}
+function drawWave(){
+  const c=$("#cv"),w=c.clientWidth,h=c.clientHeight,dpr=devicePixelRatio||1;c.width=w*dpr;c.height=h*dpr;
+  const x=c.getContext("2d");x.scale(dpr,dpr);const p=peaks(Math.floor(w/4),sel+1);
+  p.forEach((v,i)=>{const px=i*4,on=px/w<prog;const g=x.createLinearGradient(0,0,0,h);
+    if(on){g.addColorStop(0,"#ffb3e0");g.addColorStop(.5,"#8fe9ff");g.addColorStop(1,"#a58cff")}else{g.addColorStop(0,"#4a4a58");g.addColorStop(1,"#2b2b34")}
+    x.fillStyle=g;const hh=v*h*.9;x.beginPath();x.roundRect(px,(h-hh)/2,2.4,hh,1.2);x.fill()});
+  $("#ph").style.left=(prog*100)+"%";
+}
+function knob(){$("#kn").style.transform=`rotate(${-135+vol*270}deg)`;$("#kArc").style.setProperty("--v",(vol*280)+"deg")}
+$("#rows").onclick=e=>{const r=e.target.closest(".row");if(!r)return;sel=+r.dataset.i;prog=.12;renderRows();renderDetail()};
+$("#stseg").onclick=e=>{const s=e.target.dataset.s;if(!s)return;beats[sel][6]=s;renderRows();renderDetail()};
+$("#filters").onclick=e=>{if(e.target.classList.contains("chip")){document.querySelectorAll(".chip").forEach(c=>c.classList.remove("on"));e.target.classList.add("on")}};
+$("#view").onclick=e=>{if(e.target.tagName=="BUTTON"){document.querySelectorAll("#view button").forEach(c=>c.classList.remove("on"));e.target.classList.add("on")}};
+$("#play").onclick=()=>{playing=!playing;$("#pIco").innerHTML=playing?'<path d="M7 5h4v14H7zM13 5h4v14h-4z"/>':'<path d="M8 5v14l11-7z"/>'};
+$("#wave").onclick=e=>{const r=e.currentTarget.getBoundingClientRect();prog=(e.clientX-r.left)/r.width;drawWave()};
+let drag=false;const kn=$(".knob");
+kn.onmousedown=e=>{drag=true;e.preventDefault()};addEventListener("mouseup",()=>drag=false);
+addEventListener("mousemove",e=>{if(drag){vol=Math.min(1,Math.max(0,vol-e.movementY/120));knob()}});
+setInterval(()=>{if(playing){prog=(prog+.002)%1;drawWave();const m=Math.floor(prog*168);$("#t1").textContent=Math.floor(m/60)+":"+String(m%60).padStart(2,"0")}
+  document.querySelectorAll("#vu span").forEach((s,i)=>s.style.height=(playing?20+Math.random()*75:12+i*2)+"%")},90);
+addEventListener("resize",drawWave);
+renderRows();renderDetail();knob();
+</script>
+</body></html>

@@ -1,0 +1,69 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Studio HQ – Defied-style mockup v1</title>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@300;500;700;900&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#000;--ink:#f5f5f5;--mute:#8a8a8a;--dim:#7d7d7f;--line:#2a2a2c;--line2:#3a3a3c;--card:#0b0b0c}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;min-height:100vh;
+ background-image:radial-gradient(rgba(255,255,255,.045) 1px,transparent 1px);background-size:3px 3px}
+.x{font-family:Unbounded,sans-serif;text-transform:uppercase;letter-spacing:.16em;font-weight:500}
+.app{display:grid;grid-template-columns:200px 1fr;min-height:100vh}
+aside{border-right:1px solid var(--line);padding:26px 20px;display:flex;flex-direction:column;gap:6px}
+.logo{font-family:Unbounded;font-weight:900;font-size:22px;line-height:.95;letter-spacing:-.02em;text-transform:uppercase;margin-bottom:30px;
+ background:linear-gradient(180deg,#fff 0%,#d9d9d9 35%,#7a7a7a 50%,#f2f2f2 62%,#9a9a9a 100%);-webkit-background-clip:text;color:transparent;
+ filter:drop-shadow(0 0 6px rgba(255,255,255,.25));position:relative}
+.logo small{display:block;font-size:9px;letter-spacing:.3em;font-weight:500;margin-top:6px;-webkit-text-fill-color:var(--ink)}
+.logo:after{content:"✦";position:absolute;right:-4px;top:-10px;font-size:18px;-webkit-text-fill-color:#fff;filter:drop-shadow(0 0 6px #fff)}
+aside a{font-family:Unbounded;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--mute);padding:10px 0;text-decoration:none}
+aside a.on{color:var(--ink)}aside a.on:before{content:"— ";color:var(--ink)}
+main{display:flex;flex-direction:column}
+.top{display:flex;justify-content:flex-end;gap:12px;padding:22px 32px}
+.pill{font-family:Unbounded;font-size:10.5px;letter-spacing:.17em;text-transform:uppercase;border-radius:100px;padding:13px 22px;border:1px solid var(--line2);background:rgba(0,0,0,.25);color:var(--ink)}
+.pill.w{background:#f5f5f5;color:#000;border-color:#f5f5f5;font-weight:700}
+.pill.s{padding:9px 16px;font-size:9.5px;border-color:var(--line);color:#b5b5b5}
+.hero{padding:34px 32px 38px}
+.eyebrow{font-size:10px;color:var(--mute);margin-bottom:14px}
+h1{font-family:Unbounded;font-weight:900;text-transform:uppercase;font-size:64px;line-height:.92;letter-spacing:-.03em;
+ background:linear-gradient(180deg,#fff 0%,#dcdcdc 38%,#6d6d6d 52%,#f4f4f4 64%,#8f8f8f 100%);-webkit-background-clip:text;color:transparent;filter:drop-shadow(0 0 10px rgba(255,255,255,.18))}
+.cta{display:flex;gap:12px;margin-top:28px}
+.ticker{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:rgba(0,0,0,.6);overflow:hidden;white-space:nowrap}
+.ticker div{display:inline-flex;gap:46px;padding:16px 0;animation:m 28s linear infinite}
+@keyframes m{to{transform:translateX(-50%)}}
+.t{display:inline-flex;align-items:center;gap:12px}
+.t b{font-family:Unbounded;font-size:20px;font-weight:700}
+.t span{font-family:Unbounded;font-size:9px;letter-spacing:.14em;text-transform:uppercase;line-height:1.5}
+.t span i{display:block;font-style:normal;color:var(--dim)}
+.t:after{content:"◣";color:#555;margin-left:34px;font-size:10px}
+.sec{padding:34px 32px}
+.sec h2{font-size:11px;color:var(--mute);margin-bottom:18px}
+.rows{border-top:1px solid var(--line)}
+.row{display:grid;grid-template-columns:44px 1fr 120px 90px 130px;align-items:center;gap:16px;padding:16px 0;border-bottom:1px solid var(--line)}
+.row .n{font-family:Unbounded;font-size:10px;color:var(--dim)}
+.row .ti{font-family:Unbounded;font-weight:500;font-size:14px;letter-spacing:.04em;text-transform:uppercase}
+.row .m{font-family:Unbounded;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
+.tag{justify-self:end;font-family:Unbounded;font-size:9px;letter-spacing:.16em;text-transform:uppercase;border:1px solid var(--line2);border-radius:100px;padding:7px 13px}
+.tag.on{background:#f5f5f5;color:#000;border-color:#f5f5f5}
+.row:hover{background:#0a0a0b}
+.player{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);display:flex;align-items:center;gap:18px;padding:12px 22px;border:1px solid var(--line2);border-radius:100px;background:rgba(8,8,9,.85);backdrop-filter:blur(14px)}
+.player .play{width:34px;height:34px;border-radius:50%;background:#f5f5f5;color:#000;display:grid;place-items:center;font-size:12px}
+.bar{width:220px;height:2px;background:var(--line2);position:relative}.bar:after{content:"";position:absolute;left:0;top:0;height:2px;width:38%;background:#f5f5f5}
+</style></head><body>
+<div class="app">
+<aside><div class="logo">Studio<br>HQ<small>BEATS · LEADS · SALES</small></div>
+<a class="on" href="#">Home</a><a href="#">Library</a><a href="#">Leads</a><a href="#">Store</a><a href="#">Videos</a><a href="#">Sales</a><a href="#">Settings</a></aside>
+<main>
+<div class="top"><span class="pill s">Search ⌘K</span><span class="pill s">Assistant</span></div>
+<section class="hero"><div class="eyebrow x">Thursday · 12 Nov</div>
+<h1>Ready to<br>release</h1>
+<div class="cta"><span class="pill w">Open the library</span><span class="pill">Find leads</span></div></section>
+<div class="ticker"><div id="tk"></div></div>
+<section class="sec"><h2 class="x">Next up</h2><div class="rows" id="rows"></div></section>
+</main></div>
+<div class="player"><div class="play">▶</div><span class="x" style="font-size:10px">Night Drive 142</span><div class="bar"></div><span class="x" style="font-size:9px;color:var(--mute)">1:12 / 2:44</span></div>
+<script>
+const s=[["24","BEATS","READY TO RELEASE"],["#3","LEADS","REPLIED THIS WEEK"],["$1.2K","SALES","LAST 30 DAYS"],["9","VIDEOS","SCHEDULED"]];
+const h=s.map(a=>`<span class="t"><b>${a[0]}</b><span>${a[1]}<i>${a[2]}</i></span></span>`).join("");
+document.getElementById("tk").innerHTML=h+h+h+h;
+const r=[["Night Drive 142","142 BPM · F MIN","Missing: cover","Fix"],["Glass Hours 128","128 BPM · A MIN","Ready","Release"],["Cold Press 90","90 BPM · D MIN","Ready","Release"],["Low Tide 70","70 BPM · C MIN","Missing: tags","Fix"]];
+document.getElementById("rows").innerHTML=r.map((x,i)=>`<div class="row"><span class="n">0${i+1}</span><span class="ti">${x[0]}</span><span class="m">${x[1]}</span><span class="m">${x[2]}</span><span class="tag ${x[3]=="Release"?"on":""}">${x[3]}</span></div>`).join("");
+</script></body></html>

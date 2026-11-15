@@ -69,3 +69,9 @@ Files: `src/renderer/src/Shell.tsx` (new), `shell.css` (new), `Dashboard.tsx` (r
 
 ## Not yet used
 Everything else. Each will be logged when it is applied, or listed here with a reason if it does not apply.
+
+## Phase 5 · Rollout: Beats (2026-11-14)
+- Rollout | superpowers:subagent-driven-development | Plan `docs/design/v4/rollout-plan.md`, ledger in `.superpowers/sdd/v4-rollout/`. One implementer built Beats/Loops (89b9a22), task reviewer checked spec + quality, two fix rounds through the same implementer (0ba15a1, 6d7a89b).
+- Review | ui-design-review:review + ui-design-review:ui-review | Screens at 1440 in 8 themes (list + cards) and 1024 in Defied and Ballpoint. Must fix: table ran under the inspector at 1024; inspector buttons bare after the v4 reset. Should fix: tools row wrapping, FL-only rows looking broken, checklist state by glyph only, small dim text unmeasured. Pitch-twice kept (release-card Pitch is a timeline step).
+- Polish | ui-design-review:polish + ui-design-review:ui-polish | Fixed the 6 above. Root cause of the 1024 bug: narrow @media rules sat before the base rules. Dim text measured: lowest 4.91 (Ballpoint); selected-row meta switched to --text-2 where --raise drops it under 4.5 (Faceplate, Tape, Brass).
+- Verify | superpowers:verification-before-completion | tsc clean, vitest 722 passed, no console errors in 8 themes, 1024 re-shot after fixes.

@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="en" data-w="deck">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Studio HQ v4 · Deck · Themes, Settings, Assistant, Palette, System</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@112..125,500..800&family=Inter+Tight:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Studio HQ v4 Deck: Themes, Settings, Assistant, Command palette, app-wide system pieces, icon sheet.
+   Tokens, transport, strip, dialog and toast copied from flagship.html. Only [data-w=deck] ships; the extra worlds in the
+   Themes demo are example slots that prove 1 theme looks complete and 7 still fit.
+   Life components: 8 dock, 9 placeholder cycling, 40 blur-fade modal, 41 circle-wipe theme switch, 42 quick switch,
+   43 squircle masks (progressive), 44 dynamic toggle, 45 text generate; plus 4 tooltips, 6 rolling numbers, 18 tracing timeline. */
+:root{
+  --dur-1:.08s; --dur-2:.18s; --dur-3:.32s; --ease-out:cubic-bezier(.23,1,.32,1); --ease-io:cubic-bezier(.65,.05,.36,1); --spring:cubic-bezier(.34,1.56,.64,1);
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px;
+}
+[data-w=deck]{
+  --background:#0b0b0a; --card:#121210; --raised:#1a1917; --well:#070706; --muted:#22211e; --border:rgba(255,244,230,.08); --border-2:rgba(255,244,230,.16);
+  --foreground:#f3efe8; --fg-2:#aaa49a; --fg-3:#8a847b; --primary:#ff5533; --on-primary:#0b0b0a; --ring:#ff5533;
+  --idea:#a08cff; --wip:#ffb547; --done:#4fd89a; --sent:#5fb6ff; --sold:#ff5533; --danger:#ff7a5c;
+  --r-ctl:8px; --r-card:10px; --r-chip:4px;
+  --font-display:"Archivo",sans-serif; --font:"Inter Tight",sans-serif; --display-case:uppercase; --display-track:.01em;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--background);color:var(--foreground);font:400 13.5px/1.45 var(--font);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+body{background-image:radial-gradient(rgba(255,244,230,.035) 1px,transparent 1.2px);background-size:5px 5px}
+:is(button,input,select,textarea){font:inherit;color:inherit;background:none;border:0}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
+h1,h2,h3{text-wrap:balance;font-weight:600}
+code{font:500 12px ui-monospace,Menlo,monospace;background:var(--well);border:1px solid var(--border);border-radius:4px;padding:1px 5px;color:var(--fg-2)}
+.dim{color:var(--fg-3)}
+.disp{font-family:var(--font-display);text-transform:var(--display-case);letter-spacing:var(--display-track);font-stretch:125%;font-weight:800}
+.i{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;display:block}
+i-c{display:inline-flex}
+
+.app{display:grid;grid-template-rows:64px 44px minmax(0,1fr);height:100vh}
+/* transport */
+.transport{display:grid;grid-template-columns:auto minmax(280px,1fr) minmax(200px,300px) auto;gap:var(--s5);align-items:center;padding:0 var(--s5);border-bottom:1px solid var(--border)}
+.mark{font:800 15px var(--font-display);text-transform:var(--display-case);letter-spacing:var(--display-track);font-stretch:125%;white-space:nowrap}
+.deck{position:relative;display:grid;grid-template-columns:auto 170px 1fr auto;align-items:center;gap:var(--s3);height:44px;padding:0 var(--s3) 0 6px;background:var(--well);border:1px solid var(--border)}
+.deck::before,.deck::after{content:"";position:absolute;width:8px;height:8px;border:1.5px solid var(--fg-3)}
+.deck::before{left:-1px;top:-1px;border-right:0;border-bottom:0}.deck::after{right:-1px;bottom:-1px;border-left:0;border-top:0}
+.play{width:34px;height:34px;border-radius:var(--r-ctl);background:var(--primary);color:var(--on-primary);display:grid;place-items:center;transition:transform var(--dur-1) var(--ease-out)}
+.play:active{transform:scale(.94)}
+.np b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.np small{color:var(--fg-3);font-size:11.5px}
+.deck canvas{width:100%;height:26px}
+.deck .t{color:var(--fg-2);font-size:12px}
+.search{position:relative;display:flex;align-items:center;gap:var(--s2);height:36px;padding:0 var(--s3);border:1px solid var(--border);border-radius:var(--r-ctl);color:var(--fg-3);cursor:text;min-width:0}
+.search:hover{border-color:var(--border-2)}
+.search kbd,kbd{font:500 11px var(--font);padding:1px 6px;border:1px solid var(--border-2);border-radius:5px;color:var(--fg-2);background:var(--well)}
+.search kbd{margin-left:auto}
+.session{display:flex;gap:var(--s2);align-items:center;color:var(--fg-2);font-size:12.5px;white-space:nowrap}
+.rec{width:7px;height:7px;border-radius:50%;background:var(--sold);animation:pulse 2s infinite}
+@keyframes pulse{50%{opacity:.35}}
+/* cycling placeholder (item 9) */
+.ph{position:relative;flex:1;height:20px;overflow:hidden;min-width:0;text-align:left}
+.ph span{position:absolute;left:0;top:0;right:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:20px;transition:transform .4s var(--ease-out),opacity .4s var(--ease-out)}
+.ph span.out{transform:translateY(-110%);opacity:0}.ph span.pre{transform:translateY(110%);opacity:0}
+/* strip */
+.strip{position:relative;display:flex;align-items:stretch;padding:0 var(--s4);border-bottom:1px solid var(--border);min-width:0}
+.strip button{position:relative;z-index:1;padding:0 var(--s3);color:var(--fg-2);font-weight:500;display:flex;gap:6px;align-items:center;transition:color var(--dur-2) ease;white-space:nowrap}
+.strip button:hover,.strip button.on{color:var(--foreground)}
+.strip .n{font-size:11px;color:var(--fg-3)}
+.strip .due{background:var(--sold);color:#000;border-radius:9px;padding:0 6px;font-weight:700;font-size:10.5px}
+.strip .gap{flex:1}.strip .sep{width:1px;margin:12px 4px;background:var(--border)}
+.glide{position:absolute;bottom:-1px;height:2px;background:var(--foreground);transition:transform var(--dur-3) var(--ease-io),width var(--dur-3) var(--ease-io)}
+/* text roll hover (item 3) */
+.tr{display:inline-block;overflow:hidden;height:1.45em;vertical-align:top}.tr>span{display:block;transition:transform .3s var(--ease-out)}.tr>span::after{content:attr(data-t);display:block;color:var(--foreground)}
+@media (hover:hover){.strip button:hover .tr>span{transform:translateY(-100%)}}
+
+main{min-height:0;position:relative;overflow:hidden}
+.view{display:none;height:100%;overflow:auto;padding:var(--s5) var(--s5) 84px;scrollbar-width:thin;scrollbar-color:var(--muted) transparent}
+.view.on{display:block;animation:in var(--dur-3) var(--ease-out) both}
+@keyframes in{from{opacity:0;transform:translateY(6px)}}
+.eyebrow{font:600 11px var(--font);letter-spacing:.12em;text-transform:uppercase;color:var(--fg-3)}
+.h1{font:800 28px/1.05 var(--font-display);font-stretch:125%;text-transform:var(--display-case);letter-spacing:var(--display-track)}
+.pagehead{display:flex;align-items:flex-end;justify-content:space-between;gap:var(--s5);margin-bottom:var(--s5);flex-wrap:wrap}
+.pagehead p{color:var(--fg-2);margin-top:6px;max-width:60ch}
+/* controls */
+.btn{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 14px;border:1px solid var(--border-2);border-radius:var(--r-ctl);font-weight:500;color:var(--foreground);transition:background var(--dur-2),border-color var(--dur-2),transform var(--dur-1) var(--ease-out);white-space:nowrap}
+.btn:hover{background:var(--raised)}.btn:active{transform:scale(.97)}
+.btn.pri{background:var(--primary);border-color:var(--primary);color:var(--on-primary);font-weight:600}.btn.pri:hover{filter:brightness(1.08);background:var(--primary)}
+.btn.sm{height:28px;padding:0 10px;font-size:12.5px}
+.btn.dng{border-color:var(--danger);color:var(--danger)}.btn.dng.fill{background:var(--danger);color:#0b0b0a;font-weight:600}
+.btn.ghost{border-color:transparent;color:var(--fg-2)}.btn.ghost:hover{color:var(--foreground)}
+.btn[disabled]{opacity:.4;pointer-events:none}
+.ibtn{width:32px;height:32px;display:grid;place-items:center;border-radius:var(--r-ctl);color:var(--fg-2);transition:background var(--dur-2),color var(--dur-2)}
+.ibtn:hover{background:var(--raised);color:var(--foreground)}
+.in{height:36px;width:100%;padding:0 12px;background:var(--well);border:1px solid var(--border);border-radius:var(--r-ctl);transition:border-color var(--dur-2)}
+.in:hover{border-color:var(--border-2)}.in:focus{border-color:var(--primary);outline:none}.in::placeholder{color:var(--fg-3)}
+textarea.in{height:auto;padding:10px 12px;resize:none;line-height:1.4}
+.chip{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:var(--r-chip);border:1px solid var(--border-2);font-size:11.5px;color:var(--fg-2);white-space:nowrap}
+.chip.ok{color:var(--done);border-color:rgba(79,216,154,.4)}.chip.warn{color:var(--wip);border-color:rgba(255,181,71,.4)}.chip.bad{color:var(--danger);border-color:rgba(255,122,92,.45)}
+.sq{width:8px;height:8px;border-radius:2px;display:inline-block;flex:none}
+.sq.idea{background:var(--idea)}.sq.wip{background:var(--wip)}.sq.finished{background:var(--done)}.sq.pitched{background:var(--sent)}.sq.sold{background:var(--sold)}
+.seg{display:inline-flex;position:relative;padding:3px;background:var(--well);border:1px solid var(--border);border-radius:var(--r-ctl);gap:2px;max-width:100%}
+.seg button{position:relative;z-index:1;height:28px;padding:0 12px;border-radius:6px;color:var(--fg-2);font-weight:500;display:flex;gap:6px;align-items:center;white-space:nowrap}
+.seg button.on{background:var(--raised);color:var(--foreground);box-shadow:inset 0 0 0 1px var(--border-2)}.seg button:hover{color:var(--foreground)}
+.seg .n{color:var(--fg-3);font-size:11px}
+/* dynamic toggle (item 44) */
+.sw{position:relative;width:40px;height:24px;border-radius:12px;background:var(--muted);border:1px solid var(--border-2);flex:none;transition:background var(--dur-2),border-color var(--dur-2)}
+.sw::after{content:"";position:absolute;left:3px;top:3px;width:16px;height:16px;border-radius:8px;background:var(--fg-2);transition:transform .35s var(--spring),width .2s var(--ease-out),background var(--dur-2)}
+.sw[aria-checked=true]{background:var(--primary);border-color:var(--primary)}
+.sw[aria-checked=true]::after{transform:translateX(16px);background:var(--on-primary)}
+.sw:active::after{width:22px}.sw[aria-checked=true]:active::after{transform:translateX(10px)}
+.chk{display:flex;gap:12px;align-items:flex-start;cursor:pointer;text-align:left}.chk span{padding-top:2px}
+/* skeleton / spinner */
+.sk{background:var(--raised);border-radius:4px;animation:sk 1.3s ease-in-out infinite}@keyframes sk{50%{opacity:.4}}
+.spin{animation:spin .9s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+.bar{height:2px;background:var(--muted);overflow:hidden;position:relative;border-radius:1px}.bar::after{content:"";position:absolute;inset:0 auto 0 0;width:30%;background:var(--primary);animation:ind 1.2s var(--ease-io) infinite}@keyframes ind{from{transform:translateX(-100%)}to{transform:translateX(340%)}}
+.st-loading,.st-empty,.st-error{display:none}
+body[data-st=loading] .st-loading,body[data-st=empty] .st-empty,body[data-st=error] .st-error{display:block}
+body[data-st=loading] .st-normal,body[data-st=empty] .st-normal,body[data-st=error] .st-normal{display:none}
+.notice{padding:10px 14px;border:1px solid var(--border-2);border-radius:var(--r-ctl);background:var(--well);color:var(--fg-2);display:flex;gap:10px;align-items:center}
+.notice.err{border-color:var(--danger);color:var(--foreground)}.notice.err .i{color:var(--danger)}.notice.ok{border-color:rgba(79,216,154,.5)}.notice.ok .i{color:var(--done)}
+.empty{display:grid;justify-items:start;gap:10px;padding:28px 4px;color:var(--fg-2);max-width:46ch}.empty b{color:var(--foreground);font:700 15px var(--font-display);font-stretch:125%;text-transform:var(--display-case)}
+.empty .glyph{width:40px;height:40px;border:1px dashed var(--border-2);border-radius:var(--r-card);display:grid;place-items:center;color:var(--fg-3)}
+
+/* dialogs (blur-fade entrance, item 40) */
+.scrim{position:fixed;inset:0;z-index:200;display:none;place-items:center;background:rgba(0,0,0,.66);padding:16px}
+.scrim.on{display:grid;animation:fade var(--dur-2) ease both}
+@keyframes fade{from{opacity:0}}
+.dialog{background:var(--card);border:1px solid var(--border-2);border-radius:var(--r-card);box-shadow:0 24px 64px rgba(0,0,0,.6);display:flex;flex-direction:column;max-height:calc(100vh - 32px);max-width:100%;min-height:0;overflow:hidden;animation:bf var(--dur-3) var(--ease-out) both}
+@keyframes bf{from{opacity:0;transform:translateY(10px) scale(.98);filter:blur(6px)}}
+.dh{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:16px 20px;border-bottom:1px solid var(--border)}
+.dh h2{font:800 16px var(--font-display);font-stretch:125%;text-transform:var(--display-case);letter-spacing:var(--display-track)}
+.dh p{color:var(--fg-2);font-size:12.5px;margin-top:3px}
+.df{display:flex;align-items:center;gap:var(--s3);padding:12px 20px;border-top:1px solid var(--border);background:var(--well);flex-wrap:wrap}
+.df .sp{flex:1}
+.escbtn{display:inline-flex;gap:8px;align-items:center;height:28px;padding:0 6px 0 10px;border-radius:var(--r-ctl);color:var(--fg-2)}.escbtn:hover{background:var(--raised);color:var(--foreground)}
+
+/* toasts with undo */
+.toasts{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:900;display:flex;flex-direction:column-reverse;gap:8px;align-items:center;width:min(520px,calc(100vw - 24px));pointer-events:none}
+.toast{pointer-events:auto;position:relative;display:flex;align-items:center;gap:12px;width:100%;padding:11px 8px 11px 14px;background:var(--foreground);color:#0b0b0a;border-radius:var(--r-card);box-shadow:0 12px 32px rgba(0,0,0,.5);overflow:hidden;animation:tin .4s var(--spring) both}
+.toast.out{animation:tout .2s ease both}
+@keyframes tin{from{opacity:0;transform:translateY(14px) scale(.96)}}@keyframes tout{to{opacity:0;transform:translateY(8px) scale(.98)}}
+.toast .m{flex:1;font-weight:500;line-height:1.35}
+.toast .u{height:28px;padding:0 10px;border-radius:6px;font-weight:700;color:#0b0b0a;border:1px solid rgba(11,11,10,.35);display:inline-flex;gap:6px;align-items:center}.toast .u:hover{background:rgba(11,11,10,.1)}
+.toast .x{width:28px;height:28px;display:grid;place-items:center;border-radius:6px;color:rgba(11,11,10,.7)}.toast .x:hover{background:rgba(11,11,10,.1);color:#0b0b0a}
+.toast .life{position:absolute;left:0;bottom:0;height:2px;width:100%;background:#0b0b0a;opacity:.55;transform-origin:left;animation:life 4.5s linear both}
+.toast:hover .life{animation-play-state:paused}
+@keyframes life{to{transform:scaleX(0)}}
+.toast.err{background:var(--card);color:var(--foreground);border:1px solid var(--danger)}.toast.err .i.lead{color:var(--danger)}.toast.err .u,.toast.err .x{color:var(--foreground);border-color:var(--border-2)}.toast.err .life{background:var(--danger)}
+
+/* tooltip (item 4) */
+#tip{position:fixed;z-index:1000;pointer-events:none;padding:6px 9px;background:var(--foreground);color:#0b0b0a;border-radius:6px;font-size:12px;font-weight:600;display:flex;gap:8px;align-items:center;white-space:nowrap;opacity:0;transform:translateY(4px) scale(.9);transition:opacity .16s ease,transform .26s var(--spring)}
+#tip.on{opacity:1;transform:none}#tip.top{transform-origin:bottom center}
+#tip kbd{background:rgba(11,11,10,.12);border-color:rgba(11,11,10,.25);color:#0b0b0a;padding:0 5px}
+#tip::after,.tipx::after{content:"";position:absolute;left:var(--ax,50%);width:8px;height:8px;background:inherit;transform:translateX(-50%) rotate(45deg);top:-4px;border-radius:1px}
+#tip.top::after{top:auto;bottom:-4px}
+.tipx{position:relative;display:inline-flex;gap:8px;align-items:center;padding:6px 9px;background:var(--foreground);color:#0b0b0a;border-radius:6px;font-size:12px;font-weight:600}
+.tipx.up::after{top:auto;bottom:-4px}
+
+/* mock controls (not part of the design) */
+#mc{position:fixed;left:10px;bottom:10px;z-index:2000;display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center;max-width:calc(100vw - 20px);padding:6px 10px;background:#000;border:1px dashed #6a665f;border-radius:6px;font:500 11px ui-monospace,Menlo,monospace;color:#c9c4ba}
+#mc b{color:#8a847b;font-weight:600;margin-right:2px}
+#mc button{padding:2px 7px;border-radius:4px;border:1px solid #3a3733;color:#c9c4ba;font:inherit}
+#mc button.on{background:#f3efe8;color:#000;border-color:#f3efe8}
+#mc .g{display:flex;gap:3px;align-items:center}
+
+/* ============ THEMES ============ */
+.themes{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:var(--s5);align-items:start}
+.pvwrap{position:relative;border:1px solid var(--border);border-radius:var(--r-card);background:var(--well);padding:var(--s4)}
+.pvbar{display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s3);flex-wrap:wrap}
+.pvbar h2{font:800 18px var(--font-display);font-stretch:125%;text-transform:var(--display-case)}
+.pvbar .sp{flex:1}
+.fit{position:relative;overflow:hidden;border-radius:var(--r-card)}
+.pv{width:760px;height:456px;transform-origin:0 0;background:var(--background);color:var(--foreground);font:400 12px/1.4 var(--font);border:1px solid var(--border-2);position:absolute;left:0;top:0;display:grid;grid-template-rows:44px 32px minmax(0,1fr);overflow:hidden;transition:background .3s,color .3s}
+.pv .pt{display:flex;align-items:center;gap:12px;padding:0 14px;border-bottom:1px solid var(--border)}
+.pv .pt .mk{font:800 11px var(--font-display);font-stretch:125%;text-transform:var(--display-case)}
+.pv .pt .pl{width:26px;height:26px;border-radius:var(--r-ctl);background:var(--primary);color:var(--on-primary);display:grid;place-items:center}
+.pv .pt .pw{flex:1;display:flex;align-items:center;gap:2px;height:22px}.pv .pw i{flex:1;background:var(--fg-3);border-radius:1px;opacity:.5}.pv .pw i.p{background:var(--primary);opacity:1}
+.pv .ps{display:flex;gap:14px;padding:0 14px;border-bottom:1px solid var(--border);align-items:center;color:var(--fg-2);font-weight:500}.pv .ps b{color:var(--foreground);font-weight:600;border-bottom:2px solid var(--foreground);height:32px;display:flex;align-items:center}
+.pv .pb{display:grid;grid-template-columns:minmax(0,1fr) 220px;min-height:0}
+.pv .tb{padding:10px 14px;display:grid;align-content:start;gap:2px}
+.pv .th{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}.pv .th b{font:800 17px var(--font-display);font-stretch:125%;text-transform:var(--display-case)}
+.pv .rw{display:grid;grid-template-columns:26px 1fr 56px 38px 54px;align-items:center;gap:10px;height:40px;border-bottom:1px solid var(--border);padding:0 6px}
+.pv .rw.sel{background:var(--card);box-shadow:inset 3px 0 0 var(--done)}.pv .rw.s2.sel{box-shadow:inset 3px 0 0 var(--wip)}
+.pv .rw .pb2{width:22px;height:22px;border-radius:var(--r-ctl);border:1px solid var(--border-2);display:grid;place-items:center;color:var(--fg-2)}
+.pv .rw .mw{display:flex;gap:1px;align-items:center;height:18px}.pv .mw i{width:2px;background:var(--fg-3);border-radius:1px}
+.pv .rw .tg{font-size:10.5px;text-align:center;border-radius:var(--r-chip);padding:1px 0;border:1px solid var(--border-2);color:var(--fg-2)}
+.pv .insp{border-left:1px solid var(--border);padding:12px 14px;background:var(--card);display:grid;align-content:start;gap:10px}
+.pv .insp h4{font:700 13px var(--font);}
+.pv .kv{display:flex;justify-content:space-between;color:var(--fg-2);border-bottom:1px solid var(--border);padding-bottom:6px}.pv .kv b{color:var(--foreground);font-weight:600}
+.pv .ck{display:grid;gap:6px;color:var(--fg-2)}.pv .ck div{display:flex;gap:8px;align-items:center}.pv .ck .d{width:12px;height:12px;border-radius:3px;border:1.5px solid var(--border-2)}.pv .ck .d.y{background:var(--done);border-color:var(--done)}
+.pv .pbtn{height:28px;border-radius:var(--r-ctl);background:var(--primary);color:var(--on-primary);font-weight:700;display:grid;place-items:center;margin-top:4px}
+.sheet{display:grid;grid-template-columns:1.25fr 1fr .8fr;gap:var(--s4);margin-top:var(--s4)}
+.sh{border:1px solid var(--border);border-radius:var(--r-card);padding:var(--s4);background:var(--card);min-width:0}
+.sh h3{font:600 11px var(--font);letter-spacing:.12em;text-transform:uppercase;color:var(--fg-3);margin-bottom:var(--s3)}
+.sw8{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.sw8 div{height:42px;border-radius:6px;border:1px solid var(--border-2);position:relative;overflow:hidden}.sw8 div span{position:absolute;left:5px;bottom:3px;font:600 9.5px ui-monospace,Menlo,monospace;mix-blend-mode:difference;color:#fff}
+.stat{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}.stat span{display:inline-flex;gap:6px;align-items:center;font-size:11.5px;color:var(--fg-2)}
+.spec{font:800 40px/1 var(--font-display);font-stretch:125%;text-transform:var(--display-case)}
+.shape{display:flex;gap:10px;align-items:flex-end;margin-bottom:10px}.shape div{border:1.5px solid var(--fg-2);width:44px;height:44px}
+.story{font-size:15px;line-height:1.5;max-width:52ch;min-height:3em;margin:var(--s3) 0 0}
+.story .w{display:inline-block;opacity:0;filter:blur(6px);transform:translateY(4px);animation:w .5s var(--ease-out) forwards;white-space:pre}@keyframes w{to{opacity:1;filter:none;transform:none}}
+.traits{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.worlds{display:grid;gap:var(--s2);position:sticky;top:0}
+.wgroup{font:600 11px var(--font);letter-spacing:.12em;text-transform:uppercase;color:var(--fg-3);margin:var(--s3) 0 2px}
+.wgroup:first-of-type{margin-top:0}
+.world{display:grid;grid-template-columns:48px 1fr auto;gap:12px;align-items:center;text-align:left;padding:10px;border:1px solid var(--border);border-radius:var(--r-card);background:var(--card);transition:border-color var(--dur-2),background var(--dur-2)}
+.world:hover{border-color:var(--border-2);background:var(--raised)}
+.world[aria-checked=true]{border-color:var(--primary)}
+.world.prev:not([aria-checked=true]){border-color:var(--border-2)}
+.world .sws{display:grid;grid-template-columns:repeat(2,1fr);width:48px;height:36px;border-radius:6px;overflow:hidden;border:1px solid var(--border-2)}
+@supports (corner-shape:squircle){.world .sws,.fit,.sh{corner-shape:squircle;border-radius:calc(var(--r-card)*2)}.btn,.in{corner-shape:squircle;border-radius:calc(var(--r-ctl)*1.6)}}
+.world b{display:block;font-weight:600}.world small{color:var(--fg-3);font-size:11.5px}
+.qs{display:flex;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:var(--r-card);background:var(--card);margin-top:var(--s3)}
+.qs p{flex:1;color:var(--fg-2);font-size:12.5px}
+.tgl{width:44px;height:28px;border-radius:14px;border:1px solid var(--border-2);position:relative;background:var(--well);color:var(--fg-2);display:grid;place-items:center}
+.tgl .i{position:absolute;transition:transform .4s var(--spring),opacity .2s}.tgl .a{transform:translateX(-9px)}.tgl .b{transform:translateX(9px);opacity:.35}
+.tgl[data-dark=false] .a{opacity:.35}.tgl[data-dark=false] .b{opacity:1}
+.tgl[disabled]{opacity:.45;pointer-events:none}
+.wipe{position:fixed;inset:0;z-index:1500;pointer-events:none;clip-path:circle(0 at var(--x) var(--y));animation:wipe .65s var(--ease-io) forwards}
+@keyframes wipe{to{clip-path:circle(150vmax at var(--x) var(--y))}}
+
+/* ============ SETTINGS ============ */
+.set{display:grid;grid-template-columns:190px minmax(0,740px) 290px;gap:var(--s6);justify-content:center;align-items:start}
+.set>.rail{grid-column:1;grid-row:1}.set>.sbody{grid-column:2;grid-row:1;min-width:0}.set>.conn{grid-column:3;grid-row:1}
+.rail{position:sticky;top:0;display:grid;gap:2px;align-content:start}
+.rail h4{font:600 11px var(--font);letter-spacing:.12em;text-transform:uppercase;color:var(--fg-3);margin:14px 0 4px;padding-left:10px}.rail h4:first-child{margin-top:0}
+.rail a{display:block;padding:5px 10px;border-left:2px solid var(--border);color:var(--fg-2);cursor:pointer;text-decoration:none;transition:color var(--dur-2),border-color var(--dur-2)}
+.rail a:hover{color:var(--foreground)}.rail a.on{color:var(--foreground);border-color:var(--primary)}
+.conn{position:sticky;top:0;border:1px solid var(--border);border-radius:var(--r-card);background:var(--card);padding:var(--s4);display:grid;gap:2px}
+.conn h3{font:600 11px var(--font);letter-spacing:.12em;text-transform:uppercase;color:var(--fg-3);margin-bottom:6px}
+.conn a{display:grid;grid-template-columns:8px 1fr auto;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--border);cursor:pointer;color:var(--foreground)}.conn a:hover b{text-decoration:underline}
+.conn a:first-of-type{border-top:0}.conn b{font-weight:500}.conn small{color:var(--fg-3)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);border:1.5px solid var(--fg-3)}.dot.ok{background:var(--done);border-color:var(--done)}.dot.warn{background:var(--wip);border-color:var(--wip)}
+.grp{font:800 13px var(--font-display);font-stretch:125%;text-transform:var(--display-case);letter-spacing:.04em;padding:var(--s5) 0 var(--s2);border-bottom:1px solid var(--border-2);display:flex;gap:10px;align-items:center}
+.grp:first-child{padding-top:0}.grp .num{color:var(--primary)}
+.srow{display:grid;grid-template-columns:240px minmax(0,1fr);gap:var(--s5);padding:var(--s4) 0;border-bottom:1px solid var(--border);scroll-margin-top:12px}
+.srow h3{font-size:14px;margin-bottom:4px}.srow .help{color:var(--fg-3);font-size:12.5px;line-height:1.45}
+.ctl{display:grid;gap:var(--s2);align-content:start;min-width:0}
+.ctl label.l{font-size:12px;color:var(--fg-2);font-weight:500;display:block;margin-bottom:5px}
+.folder{display:flex;align-items:center;gap:10px;padding:0 6px 0 12px;min-height:36px;border:1px solid var(--border);border-radius:var(--r-ctl);background:var(--well)}
+.folder>span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--fg-2)}
+.folder .in{border:0;background:none;padding:0}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:var(--s3)}
+.fnote{font-size:12px;color:var(--fg-3);display:flex;gap:6px;align-items:center}.fnote.err{color:var(--danger)}
+.srow.disabled .btn.pri{opacity:.4}
+.emptyf{display:none;padding:10px 12px;border:1px dashed var(--border-2);border-radius:var(--r-ctl);color:var(--fg-2)}
+body[data-st=empty] .folders .folder{display:none}body[data-st=empty] .folders .emptyf{display:block}
+.skrows{display:grid;gap:14px;max-width:740px;margin:0 auto}
+.skrow{display:grid;grid-template-columns:240px 1fr;gap:24px;padding:14px 0;border-bottom:1px solid var(--border)}
+
+/* ============ ASSISTANT ============ */
+.ghostview{padding:var(--s5);opacity:.55;pointer-events:none;filter:saturate(.7)}
+.gtab{display:grid;grid-template-columns:34px 1.4fr 120px 60px 60px 90px;gap:12px;align-items:center;height:48px;border-bottom:1px solid var(--border);color:var(--fg-2)}
+.gtab i{display:block;height:10px;border-radius:3px;background:var(--muted)}
+.asst{position:absolute;right:0;top:0;bottom:0;width:min(440px,100%);background:var(--card);border-left:1px solid var(--border-2);display:grid;grid-template-rows:auto minmax(0,1fr) auto;animation:slide var(--dur-3) var(--ease-out) both;z-index:5}
+@keyframes slide{from{transform:translateX(24px);opacity:0}}
+.asst>header{display:flex;gap:8px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--border)}
+.asst select{flex:1;height:34px;padding:0 10px;background:var(--well);border:1px solid var(--border);border-radius:var(--r-ctl);min-width:0;appearance:none;background-image:none}
+.asst select:disabled{opacity:.5}
+.alist{overflow:auto;padding:16px 14px;display:flex;flex-direction:column;gap:12px;scrollbar-width:thin;scrollbar-color:var(--muted) transparent}
+.msg{max-width:88%;padding:9px 12px;border-radius:var(--r-card);line-height:1.5;white-space:pre-wrap;animation:in var(--dur-3) var(--ease-out) both}
+.msg.user{align-self:flex-end;background:var(--primary);color:var(--on-primary);font-weight:500;border-bottom-right-radius:3px}
+.msg.bot{align-self:flex-start;background:var(--raised);border-bottom-left-radius:3px}
+.tool{border:1px solid var(--border);border-radius:var(--r-ctl);background:var(--well);color:var(--fg-2)}
+.tool summary{list-style:none;display:flex;gap:8px;align-items:center;padding:7px 10px;cursor:pointer}.tool summary::-webkit-details-marker{display:none}
+.tool summary .i.c{transition:transform var(--dur-2)}.tool[open] summary .i.c{transform:rotate(90deg)}
+.tool pre{padding:8px 10px;border-top:1px solid var(--border);font:500 11.5px ui-monospace,Menlo,monospace;overflow:auto;color:var(--fg-2)}
+.tool.err{border-color:var(--danger)}.tool.err summary{color:var(--danger)}
+.approve{border:1px solid var(--primary);border-radius:var(--r-card);padding:12px;background:var(--well);display:grid;gap:10px;animation:in var(--dur-3) var(--ease-out) both}
+.approve .sum{line-height:1.45}.approve .btns{display:flex;gap:8px}
+.approve .out{color:var(--fg-2);display:flex;gap:6px;align-items:center}.approve.done{border-color:var(--border-2)}
+.working{display:flex;gap:10px;align-items:center;color:var(--fg-2);font-size:12.5px}
+.wdots{display:flex;gap:3px}.wdots i{width:5px;height:5px;border-radius:50%;background:var(--primary);animation:bounce 1s infinite}.wdots i:nth-child(2){animation-delay:.15s}.wdots i:nth-child(3){animation-delay:.3s}
+@keyframes bounce{40%{transform:translateY(-4px);opacity:.5}}
+.ainput{padding:12px 14px;border-top:1px solid var(--border);display:grid;gap:8px}
+.ainput .r{display:flex;justify-content:space-between;align-items:center;gap:10px;color:var(--fg-3);font-size:12px}
+
+/* ============ PALETTE + dock ============ */
+.pal{width:min(640px,100%);display:grid;gap:14px;align-self:start;margin-top:10vh}
+.palbox{background:var(--card);border:1px solid var(--border-2);border-radius:var(--r-card);box-shadow:0 24px 64px rgba(0,0,0,.6);overflow:hidden;animation:bf var(--dur-3) var(--ease-out) both}
+.palin{display:flex;align-items:center;gap:12px;padding:0 16px;height:54px;border-bottom:1px solid var(--border);color:var(--fg-3)}
+.palin input{flex:1;font-size:16px;color:var(--foreground);outline:none;height:100%;background:none}
+.palin .ph{font-size:16px;height:24px}.palin .ph span{line-height:24px}
+.reslist{max-height:min(46vh,380px);overflow:auto;padding:6px;scrollbar-width:thin;scrollbar-color:var(--muted) transparent}
+.res{display:grid;grid-template-columns:74px 1fr auto;gap:12px;align-items:center;width:100%;text-align:left;padding:8px 10px;border-radius:var(--r-ctl);min-height:40px}
+.res.on{background:var(--raised);box-shadow:inset 3px 0 0 var(--primary)}
+.res .k{font:600 10.5px var(--font);letter-spacing:.08em;text-transform:uppercase;color:var(--fg-3);display:flex;gap:6px;align-items:center}
+.res .k .sq{border-radius:2px}
+.res .mt{color:var(--fg-3);font-size:12px;white-space:nowrap}
+.res mark{background:none;color:var(--primary);font-weight:700}
+.res .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.palft{display:flex;gap:16px;padding:9px 16px;border-top:1px solid var(--border);color:var(--fg-3);font-size:12px;background:var(--well)}.palft span{display:flex;gap:6px;align-items:center}
+.emptyres{padding:28px 16px;text-align:center;color:var(--fg-2)}
+.dock{justify-self:center;display:flex;align-items:flex-end;gap:6px;padding:8px 10px;background:var(--card);border:1px solid var(--border-2);border-radius:14px;box-shadow:0 12px 32px rgba(0,0,0,.5);height:64px;animation:in var(--dur-3) var(--ease-out) .08s both}
+.dk{--s:1;width:calc(40px*var(--s));height:calc(40px*var(--s));display:grid;place-items:center;border-radius:calc(10px*var(--s));background:var(--raised);border:1px solid var(--border);color:var(--fg-2);position:relative;transition:width .12s var(--ease-out),height .12s var(--ease-out),color var(--dur-2)}
+.dk .i{width:calc(16px*var(--s));height:calc(16px*var(--s))}
+.dk:hover{color:var(--foreground)}.dk.hot{border-color:var(--primary);color:var(--primary)}
+.dk .nm{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%) translateY(4px) scale(.9);opacity:0;pointer-events:none;background:var(--foreground);color:#0b0b0a;font-size:11.5px;font-weight:600;padding:4px 8px;border-radius:6px;white-space:nowrap;transition:opacity .15s,transform .25s var(--spring)}
+.dk:hover .nm,.dk:focus-visible .nm{opacity:1;transform:translateX(-50%) none}
+.docklabel{justify-self:center;color:var(--fg-3);font-size:12px;margin-top:-6px}
+
+/* ============ PROFILE ============ */
+.profile{width:min(960px,100%)}
+.pfb{display:grid;grid-template-columns:300px minmax(0,1fr);min-height:0;overflow:auto}
+.pfart{padding:20px;border-right:1px solid var(--border);display:grid;gap:14px;align-content:start;background:var(--well)}
+.cover{aspect-ratio:1;border:1px solid var(--border-2);border-radius:var(--r-card);background:var(--card);position:relative;overflow:hidden}
+.cover svg{position:absolute;inset:0;width:100%;height:100%}.cover .ini{position:absolute;left:14px;bottom:8px;font:800 72px/1 var(--font-display);font-stretch:125%;color:var(--foreground)}
+.pfwave canvas{width:100%;height:64px;display:block;cursor:pointer}
+.pfinfo{padding:20px 24px;display:grid;gap:14px;align-content:start;min-width:0}
+.pft{font:800 30px/1.05 var(--font-display);font-stretch:125%;text-transform:var(--display-case);overflow-wrap:anywhere}
+.pills{display:flex;gap:6px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:var(--r-chip);border:1px solid var(--border-2);font-size:12px;color:var(--fg-2);font-weight:500}
+.pill.st{color:var(--foreground);font-weight:600}
+.pfh{display:flex;justify-content:space-between;align-items:baseline;font:600 11px var(--font);letter-spacing:.12em;text-transform:uppercase;color:var(--fg-3);padding-top:4px;border-top:1px solid var(--border);padding-top:14px}
+.pfh em{font-style:normal;color:var(--foreground)}
+.pfn{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;padding:10px 16px;border-top:1px solid var(--border);background:var(--well)}
+.pfn button{display:flex;gap:8px;align-items:center;max-width:100%;color:var(--fg-2);height:32px;padding:0 8px;border-radius:var(--r-ctl)}.pfn button:hover:not(:disabled){background:var(--raised);color:var(--foreground)}.pfn button:disabled{opacity:.3}
+.pfn button span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pfn button:last-child{justify-content:flex-end}
+.pfn .ct{color:var(--fg-3)}
+
+/* tracing timeline (item 18) */
+.trace{position:relative;display:grid;gap:0;padding-left:0;list-style:none}
+.trace::before{content:"";position:absolute;left:9px;top:12px;bottom:12px;width:2px;background:var(--muted)}
+.trace .beam{position:absolute;left:9px;top:12px;width:2px;background:var(--done);height:0;transition:height 1s var(--ease-out)}
+.trace li{position:relative;display:flex;gap:12px;align-items:center;min-height:32px;color:var(--fg-2)}
+.trace li .nd{width:20px;height:20px;border-radius:50%;background:var(--card);border:2px solid var(--muted);display:grid;place-items:center;flex:none;z-index:1;color:var(--on-primary);transition:background .3s,border-color .3s}
+.trace li .nd .i{width:12px;height:12px;stroke-width:2.2;opacity:0}
+.trace li.done{color:var(--foreground)}.trace li.done .nd{background:var(--done);border-color:var(--done)}.trace li.done .nd .i{opacity:1}
+.trace li.cur .nd{border-color:var(--primary);box-shadow:0 0 0 0 rgba(255,85,51,.5);animation:ring 2s infinite}
+@keyframes ring{70%{box-shadow:0 0 0 7px rgba(255,85,51,0)}}
+.trace li .go{margin-left:auto}
+.trace.sm li{min-height:30px}
+
+/* ============ CLEANUP / DUPES ============ */
+.cleanup{width:min(1060px,100%);height:min(680px,calc(100vh - 32px))}
+.cbar{display:flex;gap:10px;align-items:center;padding:10px 20px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.cbar .in{width:200px;height:32px}.cbar select{height:32px;padding:0 10px;background:var(--well);border:1px solid var(--border);border-radius:var(--r-ctl)}
+.cbody{display:grid;grid-template-columns:minmax(0,1fr) 320px;min-height:0;flex:1}
+.clist{overflow:auto;min-height:0;scrollbar-width:thin;scrollbar-color:var(--muted) transparent}
+.cr{display:grid;grid-template-columns:20px 40px minmax(0,1fr) auto;gap:12px;align-items:center;padding:9px 16px;border-bottom:1px solid var(--border);cursor:pointer;position:relative}
+.cr:hover{background:var(--card)}.cr.sel{background:var(--raised);box-shadow:inset 3px 0 0 var(--primary)}
+.cr.mk{background:rgba(255,122,92,.07)}.cr.mk .nm{text-decoration:line-through;text-decoration-color:var(--danger)}
+.cr .nm{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cr small{color:var(--fg-3);font-size:12px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cr .tags{display:flex;gap:4px}
+.art{width:40px;height:40px;border:1px solid var(--border-2);border-radius:6px;background:var(--well);display:flex;align-items:flex-end;gap:1px;padding:5px;overflow:hidden}.art i{flex:1;background:var(--fg-3);border-radius:1px}
+.cb{width:18px;height:18px;border-radius:4px;border:1.5px solid var(--border-2);display:grid;place-items:center;background:var(--well);color:var(--on-primary)}
+.cb .i{width:12px;height:12px;stroke-width:2.2;opacity:0}.cb.on{background:var(--danger);border-color:var(--danger)}.cb.on .i{opacity:1}
+.cr.prot .cb{opacity:.35}
+.cdet{border-left:1px solid var(--border);padding:16px;display:grid;gap:12px;align-content:start;overflow:auto;background:var(--card)}
+.cdet .art{width:100%;height:72px}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:12.5px}.facts dt{color:var(--fg-3)}.facts dd{text-align:right;font-weight:500}
+.hints{display:flex;flex-wrap:wrap;gap:8px 14px;color:var(--fg-3);font-size:12px}
+.confirm{display:none;gap:10px;padding:14px 20px;border-top:1px solid var(--danger);background:var(--well);flex-direction:column}
+.confirm.on{display:flex;animation:in var(--dur-3) var(--ease-out)}
+.confirm h3{font-size:14px}
+.numroll{display:inline-block;font-variant-numeric:tabular-nums}
+.dgroups{overflow:auto;padding:4px 20px 12px;display:grid;gap:12px;align-content:start;min-height:0;flex:1;scrollbar-width:thin;scrollbar-color:var(--muted) transparent}
+.dgroup{border:1px solid var(--border);border-radius:var(--r-card);overflow:hidden;background:var(--card)}
+.dgh{display:flex;justify-content:space-between;padding:8px 12px;background:var(--well);border-bottom:1px solid var(--border);color:var(--fg-2);font-size:12px}
+.dfile{display:grid;grid-template-columns:20px minmax(0,1fr) auto;gap:12px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--border);cursor:pointer}.dfile:last-child{border-bottom:0}
+.dfile:hover{background:var(--raised)}.dfile.tr{background:rgba(255,122,92,.07)}.dfile.tr .p{text-decoration:line-through;text-decoration-color:var(--danger);color:var(--fg-3)}
+.dfile .p{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;gap:6px;align-items:center}.dfile .p .i{color:var(--wip);width:14px;height:14px}
+.dfile .keep{font-size:11.5px;color:var(--done);font-weight:600}.dfile .trash{font-size:11.5px;color:var(--danger);font-weight:600}
+.dtools{display:flex;gap:8px;flex-wrap:wrap;padding:0 20px}
+
+/* ============ SYSTEM BOARD ============ */
+.board{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:var(--s4)}
+.card{border:1px solid var(--border);border-radius:var(--r-card);background:var(--card);padding:var(--s4);min-width:0;display:grid;gap:var(--s3);align-content:start}
+.card>h3{font:600 11px var(--font);letter-spacing:.12em;text-transform:uppercase;color:var(--fg-3);display:flex;justify-content:space-between;gap:8px}
+.card>h3 em{font-style:normal;text-transform:none;letter-spacing:0;font-weight:500}
+.c12{grid-column:span 12}.c8{grid-column:span 8}.c7{grid-column:span 7}.c6{grid-column:span 6}.c5{grid-column:span 5}.c4{grid-column:span 4}.c3{grid-column:span 3}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.tips{display:flex;gap:28px;flex-wrap:wrap;padding:30px 8px 18px}
+.tipcell{display:grid;gap:14px;justify-items:center}
+.relhead{display:flex;justify-content:space-between;align-items:baseline}
+.relhead b{font:800 14px var(--font-display);font-stretch:125%;text-transform:var(--display-case)}
+.rel{display:grid}
+.rr{border-bottom:1px solid var(--border)}.rr:last-child{border-bottom:0}
+.rrh{display:grid;grid-template-columns:20px 74px minmax(0,1fr) auto;gap:10px;align-items:center;min-height:42px;width:100%;text-align:left}
+.rrh .mk2{width:18px;height:18px;border-radius:50%;border:2px solid var(--muted);display:grid;place-items:center;color:var(--on-primary)}
+.rr.done .mk2{background:var(--done);border-color:var(--done)}.rr.doing .mk2{border-color:var(--primary);background:radial-gradient(circle,var(--primary) 3px,transparent 3.5px)}.rr.na .mk2{border-style:dashed;border-color:var(--border-2)}
+.mk2 .i{width:11px;height:11px;stroke-width:2.4;opacity:0}.rr.done .mk2 .i{opacity:1}
+.rrh .lab{font-weight:600}.rrh .sub{color:var(--fg-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rrh .chev{transition:transform var(--dur-2);color:var(--fg-3)}.rr.open .rrh .chev{transform:rotate(90deg)}
+.rrb{display:none;padding:0 0 12px 30px;color:var(--fg-2);gap:8px}.rr.open .rrb{display:grid;animation:in var(--dur-3) var(--ease-out)}
+.rrb .line{display:flex;justify-content:space-between;gap:10px;padding:6px 10px;background:var(--well);border:1px solid var(--border);border-radius:var(--r-ctl);align-items:center}
+.gate{display:grid;gap:10px}
+.guard{border:1px solid var(--danger);border-radius:var(--r-card);padding:var(--s5);background:var(--card);display:grid;gap:10px;justify-items:start}
+.guard h3{font:800 18px var(--font-display);font-stretch:125%;text-transform:var(--display-case)}
+.guard pre{width:100%;padding:10px 12px;background:var(--well);border:1px solid var(--border);border-radius:var(--r-ctl);font:500 12px ui-monospace,Menlo,monospace;color:var(--fg-2);overflow:auto;white-space:pre-wrap}
+.pattern{display:grid;gap:8px}
+.rowsk{display:grid;grid-template-columns:36px 1.2fr 1fr 60px;gap:12px;align-items:center;height:44px;border-bottom:1px solid var(--border)}.rowsk .sk{height:12px}
+.demo-tbl{border:1px solid var(--border);border-radius:var(--r-ctl);background:var(--well)}
+
+/* ============ ICON SHEET ============ */
+.isheet{display:grid;gap:var(--s5)}
+.spec2{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--s4)}
+.specc{border:1px solid var(--border);border-radius:var(--r-card);background:var(--card);padding:var(--s4);display:grid;gap:10px}
+.specc h3{font:600 11px var(--font);letter-spacing:.12em;text-transform:uppercase;color:var(--fg-3)}
+.big{width:128px;height:128px;position:relative;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:8px 8px;border:1px solid var(--border-2)}
+.big::after{content:"";position:absolute;inset:16px;border:1px dashed rgba(255,85,51,.5)}
+.big svg{width:128px;height:128px;position:relative;z-index:1;fill:none;stroke:var(--foreground);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.igrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px}
+.itile{border:1px solid var(--border);border-radius:var(--r-card);background:var(--card);padding:12px 8px 10px;display:grid;justify-items:center;gap:8px;text-align:center;transition:border-color var(--dur-2)}
+.itile:hover{border-color:var(--border-2)}
+.itile .bg{width:64px;height:64px;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:4px 4px;display:grid;place-items:center;border:1px solid var(--border)}
+.itile .bg svg{width:64px;height:64px;fill:none;stroke:var(--foreground);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.itile .act{display:flex;gap:10px;align-items:center;color:var(--fg-2)}
+.itile small{color:var(--fg-3);font-size:11px;line-height:1.2}.itile b{font-weight:600;font-size:12px}
+.shead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:0 0 10px}
+.shead h2{font:800 14px var(--font-display);font-stretch:125%;text-transform:var(--display-case)}
+
+@media (max-width:1280px){
+  .set{grid-template-columns:170px minmax(0,1fr);gap:var(--s5)}.set>.conn{grid-column:2;grid-row:1;position:static;margin-bottom:var(--s4)}
+  .set>.rail{grid-row:1/span 2}.set>.sbody{grid-column:2;grid-row:2}
+  .themes{grid-template-columns:minmax(0,1fr) 300px}
+}
+@media (max-width:1180px){
+  .transport{grid-template-columns:auto minmax(220px,1fr) minmax(160px,220px);gap:var(--s4)}.session{display:none}
+  .strip{padding:0 var(--s2)}.strip button{padding:0 7px;font-size:12.5px;gap:4px}.strip .n{display:none}.strip .lbl-x{display:none}
+  .deck{grid-template-columns:auto 130px 1fr auto}
+  .spec2{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .sheet{grid-template-columns:1fr 1fr}.sheet>:first-child{grid-column:span 2}
+  .c8,.c7,.c6,.c5,.c4{grid-column:span 12}.c3{grid-column:span 6}
+  .srow,.skrow{grid-template-columns:1fr}
+}
+@media (max-width:1100px){
+  .themes{grid-template-columns:1fr}.worlds{position:static}
+  .set{grid-template-columns:minmax(0,1fr)}.set>.rail{display:none}.set>.conn,.set>.sbody{grid-column:1}
+  .cbody{grid-template-columns:minmax(0,1fr) 250px}
+  .pfb{grid-template-columns:230px minmax(0,1fr)}
+  .two{grid-template-columns:1fr}
+  .view{padding:var(--s4) var(--s4) 110px}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001s!important;animation-iteration-count:1!important;transition-duration:.001s!important}
+  .tr>span{transform:none!important}.wipe{animation:none;clip-path:circle(150vmax at 50% 50%)}
+  .toast .life{display:none}
+}
+</style>
+</head>
+<body data-st="normal">
+
+<div class="app">
+  <header class="transport">
+    <div class="mark">Studio HQ</div>
+    <div class="deck" aria-label="Player">
+      <button class="play" data-tip="Play / pause" data-kbd="Space" id="tp"><i-c n="play"></i-c></button>
+      <div class="np"><b>State Of Anarchy</b><small>143 BPM · B minor</small></div>
+      <canvas id="deckwave"></canvas>
+      <span class="t">1:12 / 3:08</span>
+    </div>
+    <div class="search" id="tsearch" role="button" tabindex="0" aria-label="Find a beat, lead or action"><i-c n="search"></i-c><div class="ph" data-ph></div><kbd>⌘K</kbd></div>
+    <div class="session"><span class="rec"></span>Session 1h 12m</div>
+  </header>
+  <nav class="strip" id="strip" aria-label="Sections"></nav>
+  <main id="main">
+
+  <!-- ===== THEMES ===== -->
+  <section class="view" id="v-themes">
+    <div class="pagehead">
+      <div><div class="eyebrow">Look and feel</div><h1 class="h1">Themes</h1><p>Pick how Studio HQ looks. The change is instant and stays on this Mac.</p></div>
+      <div class="row"><span class="chip" id="wcount">1 world installed</span></div>
+    </div>
+    <div class="st-normal"><div class="themes">
+      <div>
+        <div class="pvwrap">
+          <div class="pvbar"><h2 id="pvname">Deck</h2><span class="chip ok" id="pvuse">In use</span><span class="sp"></span><button class="btn pri" id="useBtn"><i-c n="check"></i-c><span>Use this world</span></button></div>
+          <div class="fit" id="fit"><div class="pv" id="pv"></div></div>
+          <p class="story" id="story" aria-live="polite"></p>
+          <div class="traits" id="traits"></div>
+        </div>
+        <div class="sheet">
+          <div class="sh"><h3>Palette</h3><div class="sw8" id="sw8"></div><div class="stat" id="stat"></div></div>
+          <div class="sh"><h3>Type</h3><div class="spec" id="spec">Aa</div><p class="dim" id="specn" style="margin-top:8px"></p><p style="margin-top:6px">Every label, table and button uses this face. Nothing is set in a fixed font.</p></div>
+          <div class="sh"><h3>Shape</h3><div class="shape" id="shape"></div><p class="dim" id="shapen"></p></div>
+        </div>
+      </div>
+      <aside class="worlds" id="worlds" role="radiogroup" aria-label="Themes"></aside>
+    </div></div>
+    <div class="st-loading"><div class="themes"><div><div class="sk" style="height:520px;border-radius:10px"></div><div class="sheet"><div class="sk" style="height:140px"></div><div class="sk" style="height:140px"></div><div class="sk" style="height:140px"></div></div></div><div style="display:grid;gap:8px"><div class="sk" style="height:64px"></div><div class="sk" style="height:64px"></div></div></div></div>
+    <div class="st-empty"><div class="empty"><div class="glyph"><i-c n="themes"></i-c></div><b>No worlds found</b><span>The theme list did not load, so Studio HQ is showing Deck. Nothing is lost.</span><button class="btn" onclick="setSt('normal')"><i-c n="refresh"></i-c>Reload themes</button></div></div>
+    <div class="st-error"><div class="notice err" role="alert"><i-c n="alert"></i-c><span>Could not apply that theme. Your current one is still on.</span><button class="btn sm" style="margin-left:auto" onclick="setSt('normal')">Try again</button></div></div>
+  </section>
+
+  <!-- ===== SETTINGS ===== -->
+  <section class="view" id="v-settings"></section>
+
+  <!-- ===== ASSISTANT ===== -->
+  <section class="view" id="v-assistant" style="padding:0;overflow:hidden">
+    <div class="ghostview" aria-hidden="true">
+      <div class="h1" style="margin-bottom:16px">Beats</div>
+      <div id="ghost"></div>
+    </div>
+    <aside class="asst" aria-label="Studio Assistant">
+      <header>
+        <select aria-label="Chat" id="thread"><option>Last week's pitches</option><option>Which beats lack a cover?</option></select>
+        <button class="btn sm" id="newchat"><i-c n="plus"></i-c>New chat</button>
+        <button class="ibtn" data-tip="Close" aria-label="Close" onclick="go('themes')"><i-c n="x"></i-c></button>
+      </header>
+      <div class="alist" id="alist" aria-live="polite"></div>
+      <div class="ainput">
+        <textarea class="in" id="atext" rows="2" placeholder="Ask Studio Assistant…"></textarea>
+        <div class="r"><span><kbd>Enter</kbd> sends · <kbd>Shift</kbd>+<kbd>Enter</kbd> new line</span><button class="btn pri" id="asend"><i-c n="send"></i-c><span>Send</span></button></div>
+      </div>
+    </aside>
+  </section>
+
+  <!-- ===== SYSTEM BOARD ===== -->
+  <section class="view" id="v-system">
+    <div class="pagehead"><div><div class="eyebrow">Spec board · app-wide pieces</div><h1 class="h1">System</h1><p>Toasts, tooltips, release checklist, gates, error and empty patterns. Every piece here is live: hover, click and use the state chips.</p></div></div>
+    <div class="board">
+      <div class="card c5">
+        <h3>Toast with Undo <em>stack of 3 · 4.5 s · hover pauses</em></h3>
+        <div class="row"><button class="btn" id="t1">Saved</button><button class="btn" id="t2"><i-c n="undo"></i-c>With Undo</button><button class="btn" id="t3">Error</button><button class="btn" id="t4">Stack of three</button></div>
+        <p class="dim">One slot became a stack so a second message no longer replaces the first. Undo is new: Clean up, Dupes, delete-lead and stage changes can offer it. Click the message or the close button to dismiss.</p>
+        <div class="pattern"><span class="eyebrow">Callers today</span>
+          <div class="row"><span class="chip">Save error</span><span class="chip">FL project has no audio yet</span><span class="chip">Audition on/off</span><span class="chip">A/B label</span><span class="chip">Split sheet saved</span><span class="chip">Sale saved</span><span class="chip">FL scan result</span></div></div>
+      </div>
+      <div class="card c7">
+        <h3>Animated tooltips <em>every icon button · arrow · spring in</em></h3>
+        <div class="tips" style="padding-bottom:10px">
+          <div class="tipcell"><span class="tipx">Remove folder</span><button class="ibtn" data-tip="Remove folder" aria-label="Remove folder"><i-c n="trash"></i-c></button><small class="dim">bottom (default)</small></div>
+          <div class="tipcell"><span class="tipx up">Play <kbd style="background:rgba(11,11,10,.12);border-color:rgba(11,11,10,.25);color:#0b0b0a;padding:0 5px">Space</kbd></span><button class="ibtn" data-tip="Play" data-kbd="Space" data-side="top" aria-label="Play"><i-c n="play"></i-c></button><small class="dim">top, with shortcut</small></div>
+          <div class="tipcell"><span class="tipx">Open Content…</span><button class="ibtn" data-tip="Open Content…" aria-label="Open Content"><i-c n="external"></i-c></button><small class="dim">hover any of these</small></div>
+          <div class="tipcell"><span class="tipx">Next beat</span><button class="ibtn" data-tip="Next beat" data-kbd="→" aria-label="Next"><i-c n="next"></i-c></button><small class="dim">label · key</small></div>
+        </div>
+        <p class="dim">Appears after 120 ms, instantly when moving between buttons, never covers the control. Shows on keyboard focus too. Under reduced motion it fades only.</p>
+      </div>
+
+      <div class="card c6">
+        <h3>Beat readiness <em>readiness.ts · 3 of 5</em></h3>
+        <div class="relhead"><b>Ready to release</b><span class="dim"><span class="numroll" id="rdn">3</span> / 5</span></div>
+        <ul class="trace" id="rdtrace"></ul>
+        <p class="dim">The tracing beam draws down to the first missing step. Audio counts done when the beat is not an FL project, or has a preview. Click a missing step to jump to its fix.</p>
+      </div>
+      <div class="card c6">
+        <h3>Release card <em>ReleaseCard.tsx</em></h3>
+        <div class="relhead"><b>Release</b><span class="dim">3 of 7 done</span></div>
+        <div class="st-normal rel" id="rel"></div>
+        <div class="st-loading"><div class="pattern"><div class="sk" style="height:34px"></div><div class="sk" style="height:34px"></div><div class="sk" style="height:34px"></div></div></div>
+        <div class="st-empty"><div class="dim">Nothing tracked yet for this beat.</div></div>
+        <div class="st-error"><div class="notice err" role="alert"><i-c n="alert"></i-c><span>Couldn’t load the release status.</span><button class="btn sm" style="margin-left:auto" onclick="setSt('normal')">Retry</button></div></div>
+      </div>
+
+      <div class="card c5">
+        <h3>OptOut gate <em>before any pitch</em></h3>
+        <div class="gate">
+          <div class="notice" role="status"><i-c n="refresh" class="spin"></i-c><span>Checking opt-out list…</span></div>
+          <div class="notice err" role="alert"><i-c n="lock"></i-c><span><b>hunxho</b> opted out and cannot be pitched.</span></div>
+          <div class="notice ok"><i-c n="check"></i-c><span>lilbaby is clear to pitch.</span><span class="dim" style="margin-left:auto">no notice shown</span></div>
+        </div>
+        <p class="dim">Fails closed: if the check itself fails the person shows as opted out. The row also disables its checkbox.</p>
+      </div>
+      <div class="card c7">
+        <h3>ViewGuard error state <em>render error in one screen</em></h3>
+        <div class="guard" role="alert">
+          <i-c n="alert"></i-c>
+          <h3>Store hit a problem</h3>
+          <p style="color:var(--fg-2)">Everything else still works. Your data is untouched. If this keeps happening, restart the app.</p>
+          <pre>TypeError: Cannot read properties of undefined (reading 'price')
+    at StoreRow (Store.tsx:88:21)</pre>
+          <div class="row"><button class="btn pri"><i-c n="refresh"></i-c>Try again</button><span class="dim">The strip above stays usable.</span></div>
+        </div>
+      </div>
+
+      <div class="card c12">
+        <h3>Loading · empty · error patterns <em>use the state chips below to flip a whole screen</em></h3>
+        <div class="board" style="gap:var(--s4)">
+          <div class="pattern c4"><span class="eyebrow">Loading</span>
+            <div class="demo-tbl" style="padding:0 12px"><div class="rowsk"><div class="sk" style="height:28px;width:28px;border-radius:6px"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div></div><div class="rowsk"><div class="sk" style="height:28px;width:28px;border-radius:6px"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div></div><div class="rowsk" style="border:0"><div class="sk" style="height:28px;width:28px;border-radius:6px"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div></div></div>
+            <div class="bar" aria-label="Working"></div><p class="dim">Flat skeleton rows in the real row shape, plus a 2 px indeterminate bar for long jobs (library scan, publish). Words only when a wait passes 3 s: “Comparing files that have the same size…”.</p></div>
+          <div class="pattern c4"><span class="eyebrow">Empty</span>
+            <div class="empty" style="padding:6px 0"><div class="glyph"><i-c n="vault"></i-c></div><b>No replies to read</b><span>When a producer answers a pitch, it lands here first.</span><button class="btn"><i-c n="send"></i-c>Pitch a beat</button></div>
+            <p class="dim">Dashed glyph tile, one display-face line, one sentence, at most one action. Never an illustration.</p></div>
+          <div class="pattern c4"><span class="eyebrow">Error</span>
+            <div class="notice err" role="alert"><i-c n="alert"></i-c><span>Something went wrong, nothing was deleted.</span></div>
+            <div class="notice err" role="alert"><i-c n="alert"></i-c><span>Could not play that one.</span><button class="btn sm" style="margin-left:auto">Retry</button></div>
+            <p class="dim">Inline notice for a failed action, red rule not red fill. Whole-screen failures use ViewGuard. Every error says what is still safe.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== ICON SHEET ===== -->
+  <section class="view" id="v-icons">
+    <div class="pagehead"><div><div class="eyebrow">Spec board · Icons.tsx redrawn</div><h1 class="h1">Icon sheet</h1><p>One stroke weight, 1.5 px, round caps and joins, on a 16 px grid. Live area is 2 to 14 px. Each icon is outline only, so a theme can still colour it through currentColor.</p></div></div>
+    <div class="isheet" id="isheet"></div>
+  </section>
+
+  </main>
+</div>
+
+<!-- ===== PALETTE ===== -->
+<div class="scrim" id="s-palette" aria-hidden="true">
+  <div class="pal" role="dialog" aria-label="Command palette">
+    <div class="palbox">
+      <div class="palin"><i-c n="search"></i-c><div style="position:relative;flex:1;height:100%;display:flex;align-items:center"><input id="pq" autocomplete="off" aria-label="Search" spellcheck="false"><div class="ph" data-ph id="pph" style="position:absolute;left:0;right:0;pointer-events:none"></div></div><kbd>Esc</kbd></div>
+      <div class="reslist" id="pres" role="listbox"></div>
+      <div class="palft"><span><kbd>↑</kbd><kbd>↓</kbd> move</span><span><kbd>Enter</kbd> open</span><span><kbd>Esc</kbd> close</span><span style="margin-left:auto" id="pcount"></span></div>
+    </div>
+    <div class="dock" id="dock" aria-label="Quick actions"></div>
+    <div class="docklabel" id="docklabel">Quick actions</div>
+  </div>
+</div>
+
+<!-- ===== BEAT PROFILE ===== -->
+<div class="scrim" id="s-profile" aria-hidden="true">
+  <div class="dialog profile" role="dialog" aria-modal="true" aria-label="Beat profile">
+    <div class="dh"><div><div class="eyebrow" id="pfeb"></div></div><button class="escbtn" onclick="closeAll()" aria-label="Close">Close <kbd>Esc</kbd></button></div>
+    <div class="pfb" id="pfb"></div>
+    <nav class="pfn" aria-label="Neighbours" id="pfn"></nav>
+  </div>
+</div>
+
+<!-- ===== CLEANUP ===== -->
+<div class="scrim" id="s-cleanup" aria-hidden="true">
+  <div class="dialog cleanup" role="dialog" aria-modal="true" aria-label="Clean up FL projects">
+    <div class="dh"><div><h2>Clean up FL projects</h2><p id="csub"></p></div><button class="escbtn" onclick="closeAll()" aria-label="Close">Close <kbd>Esc</kbd></button></div>
+    <div class="cbar">
+      <div class="seg" id="cfilters" role="tablist"></div>
+      <input class="in" id="cq" placeholder="Search projects" aria-label="Search projects">
+      <select id="csort" aria-label="Sort"><option value="old">Oldest first</option><option value="new">Newest first</option><option value="big">Largest first</option><option value="name">Name</option></select>
+    </div>
+    <div class="cbody" id="cbody">
+      <div class="clist" id="clist"></div>
+      <div class="cdet" id="cdet"></div>
+    </div>
+    <div class="notice" id="cnote" style="margin:0 20px 10px;display:none"></div>
+    <div class="confirm" id="cconf"></div>
+    <div class="df" id="cfoot"></div>
+  </div>
+</div>
+
+<!-- ===== DUPES ===== -->
+<div class="scrim" id="s-dupes" aria-hidden="true">
+  <div class="dialog" style="width:min(900px,100%);height:min(640px,calc(100vh - 32px))" role="dialog" aria-modal="true" aria-label="Duplicate sounds">
+    <div class="dh"><div><h2>Duplicate sounds</h2><p id="dsub"></p></div><button class="escbtn" onclick="closeAll()" aria-label="Close">Close <kbd>Esc</kbd></button></div>
+    <div class="st-normal" style="display:contents" id="dnormal"></div>
+    <div class="st-loading" style="padding:20px"><p class="dim" style="margin-bottom:12px">Comparing files that have the same size… this can take a few seconds on a big library.</p><div class="bar"></div><div style="display:grid;gap:10px;margin-top:20px"><div class="sk" style="height:84px"></div><div class="sk" style="height:84px"></div></div></div>
+    <div class="st-empty" style="padding:20px"><div class="empty"><div class="glyph"><i-c n="check"></i-c></div><b>No duplicates</b><span>No duplicates. Nice and tidy.</span></div></div>
+    <div class="st-error" style="padding:20px"><div class="notice err" role="alert"><i-c n="alert"></i-c><span>Could not read the sound library. Nothing was changed.</span><button class="btn sm" style="margin-left:auto" onclick="setSt('normal')">Retry</button></div></div>
+  </div>
+</div>
+
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+<div id="tip" role="tooltip"></div>
+
+<div id="mc" aria-label="Mockup controls">
+  <div class="g"><b>Screen</b><button data-go="themes">Themes</button><button data-go="settings">Settings</button><button data-go="assistant">Assistant</button><button data-go="system">System</button><button data-go="icons">Icons</button></div>
+  <div class="g"><b>Open</b><button data-open="palette">⌘K</button><button data-open="profile">Profile</button><button data-open="cleanup">Cleanup</button><button data-open="dupes">Dupes</button></div>
+  <div class="g"><b>State</b><button data-st="normal">Normal</button><button data-st="loading">Loading</button><button data-st="empty">Empty</button><button data-st="error">Error</button></div>
+  <div class="g"><b>Worlds</b><button data-wc="1">1</button><button data-wc="3">3</button><button data-wc="7">7</button></div>
+</div>
+
+<script>
+/* ---------- icons: one stroke, 1.5px, round caps, 16px grid ---------- */
+const ICONS={
+ /* Icons.tsx names */
+ dashboard:'<rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="3" rx="1"/><rect x="9" y="7" width="5" height="7" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/>',
+ vault:'<rect x="2" y="6" width="12" height="8" rx="1"/><path d="M5 6V3h6v3M2 10h12"/>',
+ loops:'<path d="M3 7v-.5A2.5 2.5 0 0 1 5.5 4H13M11 2l2 2-2 2M13 9v.5a2.5 2.5 0 0 1-2.5 2.5H3M5 14l-2-2 2-2"/>',
+ map:'<circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2"/><path d="M8 2v2M8 12v2M2 8h2M12 8h2"/>',
+ leads:'<circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14M7 5v4M5 7h4"/>',
+ crm:'<rect x="2" y="3.5" width="12" height="9" rx="1"/><path d="M2.5 4.5L8 9l5.5-4.5"/>',
+ sales:'<circle cx="8" cy="8" r="6"/><path d="M8 4.5v7M6 6.5c0-.8.9-1.3 2-1.3s2 .5 2 1.3-.9 1.1-2 1.4-2 .6-2 1.4.9 1.3 2 1.3 2-.5 2-1.3"/>',
+ store:'<path d="M2.5 6L3.5 2.5h9L13.5 6M2.5 6c0 1 .8 1.8 1.8 1.8S6 7 6 6c0 1 .8 1.8 2 1.8S10 7 10 6c0 1 .8 1.8 1.8 1.8s1.7-.8 1.7-1.8M3.5 8v6h9V8M6.5 14v-3h3v3"/>',
+ content:'<rect x="2" y="3" width="12" height="10" rx="1"/><path d="M6.8 6v4l3.2-2z"/>',
+ sounds:'<circle cx="8" cy="8" r="6"/><path d="M8 8l2.5-2.5M8 2.5V4M3.5 11.5l.8-.8M12.5 11.5l-.8-.8"/>',
+ kits:'<rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><path d="M11.5 9v5M9 11.5h5"/>',
+ feedback:'<path d="M2.5 3h11v8H7l-3 2.5V11H2.5z"/>',
+ plugins:'<path d="M6 2v3M10 2v3M3.5 5h9v2.5a4.5 4.5 0 0 1-9 0zM8 12v2"/>',
+ themes:'<circle cx="8" cy="8" r="6"/><path d="M8 2v12M8 5h3M8 8h4M8 11h3"/>',
+ assistant:'<path d="M2.5 3h11v8.5H7L4 14v-2.5H2.5z"/><path d="M5.5 7.2h5"/>',
+ settings:'<path d="M2 5h2M7 5h7M2 11h7M12 11h2"/><circle cx="5.5" cy="5" r="1.5"/><circle cx="10.5" cy="11" r="1.5"/>',
+ /* Deck stage glyphs */
+ idea:'<path d="M8 2v2M8 12v2M2 8h2M12 8h2M4 4l1.2 1.2M10.8 10.8L12 12M12 4l-1.2 1.2M5.2 10.8L4 12"/><circle cx="8" cy="8" r="1.5"/>',
+ wip:'<circle cx="8" cy="8" r="6"/><path d="M8 2a6 6 0 0 1 0 12z"/>',
+ finished:'<circle cx="8" cy="8" r="6"/><path d="M5.2 8.2l2 2L11 6"/>',
+ pitched:'<path d="M14 2L2 7l4.5 2L8 14zM14 2L6.5 9"/>',
+ sold:'<path d="M2.5 2.5H8l6 6-5.5 5.5-6-6z"/><path d="M5.5 5.5h.01"/>',
+ wave:'<path d="M2 8h1.5M5 5v6M8 2.5v11M11 5v6M14 8h-1.5"/>',
+ /* system */
+ search:'<circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/>',
+ play:'<path d="M5 3l8 5-8 5z"/>', pause:'<path d="M5.5 3v10M10.5 3v10"/>',
+ x:'<path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/>', check:'<path d="M3 8.5l3.2 3.2L13 4.5"/>',
+ down:'<path d="M3.5 6L8 10.5 12.5 6"/>', right:'<path d="M6 3.5L10.5 8 6 12.5"/>', left:'<path d="M10 3.5L5.5 8l4.5 4.5"/>',
+ plus:'<path d="M8 3v10M3 8h10"/>', minus:'<path d="M3 8h10"/>',
+ trash:'<path d="M2.5 4h11M6 4V2.5h4V4M4 4l.7 9.5h6.6L12 4M6.8 7v3.5M9.2 7v3.5"/>',
+ folder:'<path d="M2 3.5h4l1.5 1.8H14V13H2z"/>',
+ undo:'<path d="M5 3L2.5 5.5 5 8M2.5 5.5H9a4 4 0 0 1 0 8H5"/>',
+ send:'<path d="M14 2L2 7l4.5 2L8 14zM14 2L6.5 9"/>',
+ alert:'<path d="M8 2.5L14 13H2zM8 6.5v3M8 11.3h.01"/>',
+ info:'<circle cx="8" cy="8" r="6"/><path d="M8 7.5v3.5M8 5.2h.01"/>',
+ star:'<path d="M8 2l1.8 3.7 4 .6-2.9 2.8.7 4L8 11.2 4.4 13.1l.7-4L2.2 6.3l4-.6z"/>',
+ key:'<circle cx="5" cy="8" r="2.5"/><path d="M7.5 8H14M11.5 8v2.5M13.5 8v1.5"/>',
+ lock:'<rect x="3.5" y="7" width="9" height="6.5" rx="1"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/>',
+ external:'<path d="M9 2.5h4.5V7M13.5 2.5L7.5 8.5M12 9.5V13H3V4h3.5"/>',
+ refresh:'<path d="M13 8a5 5 0 1 1-1.5-3.5M13 2.5v3h-3"/>',
+ download:'<path d="M8 2.5v8M4.5 7.5L8 11l3.5-3.5M3 13.5h10"/>',
+ copy:'<rect x="5.5" y="5.5" width="8" height="8" rx="1"/><path d="M10.5 5.5v-2h-8v8h3"/>',
+ filter:'<path d="M2 3.5h12L9.5 9v4l-3 1V9z"/>',
+ sort:'<path d="M4.5 13V3M2.5 5l2-2 2 2M11.5 3v10M9.5 11l2 2 2-2"/>',
+ prev:'<path d="M4 3v10M13 3L6 8l7 5z"/>', next:'<path d="M12 3v10M3 3l7 5-7 5z"/>',
+ volume:'<path d="M2.5 6v4H5l3.5 3V3L5 6zM11 6a3 3 0 0 1 0 4M12.5 4.5a5.5 5.5 0 0 1 0 7"/>',
+ grip:'<path d="M6 4h.01M10 4h.01M6 8h.01M10 8h.01M6 12h.01M10 12h.01"/>',
+ eye:'<path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/>',
+ edit:'<path d="M10.5 3l2.5 2.5L5.5 13H3v-2.5z"/>',
+ more:'<path d="M3.5 8h.01M8 8h.01M12.5 8h.01"/>',
+ command:'<path d="M6 6h4v4H6zM6 6V4.5A1.5 1.5 0 1 0 4.5 6H6M10 6V4.5A1.5 1.5 0 1 1 11.5 6H10M6 10v1.5A1.5 1.5 0 1 1 4.5 10H6M10 10v1.5a1.5 1.5 0 1 0 1.5-1.5H10"/>',
+ file:'<path d="M3.5 2h6l3 3v9h-9zM9.5 2v3h3"/>',
+ note:'<path d="M6 12V3.5l7-1.5v8.5"/><circle cx="4.5" cy="12" r="1.5"/><circle cx="11.5" cy="10.5" r="1.5"/>',
+ cloud:'<path d="M4.5 12.5a3 3 0 0 1-.4-6A4 4 0 0 1 12 6.5a3 3 0 0 1-.5 6z"/>',
+ spinner:'<path d="M8 2a6 6 0 1 0 6 6"/>',
+ moon:'<path d="M12.5 9.5A5.5 5.5 0 0 1 6.5 3.5a5.5 5.5 0 1 0 6 6z"/>',
+ sun:'<circle cx="8" cy="8" r="2.5"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4"/>',
+ monitor:'<rect x="2" y="3" width="12" height="8" rx="1"/><path d="M6 14h4M8 11v3"/>',
+ mic:'<rect x="6" y="2" width="4" height="7" rx="2"/><path d="M3.5 7.5a4.5 4.5 0 0 0 9 0M8 12v2"/>'
+};
+const GROUPS=[
+ ['Navigation · the 16 names in Icons.tsx',['dashboard','vault','loops','map','leads','crm','sales','store','content','sounds','kits','feedback','plugins','themes','assistant','settings'],{dashboard:'Today',vault:'Beats',crm:'Pitch CRM'}],
+ ['Deck strip and section glyphs · release stages and player',['idea','wip','finished','pitched','sold','wave','play','pause','prev','next','volume','command'],{idea:'Idea',wip:'In progress',finished:'Finished',pitched:'Pitched',sold:'Sold',wave:'Waveform'}],
+ ['Actions and system',['search','plus','minus','x','check','down','right','left','edit','trash','undo','refresh','copy','download','external','send','filter','sort','grip','more','eye','star','folder','file','note','tag','cloud','key','lock','mic','alert','info','spinner','moon','sun','monitor'],{}]
+];
+ICONS.tag=ICONS.sold;
+const sprite='<svg width="0" height="0" style="position:absolute" aria-hidden="true">'+Object.entries(ICONS).map(([k,v])=>`<symbol id="i-${k}" viewBox="0 0 16 16">${v}</symbol>`).join('')+'</svg>';
+document.body.insertAdjacentHTML('afterbegin',sprite);
+const IC=(n,c='')=>`<svg class="i ${c}" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+customElements.define('i-c',class extends HTMLElement{connectedCallback(){if(this.firstChild)return;const c=this.getAttribute('class')||'';this.innerHTML=IC(this.getAttribute('n'),c)}});
+
+/* ---------- helpers ---------- */
+const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
+const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function rng(seed){let s=seed;return()=>((s=Math.imul(s^s>>>15,1|s)+0x6D2B79F5|0),((s^s>>>7)>>>0)/4294967296)}
+function peaks(seed,n=90){const r=rng(seed);return Array.from({length:n},(_,i)=>.25+.7*Math.abs(Math.sin(i/7+seed))*(.5+r()*.6)).map(v=>Math.min(1,v))}
+function drawWave(cv,seed,prog=.38,col){const d=devicePixelRatio||1,w=cv.clientWidth,h=cv.clientHeight;if(!w)return;cv.width=w*d;cv.height=h*d;const x=cv.getContext('2d');x.scale(d,d);const cs=getComputedStyle(document.documentElement);const pk=peaks(seed,Math.floor(w/3.5)),bw=w/pk.length;pk.forEach((v,i)=>{x.fillStyle=i/pk.length<prog?cs.getPropertyValue('--primary'):cs.getPropertyValue('--fg-3');x.fillRect(i*bw,(h-v*h)/2,Math.max(1.5,bw-1.5),v*h)})}
+function setNum(el,n,ms=420){const from=+el.dataset.v||0;el.dataset.v=n;if(RM||from===n){el.textContent=n;return}const t0=performance.now();(function f(t){const k=Math.min(1,(t-t0)/ms),e=1-Math.pow(1-k,3);el.textContent=Math.round(from+(n-from)*e);if(k<1)requestAnimationFrame(f)})(t0)}
+
+/* ---------- shell: strip, placeholder cycling, glide ---------- */
+const STRIP=[['today','Today','dashboard'],['beats','Beats','vault','79'],['loops','Loops','loops','412'],['sounds','Sounds','sounds'],['kits','Kits','kits'],['map','Map','map'],'|',['store','Store','store','','1'],['sales','Sales','sales'],'|',['crm','Pitch CRM','crm','','2'],['leads','Leads','leads','156'],['content','Content','content'],['feedback','Feedback','feedback'],'|',['plugins','Plugins','plugins'],['themes','Themes','themes'],'gap',['assistant','Assistant','assistant'],['settings','Settings','settings']];
+const SCREEN2STRIP={themes:'themes',settings:'settings',assistant:'assistant'};
+$('#strip').innerHTML=STRIP.map(s=>s==='|'?'<span class="sep"></span>':s==='gap'?'<span class="gap"></span>':`<button data-s="${s[0]}" ${['themes','settings','assistant'].includes(s[0])?'':'tabindex="-1"'}><span class="tr"><span data-t="${s[1]}">${s[1]}</span></span>${s[3]?`<span class="n">${s[3]}</span>`:''}${s[4]?`<span class="due">${s[4]}</span>`:''}</button>`).join('')+'<i class="glide" id="glide"></i>';
+function glide(){const on=$('#strip button.on');const g=$('#glide');if(!on){g.style.width='0';return}g.style.width=on.offsetWidth-16+'px';g.style.transform=`translateX(${on.offsetLeft+8}px)`}
+$$('#strip button').forEach(b=>b.onclick=()=>{const s=b.dataset.s;if(['themes','settings','assistant'].includes(s))go(s);else toast('Not part of this mockup: '+b.textContent.trim().split(/\s/)[0])});
+
+const PHS=['Search beats, or type a command…','Try “Night Drive”','Try “moneyman” to find a contact','Try “Open Settings”','Try “Clean up FL projects”'];
+$$('[data-ph]').forEach((el,k)=>{let i=0;const mk=t=>{const s=document.createElement('span');s.textContent=t;return s};let cur=mk(PHS[0]);el.appendChild(cur);
+ el._hide=()=>{el.style.visibility=''};
+ setInterval(()=>{if(RM||el.dataset.off)return;i=(i+1)%PHS.length;const n=mk(PHS[i]);n.className='pre';el.appendChild(n);requestAnimationFrame(()=>requestAnimationFrame(()=>{cur.className='out';n.className='';const old=cur;cur=n;setTimeout(()=>old.remove(),450)}))},2600+k*500)});
+$('#tsearch').onclick=()=>openD('palette');$('#tsearch').onkeydown=e=>{if(e.key==='Enter')openD('palette')};
+
+/* ---------- tooltips (item 4) ---------- */
+const tip=$('#tip');let tt;
+function showTip(el){clearTimeout(tt);const first=!tip.classList.contains('on');tt=setTimeout(()=>{const k=el.dataset.kbd;tip.innerHTML=esc(el.dataset.tip)+(k?`<kbd>${esc(k)}</kbd>`:'');tip.classList.remove('top');tip.style.left='0';tip.style.top='0';const r=el.getBoundingClientRect(),tr=tip.getBoundingClientRect();let top=el.dataset.side==='top';let y=top?r.top-tr.height-9:r.bottom+9;if(y<4||y+tr.height>innerHeight-4){top=!top;y=top?r.top-tr.height-9:r.bottom+9}tip.classList.toggle('top',top);let x=Math.max(8,Math.min(innerWidth-tr.width-8,r.left+r.width/2-tr.width/2));tip.style.left=x+'px';tip.style.top=y+'px';tip.style.setProperty('--ax',(r.left+r.width/2-x)+'px');tip.classList.add('on')},first?120:0)}
+function hideTip(){clearTimeout(tt);tip.classList.remove('on')}
+document.addEventListener('mouseover',e=>{const t=e.target.closest('[data-tip]');if(t)showTip(t)});
+document.addEventListener('mouseout',e=>{if(e.target.closest('[data-tip]'))hideTip()});
+document.addEventListener('focusin',e=>{const t=e.target.closest('[data-tip]');if(t)showTip(t)});
+document.addEventListener('focusout',hideTip);document.addEventListener('scroll',hideTip,true);
+
+/* ---------- toasts with undo ---------- */
+function toast(msg,o={}){const w=$('#toasts');const t=document.createElement('div');t.className='toast'+(o.err?' err':'');
+ t.innerHTML=(o.err?IC('alert','lead'):'')+`<span class="m">${esc(msg)}</span>`+(o.undo?`<button class="u">${IC('undo')}Undo</button>`:'')+`<button class="x" aria-label="Dismiss">${IC('x')}</button><i class="life"></i>`;
+ const kill=()=>{if(t._d)return;t._d=1;t.classList.add('out');setTimeout(()=>t.remove(),200)};
+ $('.x',t).onclick=kill;if(o.undo)$('.u',t).onclick=()=>{kill();toast(o.undone||'Undone')};
+ $('.life',t).addEventListener('animationend',kill);if(RM)setTimeout(kill,4500);
+ w.appendChild(t);while(w.children.length>3)w.firstChild.remove();return t}
+$('#t1').onclick=()=>toast('Split sheet saved');
+$('#t2').onclick=()=>toast('Moved 3 projects to the Trash (412 MB). Restore from the Trash in Finder if you change your mind.',{undo:1,undone:'Put 3 projects back'});
+$('#t3').onclick=()=>toast('This FL project has no audio yet. Export it from FL Studio first.',{err:1});
+$('#t4').onclick=()=>{toast('Audition on');setTimeout(()=>toast('A/B label set to “Mix 2”'),150);setTimeout(()=>toast('Sale saved. $300 · Night Drive',{undo:1}),300)};
+
+/* ---------- worlds + Themes ---------- */
+const BASE={'--background':'','--card':'','--raised':'','--well':'','--muted':'','--border':'','--border-2':'','--foreground':'','--fg-2':'','--fg-3':'','--primary':'','--on-primary':'','--ring':'','--idea':'','--wip':'','--done':'','--sent':'','--sold':'','--danger':'','--font':'','--font-display':'','--r-ctl':'','--r-card':'','--r-chip':''};
+const W=[
+ {id:'deck',name:'Deck',dark:true,font:'Inter Tight',disp:'Archivo',story:'Warm near-black with a signal-orange accent, wide Archivo headings and a faint dot grain.',traits:['Inter Tight and Archivo','Uppercase wide titles','8px controls, 10px cards','Status colours per release stage'],t:{}},
+ {id:'harbor',name:'Harbor',dark:true,font:'Inter',disp:'Inter',story:'Deep sea navy with a cool cyan accent and calm, even type.',traits:['Inter','Sentence-case titles','6px controls, 8px cards'],t:{'--background':'#08111a','--card':'#0d1824','--raised':'#142233','--well':'#050c13','--muted':'#1c2d41','--border':'rgba(180,220,255,.1)','--border-2':'rgba(180,220,255,.2)','--foreground':'#e8f2fb','--fg-2':'#9fb4c8','--fg-3':'#7f97ad','--primary':'#4fd0f0','--on-primary':'#04141c','--ring':'#4fd0f0','--font':'Inter,sans-serif','--font-display':'Inter,sans-serif','--r-ctl':'6px','--r-card':'8px'}},
+ {id:'tape',name:'Tape',dark:true,font:'Inter',disp:'Inter',story:'Worn charcoal and amber, like a cassette label under a desk lamp.',traits:['Inter','Amber accent','4px controls, 6px cards'],t:{'--background':'#121110','--card':'#1a1816','--raised':'#24211e','--well':'#0c0b0a','--muted':'#2e2a26','--foreground':'#f1e9da','--fg-2':'#b3a995','--fg-3':'#92897a','--primary':'#ffb547','--on-primary':'#1a1004','--ring':'#ffb547','--font':'Inter,sans-serif','--font-display':'Inter,sans-serif','--r-ctl':'4px','--r-card':'6px'}},
+ {id:'plum',name:'Plum Room',dark:true,font:'Inter',disp:'Inter',story:'Dark aubergine with a soft lilac accent for late sessions.',traits:['Inter','Lilac accent','10px controls, 14px cards'],t:{'--background':'#120d16','--card':'#1a1320','--raised':'#251b2d','--well':'#0c0810','--muted':'#32253d','--border':'rgba(240,220,255,.09)','--border-2':'rgba(240,220,255,.18)','--foreground':'#f3ecf9','--fg-2':'#b7a6c6','--fg-3':'#9887aa','--primary':'#c3a6ff','--on-primary':'#150c22','--ring':'#c3a6ff','--font':'Inter,sans-serif','--font-display':'Inter,sans-serif','--r-ctl':'10px','--r-card':'14px'}},
+ {id:'paper',name:'Paper',dark:false,font:'Inter',disp:'Inter',story:'Warm off-white with ink-black type and one orange mark.',traits:['Inter','Ink black text','8px controls, 10px cards'],t:{'--background':'#f4f1ea','--card':'#fbf9f4','--raised':'#ebe7dd','--well':'#e7e3d8','--muted':'#d9d4c6','--border':'rgba(20,18,12,.12)','--border-2':'rgba(20,18,12,.24)','--foreground':'#17150f','--fg-2':'#47423a','--fg-3':'#6a645a','--primary':'#e2461f','--on-primary':'#ffffff','--ring':'#e2461f','--idea':'#6d5bd0','--wip':'#b36b00','--done':'#13804f','--sent':'#1f63b8','--sold':'#e2461f','--danger':'#c2381a','--font':'Inter,sans-serif','--font-display':'Inter,sans-serif'}},
+ {id:'chalk',name:'Chalk',dark:false,font:'Inter',disp:'Inter',story:'Cool light grey with a strong blue for the primary action.',traits:['Inter','Blue accent','6px controls, 8px cards'],t:{'--background':'#eef0f3','--card':'#f8f9fb','--raised':'#e3e6eb','--well':'#dde1e7','--muted':'#cdd2da','--border':'rgba(10,20,40,.12)','--border-2':'rgba(10,20,40,.24)','--foreground':'#0f1722','--fg-2':'#3b4656','--fg-3':'#5d6878','--primary':'#1f5fd6','--on-primary':'#ffffff','--ring':'#1f5fd6','--idea':'#6d5bd0','--wip':'#a86400','--done':'#0f7a4a','--sent':'#1f63b8','--sold':'#d4421c','--danger':'#c2381a','--font':'Inter,sans-serif','--font-display':'Inter,sans-serif','--r-ctl':'6px','--r-card':'8px'}},
+ {id:'field',name:'Field',dark:false,font:'Inter',disp:'Inter',story:'Pale sage and deep green, for daylight sessions on the balcony.',traits:['Inter','Green accent','8px controls, 12px cards'],t:{'--background':'#eef1ea','--card':'#f8faf4','--raised':'#e2e7da','--well':'#dce2d3','--muted':'#cbd3c0','--border':'rgba(15,30,10,.12)','--border-2':'rgba(15,30,10,.24)','--foreground':'#141c10','--fg-2':'#3e4a38','--fg-3':'#5c6955','--primary':'#1f7a3d','--on-primary':'#ffffff','--ring':'#1f7a3d','--idea':'#6d5bd0','--wip':'#a86400','--done':'#13804f','--sent':'#1f63b8','--sold':'#d4421c','--danger':'#c2381a','--font':'Inter,sans-serif','--font-display':'Inter,sans-serif','--r-card':'12px'}}
+];
+let wcount=1,curW='deck',prevW='deck';
+const activeWorlds=()=>W.slice(0,wcount);
+function applyTokens(el,w){Object.keys(BASE).forEach(k=>el.style.removeProperty(k));Object.entries(w.t).forEach(([k,v])=>el.style.setProperty(k,v))}
+function textGen(el,text){el.innerHTML='';const words=text.split(/(\s+)/);words.forEach((w,i)=>{const s=document.createElement('span');s.className='w';s.textContent=w;s.style.animationDelay=RM?'0s':(i*28)+'ms';el.appendChild(s)})}
+function pvHTML(){return `<div class="pt"><span class="mk">Studio HQ</span><span class="pl">${IC('play')}</span><span class="pw">${Array.from({length:44},(_,i)=>`<i class="${i<16?'p':''}" style="height:${30+Math.abs(Math.sin(i*.6))*70}%"></i>`).join('')}</span><span class="dim">1:12</span></div>
+<div class="ps"><span>Today</span><b>Beats</b><span>Loops</span><span>Sounds</span><span>Pitch CRM</span><span>Sales</span></div>
+<div class="pb"><div class="tb"><div class="th"><b>Beats</b><span class="dim">79 beats</span></div>
+${[['Glass Hours','8A','finished','128','wave',1],['Night Drive','5A','wip','141','',0],['Lowrider','10B','finished','100','',0]].map((r,i)=>`<div class="rw ${i==0?'sel':''} ${r[2]=='wip'?'s2':''}"><span class="pb2">${IC('play')}</span><b style="font-weight:600">${r[0]}</b><span class="mw">${Array.from({length:14},(_,k)=>`<i style="height:${5+Math.abs(Math.sin(k+i*3))*13}px"></i>`).join('')}</span><span>${r[3]}</span><span class="tg">${r[1]}</span></div>`).join('')}
+<div class="dim" style="margin-top:8px;display:flex;gap:14px"><span style="display:flex;gap:5px;align-items:center"><i class="sq idea"></i>Idea</span><span style="display:flex;gap:5px;align-items:center"><i class="sq wip"></i>In progress</span><span style="display:flex;gap:5px;align-items:center"><i class="sq finished"></i>Finished</span><span style="display:flex;gap:5px;align-items:center"><i class="sq pitched"></i>Pitched</span><span style="display:flex;gap:5px;align-items:center"><i class="sq sold"></i>Sold</span></div></div>
+<div class="insp"><h4>Glass Hours</h4><div class="kv"><span>BPM</span><b>128</b></div><div class="kv"><span>Key</span><b>8A</b></div><div class="ck"><div><i class="d y"></i>Mixdown exported</div><div><i class="d y"></i>Tagged</div><div><i class="d"></i>Cover art</div></div><div class="pbtn">Pitch this beat</div></div></div>`}
+function fitPv(){const f=$('#fit');if(!f)return;const k=Math.min(1.7,f.clientWidth/760);$('#pv').style.transform=`scale(${k})`;f.style.height=456*k+'px'}
+function pvRender(){const w=W.find(x=>x.id===prevW);const pv=$('#pv');applyTokens(pv,w);pv.innerHTML=pvHTML();fitPv();
+ $('#pvname').textContent=w.name;const inuse=prevW===curW;$('#pvuse').style.display=inuse?'':'none';const b=$('#useBtn');b.disabled=inuse;b.style.display=inuse&&wcount===1?'none':'';
+ textGen($('#story'),w.story);$('#traits').innerHTML=w.traits.map(t=>`<span class="chip">${esc(t)}</span>`).join('');
+ requestAnimationFrame(()=>{const cs=getComputedStyle(pv);const g=n=>cs.getPropertyValue(n).trim();
+  $('#sw8').innerHTML=[['--background','bg'],['--card','panel'],['--raised','raise'],['--well','well'],['--foreground','text'],['--fg-2','text-2'],['--fg-3','dim'],['--primary','accent']].map(([v,n])=>`<div style="background:${g(v)}" title="${v}"><span>${n}</span></div>`).join('');
+  $('#stat').innerHTML=[['idea','Idea'],['wip','In progress'],['done','Finished'],['sent','Pitched'],['sold','Sold']].map(([v,n])=>`<span><i class="sq" style="background:${g('--'+v)}"></i>${n}</span>`).join('');
+  $('#spec').style.fontFamily=g('--font-display');$('#spec').style.textTransform=w.id==='deck'?'uppercase':'none';$('#spec').textContent=w.id==='deck'?'Aa':'Aa';
+  $('#specn').textContent=w.id==='deck'?'Archivo wide for titles, Inter Tight for everything else':w.font+' for titles and body';
+  $('#shape').innerHTML=[g('--r-ctl')||'8px',g('--r-card')||'10px',g('--r-chip')||'4px'].map(r=>`<div style="border-radius:${r}"></div>`).join('');
+  $('#shapen').textContent=`Controls ${g('--r-ctl')||'8px'} · cards ${g('--r-card')||'10px'} · chips ${g('--r-chip')||'4px'}`})}
+function worldsRender(){const box=$('#worlds');const list=activeWorlds();const grp=(dark,title)=>{const m=list.filter(w=>w.dark===dark);if(!m.length)return '';return `<div class="wgroup">${title}</div>`+m.map(w=>{const pv=document.createElement('i');applyTokens(pv,w);const sty=n=>w.t[n]||({'--background':'#0b0b0a','--card':'#121210','--raised':'#1a1917','--primary':'#ff5533'}[n]);return `<button class="world ${w.id===prevW?'prev':''}" role="radio" aria-checked="${w.id===curW}" data-w="${w.id}"><span class="sws"><i style="background:${sty('--background')}"></i><i style="background:${sty('--primary')}"></i><i style="background:${sty('--card')}"></i><i style="background:${sty('--raised')}"></i></span><span><b>${esc(w.name)}</b><small>${esc(w.font)}${w.id==='deck'?' + Archivo':''} · ${w.dark?'dark':'light'}</small></span>${w.id===curW?'<span class="chip ok">In use</span>':''}</button>`}).join('')};
+ box.innerHTML=grp(true,'Dark rooms')+grp(false,'Daylight')+`<div class="qs"><button class="tgl" id="qs" data-dark="${W.find(w=>w.id===curW).dark}" ${wcount<2?'disabled':''} aria-label="Quick switch between dark and light" data-tip="${wcount<2?'Only one world installed':'Quick switch'}">${IC('moon','a')}${IC('sun','b')}</button><p>${wcount<2?'Quick switch appears when a second world is installed.':'Quick switch flips between your last dark and light world.'}</p></div>`;
+ $$('.world',box).forEach(b=>{b.onmouseenter=()=>{prevW=b.dataset.w;$$('.world',box).forEach(x=>x.classList.toggle('prev',x===b));pvRender()};b.onclick=e=>{prevW=b.dataset.w;pvRender();useWorld(b.dataset.w,e.clientX,e.clientY)}});
+ box.onmouseleave=()=>{if(prevW!==curW){prevW=curW;$$('.world',box).forEach(x=>x.classList.toggle('prev',x.dataset.w===curW));pvRender()}};
+ const q=$('#qs');if(q)q.onclick=e=>{const dark=W.find(w=>w.id===curW).dark;const t=activeWorlds().find(w=>w.dark!==dark);if(t)useWorld(t.id,e.clientX,e.clientY)};
+ $('#wcount').textContent=wcount===1?'1 world installed':wcount+' worlds installed'}
+function useWorld(id,x=innerWidth/2,y=innerHeight/2){if(id===curW)return;const w=W.find(v=>v.id===id);const bg=w.t['--background']||'#0b0b0a';
+ const apply=()=>{curW=id;prevW=id;applyTokens(document.documentElement,w);document.body.style.backgroundImage=w.dark?'':'none';worldsRender();pvRender();setTimeout(()=>{$$('canvas').forEach(c=>c._d&&c._d())},30)};
+ if(RM){apply();toast(w.name+' is on');return}
+ const d=document.createElement('div');d.className='wipe';d.style.cssText=`--x:${x}px;--y:${y}px;background:${bg}`;document.body.appendChild(d);
+ setTimeout(()=>{apply();d.style.transition='opacity .25s';d.style.opacity=0;setTimeout(()=>d.remove(),260);toast(w.name+' is on. Saved on this Mac.')},620)}
+$('#useBtn').onclick=e=>useWorld(prevW,e.clientX,e.clientY);
+function setWC(n){wcount=n;if(!activeWorlds().find(w=>w.id===curW)){curW='deck';applyTokens(document.documentElement,W[0])}if(!activeWorlds().find(w=>w.id===prevW))prevW=curW;worldsRender();pvRender();$$('[data-wc]').forEach(b=>b.classList.toggle('on',+b.dataset.wc===n))}
+
+/* ---------- Settings ---------- */
+const FOLD={beat:['/Users/keegan/Music/Bounces','/Volumes/Beats/Exports'],loop:['/Users/keegan/Music/Loops to send'],sound:['/Users/keegan/Samples/Drum kits','/Users/keegan/Samples/Packs'],proj:['/Users/keegan/Documents/Image-Line/FL Studio/Projects']};
+const SECS=[['Library',[['beats','Beat folders'],['loops','Loop folders'],['sounds','Sound library folders'],['flbeats','FL projects as beats'],['flfolders','FL Studio project folders']]],['Working',[['pitching','Pitching'],['content','Content & store']]],['Accounts',[['assistant','Studio Assistant'],['youtube','YouTube publisher'],['leads','Lead sources']]],['Publishing',[['netlify','Netlify'],['site','Beat site']]],['Data',[['data','Your data']]]];
+function folderList(key,title,help,extra=''){return `<div class="srow" id="s-${key}"><div><h3>${title}</h3><p class="help">${help}</p></div><div class="ctl folders">${FOLD[key==='beats'?'beat':key==='loops'?'loop':key==='sounds'?'sound':'proj'].map(f=>`<div class="folder"><span title="${f}">${f}</span><button class="btn sm ghost" onclick="toast('Removed ${f.split('/').pop()}',{undo:1})">Remove</button></div>`).join('')}<div class="emptyf">No folders yet. Add the folder where your files land.</div><div><button class="btn sm">${IC('plus')}Add folder…</button></div>${extra}</div></div>`}
+const sw=(id,label,on,help='')=>`<div class="chk"><button class="sw" role="switch" aria-checked="${on}" aria-label="${esc(label)}" id="${id}"></button><span>${label}${help?`<div class="dim" style="font-size:12.5px;margin-top:2px">${help}</div>`:''}</span></div>`;
+function settingsHTML(){
+ const lead=[['SoundCloud','Finds artists with small followings. Paste an API access token.',true],['Audiomack','Finds artists with small followings. Paste an API key.',false],['X','Finds recent posts asking for beats. Paste an API bearer token. X charges for API access.',false]];
+ return `<div class="st-normal"><div class="set">
+ <nav class="rail" aria-label="Settings sections">${SECS.map(g=>`<h4>${g[0]}</h4>`+g[1].map(s=>`<a data-sec="${s[0]}">${s[1]}</a>`).join('')).join('')}</nav>
+ <aside class="conn" aria-label="Connections"><h3>Connections</h3>
+  <a data-sec="netlify"><i class="dot ok"></i><span><b>Netlify</b></span><small>token saved</small></a>
+  <a data-sec="assistant"><i class="dot ok"></i><span><b>Claude CLI</b></span><small>found</small></a>
+  <a data-sec="youtube"><i class="dot warn"></i><span><b>Google</b></span><small>not signed in</small></a>
+  <a data-sec="leads"><i class="dot warn"></i><span><b>Lead sources</b></span><small>1 of 3</small></a>
+  <a data-sec="site"><i class="dot"></i><span><b>Beat site</b></span><small>unpublished</small></a></aside>
+ <div class="sbody">
+ <div class="pagehead" style="margin-bottom:var(--s5)"><div><div class="eyebrow">Studio HQ</div><h1 class="h1">Settings</h1><p>Changes save as you make them. There is no Done button to press.</p></div></div>
+ <div class="grp"><span class="num">01</span>Library</div>
+ ${folderList('beats','Beat folders','Every audio file in these folders is imported automatically, and new bounces appear as soon as they finish writing.')}
+ ${folderList('loops','Loop folders','Loops you make to send to other producers. They get their own Loop Vault, organised the same way as your beats, and a folder named “ideas” or “scraps” follows the setting below too.',sw('ideas','Include folders named “ideas” / “scraps”',true))}
+ ${folderList('sounds','Sound library folders','Drum kits and sample packs, scanned into the Sound Library. Files are never moved or changed.',sw('midi','Also index MIDI files inside my sound folders (MIDI packs can be tens of thousands of files)',false,'MIDI made from your own FL projects is always included.'))}
+ <div class="srow" id="s-flbeats"><div><h3>FL projects as beats</h3><p class="help">Every FL Studio project in your project folders shows up in the Vault as a beat, even before you export it, so a new beat never goes missing. This is how far back to look (0 = every project you've ever made).</p></div><div class="ctl"><div><label class="l">Show projects saved in the last (days)</label><input class="in" style="width:110px" value="90" inputmode="numeric"></div></div></div>
+ ${folderList('flfolders','FL Studio project folders','Searched for .flp files to link to your bounces. FL’s Backup folders are skipped.')}
+ <div class="grp"><span class="num">02</span>Working</div>
+ <div class="srow" id="s-pitching"><div><h3>Pitching</h3></div><div class="ctl"><div class="two"><div><label class="l">Your producer name (used in emails and pages)</label><input class="in" value="smalls"></div><div><label class="l">Default follow-up after (days)</label><input class="in" value="5" inputmode="numeric"></div></div>${sw('notify','Send a macOS notification when follow-ups are due',true)}</div></div>
+ <div class="srow" id="s-content"><div><h3>Content & store</h3><p class="help">Used in titles, descriptions and captions so you don't retype them.</p></div><div class="ctl"><div class="two"><div><label class="l">Store / lease link</label><input class="in" placeholder="https://…"></div><div><label class="l">Business email</label><input class="in" value="beats@example.com"></div></div><div><label class="l">Default hashtags</label><input class="in" value="#typebeat #trapbeats #producer"></div><div class="folder"><span>Videos are saved to: /Users/keegan/Movies/Studio HQ</span><button class="btn sm">Change…</button></div></div></div>
+ <div class="grp"><span class="num">03</span>Accounts</div>
+ <div class="srow" id="s-assistant"><div><h3>Studio Assistant</h3><p class="help">Leave blank to find <code>claude</code> automatically</p></div><div class="ctl"><div><label class="l">Claude CLI path</label><div class="folder"><span>Found automatically</span><button class="btn sm">Choose…</button><button class="btn sm ghost" disabled>Clear</button></div></div></div></div>
+ <div class="srow" id="s-youtube"><div><h3>YouTube publisher</h3></div><div class="ctl">
+  <div><label class="l">Channels to study (a name, @handle or link)</label><input class="in" placeholder="e.g. Soulker"></div>
+  <div><label class="l">Image folder</label><div class="folder"><span>Not chosen yet</span><button class="btn sm">Choose…</button></div></div>
+  <div><label class="l">Google sign-in</label><div class="two"><input class="in" placeholder="Client ID"><input class="in" type="password" placeholder="Client secret"></div><div class="row" style="margin-top:8px"><span class="chip warn">Not signed in</span><button class="btn sm" disabled>Sign in…</button><button class="btn sm ghost" style="display:none">Sign out</button><span class="fnote">Sign in unlocks after a Client ID is saved. Signed in shows “Signed in to Google” with Sign out.</span></div></div>
+  <div><label class="l">Anthropic API key (for writing titles and descriptions)</label><div class="folder"><input class="in" type="password" placeholder="sk-ant-…"><button class="btn sm" disabled>Save</button><button class="btn sm ghost" disabled>Remove</button></div></div></div></div>
+ <div class="srow" id="s-leads"><div><h3>Lead sources</h3><p class="help">Keys are stored encrypted with the macOS Keychain and never leave this computer except to the service you connect.</p></div><div class="ctl">${lead.map(l=>`<div><label class="l">${l[0]} ${l[2]?'<span class="chip ok" style="margin-left:6px">Saved</span>':''}</label><p class="dim" style="font-size:12.5px;margin-bottom:6px">${l[1]} Access depends on ${l[0]} granting API access to your account.</p><div class="folder"><input class="in" type="password" placeholder="${l[2]?'Saved. Paste a new key to replace it':'Key'}"><button class="btn sm" disabled>Save</button><button class="btn sm ghost" ${l[2]?'':'disabled'}>Remove</button></div></div>`).join('')}</div></div>
+ <div class="grp"><span class="num">04</span>Publishing</div>
+ <div class="srow" id="s-netlify"><div><h3>Netlify (private pitch pages)</h3><p class="help">Pages and audio previews are published to your own Netlify site, under unguessable links. Create a personal access token in Netlify → User settings → Applications, and paste it here. It is stored encrypted with the macOS Keychain.</p></div><div class="ctl"><div class="folder" id="nlsaved"><span>Token saved · https://quiet-fox-482.netlify.app</span><button class="btn sm ghost" onclick="nlToggle(false)">Remove</button></div><div class="folder" id="nlform" style="display:none"><input class="in" type="password" id="nltok" placeholder="Netlify personal access token"><button class="btn sm" id="nlsave" disabled onclick="nlToggle(true)">Save</button></div><div class="fnote err" id="nlerr" style="display:none">${IC('alert')}That token was rejected by Netlify.</div></div></div>
+ <div class="srow" id="s-site"><div><h3>Beat site</h3><p class="help">Your public beat catalogue. Send beats to it with <i>Send to site</i> in any beat's panel. Every Lease button opens the store link above unless a beat has its own link. It's published to its own Netlify site, separate from your private pitch pages.</p></div><div class="ctl"><div class="folder"><span>Not published yet · 0 beats</span><button class="btn sm ghost" style="display:none">Open</button><button class="btn sm" id="pub" onclick="pubSite()">Publish site now</button></div><div class="fnote" id="pubmsg"></div></div></div>
+ <div class="grp"><span class="num">05</span>Data</div>
+ <div class="srow" id="s-data" style="border-bottom:0"><div><h3>Your data</h3><p class="help">Everything lives in one local database:</p><p style="margin-top:6px"><code>/Users/keegan/Library/Application Support/Studio HQ/studio-hq.db</code></p></div><div class="ctl"><div class="row"><button class="btn pri" onclick="this.disabled=1;setTimeout(()=>{this.disabled=0;$('#datamsg').textContent='Saved to /Users/keegan/Documents/Studio HQ Backups/2026-11-14.db'},900)">${IC('download')}Back up now</button><button class="btn" onclick="$('#datamsg').textContent='Exported beats and sales (CSV) to /Users/keegan/Documents/Studio HQ Export'">${IC('file')}Export beats and sales (CSV)</button></div><div class="fnote" id="datamsg"></div></div></div>
+ </div></div></div>
+ <div class="st-loading"><div class="skrows"><div class="sk" style="height:34px;width:200px"></div>${Array.from({length:5},()=>`<div class="skrow"><div style="display:grid;gap:8px"><div class="sk" style="height:14px;width:60%"></div><div class="sk" style="height:10px"></div><div class="sk" style="height:10px;width:80%"></div></div><div style="display:grid;gap:8px"><div class="sk" style="height:36px"></div><div class="sk" style="height:36px;width:70%"></div></div></div>`).join('')}</div></div>
+ <div class="st-empty"></div>
+ <div class="st-error"><div class="skrows"><div class="notice err" role="alert"><i-c n="alert"></i-c><span>Couldn’t read your settings. Nothing was changed.</span><button class="btn sm" style="margin-left:auto" onclick="setSt('normal')">Try again</button></div></div></div>`}
+function nlToggle(save){$('#nlsaved').style.display=save?'':'none';$('#nlform').style.display=save?'none':'';if(save){$('#nltok').value='';toast('Netlify token saved')}else{$('#nlsave').disabled=true;$('#nltok').focus()}$('#nlerr').style.display='none';$('#pub').disabled=!save}
+function pubSite(){const b=$('#pub');b.textContent='Publishing…';b.disabled=true;setTimeout(()=>{b.textContent='Publish site now';b.disabled=false;$('#pubmsg').textContent='Published to https://quiet-fox-482.netlify.app/beats'},1200)}
+$('#v-settings').innerHTML=settingsHTML();
+$$('.sw').forEach(s=>s.onclick=()=>s.setAttribute('aria-checked',s.getAttribute('aria-checked')!=='true'));
+$('#nltok').oninput=e=>{$('#nlsave').disabled=!e.target.value.trim()};
+$$('[data-sec]',$('#v-settings')).forEach(a=>a.onclick=()=>{const t=$('#s-'+a.dataset.sec);if(t)t.scrollIntoView({behavior:RM?'auto':'smooth',block:'start'})});
+$('#v-settings').addEventListener('scroll',()=>{const v=$('#v-settings');let cur='beats';SECS.flatMap(g=>g[1]).forEach(([id])=>{const e=$('#s-'+id);if(e&&e.getBoundingClientRect().top-v.getBoundingClientRect().top<120)cur=id});$$('.rail a').forEach(a=>a.classList.toggle('on',a.dataset.sec===cur))});
+
+/* ---------- Assistant ---------- */
+const ghost=Array.from({length:9},(_,i)=>`<div class="gtab"><i style="width:22px;height:22px;border-radius:6px"></i><i style="width:${50+((i*37)%40)}%"></i><i></i><i></i><i></i><i style="width:60%"></i></div>`).join('');$('#ghost').innerHTML=ghost;
+const A={items:[],run:false};
+function aRender(){const l=$('#alist');const st=document.body.dataset.st;
+ if(st==='empty'&&!A.items.length){l.innerHTML=`<div class="empty" style="padding:8px 4px"><div class="glyph"><i-c n="assistant"></i-c></div><b>Ask anything</b><span>Ask about your beats, pitches or sales. Anything that changes data asks you first.</span></div>`;return}
+ l.innerHTML=A.items.map((it,i)=>{
+  if(it.k==='user')return `<div class="msg user">${esc(it.t)}</div>`;
+  if(it.k==='bot')return `<div class="msg bot">${esc(it.t)}</div>`;
+  if(it.k==='tool')return `<details class="tool ${it.err?'err':''}"><summary>${IC('right','c')}<span>${esc(it.label)}${it.err?' (failed)':''}</span></summary><pre>${esc(it.input)}</pre></details>`;
+  if(it.k==='err')return `<div class="notice err" role="alert">${IC('alert')}<span>${esc(it.t)}</span></div>`;
+  if(it.k==='ap')return `<div class="approve ${it.out!=='pending'?'done':''}"><div class="sum">${esc(it.sum)}</div>${it.out==='pending'?`<div class="btns"><button class="btn pri sm" data-ap="${i}:approved">Approve</button><button class="btn sm" data-ap="${i}:denied">Deny</button></div>`:`<div class="out">${IC(it.out==='approved'?'check':'x')}${{approved:'Approved',denied:'Denied',expired:'Not answered'}[it.out]}</div>`}</div>`}).join('')
+  +(A.run?`<div class="working"><span class="wdots"><i></i><i></i><i></i></span>${A.items.some(x=>x.k==='ap'&&x.out==='pending')?'Waiting for your approval':'Assistant working…'}</div>`:'');
+ $$('[data-ap]',l).forEach(b=>b.onclick=()=>{const[i,o]=b.dataset.ap.split(':');A.items[+i].out=o;A.run=false;if(o==='approved'){A.items.push({k:'tool',label:'Updated a beat',input:'{ "id": 14, "status": "pitched" }'},{k:'bot',t:'Done. Night Drive is now marked Pitched.'})}else A.items.push({k:'bot',t:'Okay, I left Night Drive as it was.'});aRender();aBusy()});
+ l.scrollTop=l.scrollHeight}
+function aBusy(){const pend=A.items.some(x=>x.k==='ap'&&x.out==='pending');const busy=A.run||pend;$('#thread').disabled=busy;const b=$('#asend');b.innerHTML=A.run?IC('pause')+'<span>Stop</span>':IC('send')+'<span>Send</span>';b.classList.toggle('pri',!A.run)}
+function aSeed(){A.items=[{k:'user',t:'Which finished beats have no cover yet?'},{k:'tool',label:'Searched beats',input:'{ "status": "finished", "missing": "cover" }'},{k:'bot',t:'3 finished beats have no cover: Glass Hours, Lowrider and TITAN. Want me to mark Night Drive as Pitched too? You pitched it to lilbaby yesterday.'},{k:'ap',sum:'Change Night Drive from Finished to Pitched',out:'pending'}];A.run=false}
+function aSend(){const t=$('#atext').value.trim();if(A.run){A.run=false;aRender();aBusy();return}if(!t)return;A.items.push({k:'user',t});$('#atext').value='';A.run=true;aRender();aBusy();
+ setTimeout(()=>{if(!A.run)return;A.items.push({k:'tool',label:'Listed beats',input:'{ "limit": 5 }'});aRender()},700);
+ setTimeout(()=>{if(!A.run)return;A.items.push({k:'bot',t:'You have 79 beats: 54 finished, 21 in progress and 4 ideas.'});A.run=false;aRender();aBusy()},1800)}
+$('#asend').onclick=aSend;$('#atext').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();aSend()}};
+$('#newchat').onclick=()=>{A.items=[];A.run=false;$('#thread').insertAdjacentHTML('afterbegin','<option>New chat</option>');$('#thread').selectedIndex=0;document.body.dataset.st='empty';syncSt();aRender();aBusy()};
+aSeed();
+
+/* ---------- Palette ---------- */
+const DATA={
+ beats:[['State Of Anarchy','143 · B minor · finished','finished'],['Night Drive','141 · 5A · in progress','wip'],['Glass Hours','128 · 8A · finished','finished'],['Lowrider','100 · 10B · finished','finished'],['Spider','150 · F# minor · pitched','pitched'],['TITAN','138 · A minor · sold','sold'],['Rouge','142 · C minor · idea','idea'],['Velvet Hour','120 · 3A · in progress','wip']],
+ contacts:[['moneyman','Detroit · 2 pitches'],['lilbaby','Atlanta · replied'],['hunxho','Atlanta · opted out'],['bc_shooter','Chicago · new lead'],['nightwave','London · follow-up due']],
+ sales:[['Night Drive','$300 · lilbaby'],['TITAN','$800 exclusive · moneyman'],['Spider','$150 · bc_shooter'],['Glass Hours','$75 · nightwave']],
+ sounds:[['808 Sub Long','Dark Trap Vol 2'],['Night Hat 03','Dark Trap Vol 2'],['Vinyl Snare','Dusty Drums'],['Driver Pad','Analog Pads']],
+ cmds:[['Go to Beats','vault','G B'],['Go to Loops','loops','G L'],['Open Settings','settings','⌘,'],['Pitch a beat','send','P'],['Clean up FL projects','trash',''],['Find duplicate sounds','copy','']]
+};
+let pi=0,pres=[];
+function hl(t,q){if(!q)return esc(t);const i=t.toLowerCase().indexOf(q.toLowerCase());return i<0?esc(t):esc(t.slice(0,i))+'<mark>'+esc(t.slice(i,i+q.length))+'</mark>'+esc(t.slice(i+q.length))}
+function pBuild(){const q=$('#pq').value.trim().toLowerCase();const m=a=>a.filter(x=>x[0].toLowerCase().includes(q)||(x[1]||'').toLowerCase().includes(q));
+ const beats=(q?m(DATA.beats):DATA.beats).slice(0,q?8:6),contacts=q?m(DATA.contacts).slice(0,5):[],sales=q?m(DATA.sales).slice(0,4):[],sounds=q.length>1?m(DATA.sounds).slice(0,4):[],cmds=(q?DATA.cmds.filter(c=>c[0].toLowerCase().includes(q)):DATA.cmds).slice(0,6);
+ pres=[...beats.map(x=>({k:'Beat',t:x[0],m:x[1],s:x[2]})),...contacts.map(x=>({k:'Contact',t:x[0],m:x[1]})),...sales.map(x=>({k:'Sale',t:x[0],m:x[1]})),...sounds.map(x=>({k:'Sound',t:x[0],m:x[1]})),...cmds.map(x=>({k:'Action',t:x[0],m:x[2],ic:x[1]}))];pi=Math.min(pi,Math.max(0,pres.length-1));
+ const st=document.body.dataset.st;
+ if(st==='loading'){$('#pres').innerHTML=Array.from({length:5},()=>`<div class="res"><div class="sk" style="height:10px;width:40px"></div><div class="sk" style="height:12px;width:55%"></div><span></span></div>`).join('');$('#pcount').textContent='Searching…';dockRender([]);return}
+ if(st==='empty'||(!pres.length)){ $('#pres').innerHTML='<div class="emptyres"><b>Nothing found</b><br><span class="dim">Try a beat title, a contact or a command.</span></div>';$('#pcount').textContent='';dockRender([]);return}
+ if(st==='error'){$('#pres').innerHTML='<div class="emptyres"><div class="notice err" role="alert" style="text-align:left">'+IC('alert')+'<span>Search failed. Commands still work.</span></div></div>';dockRender(cmds);return}
+ $('#pres').innerHTML=pres.map((r,i)=>`<button class="res ${i===pi?'on':''}" role="option" data-i="${i}"><span class="k">${r.s?`<i class="sq ${r.s}"></i>`:r.ic?IC(r.ic):''}${r.k}</span><span class="t">${hl(r.t,q)}</span><span class="mt">${r.k==='Action'&&r.m?`<kbd>${esc(r.m)}</kbd>`:esc(r.m||'')}</span></button>`).join('');
+ $$('.res',$('#pres')).forEach(b=>{b.onmouseenter=()=>{pi=+b.dataset.i;pMark()};b.onclick=()=>pRun(+b.dataset.i)});$('#pcount').textContent=pres.length+' results';dockRender(cmds)}
+function pMark(){$$('.res',$('#pres')).forEach((b,i)=>b.classList.toggle('on',i===pi));const e=$('.res.on',$('#pres'));if(e)e.scrollIntoView({block:'nearest'})}
+function pRun(i){const r=pres[i];if(!r)return;closeAll();toast(r.k==='Action'?r.t:'Opened '+r.k.toLowerCase()+' “'+r.t+'”');if(r.t==='Clean up FL projects')setTimeout(()=>openD('cleanup'),200);if(r.t==='Find duplicate sounds')setTimeout(()=>openD('dupes'),200);if(r.t==='Open Settings')go('settings');if(r.k==='Beat')setTimeout(()=>openD('profile'),200)}
+/* dock (item 8) */
+function dockRender(cmds){const d=$('#dock');const list=cmds.length?cmds:[];d.style.visibility=list.length?'':'hidden';$('#docklabel').style.visibility=list.length?'':'hidden';$('#docklabel').textContent=$('#pq').value.trim()?'Matching actions':'Quick actions';
+ d.innerHTML=list.map(c=>`<button class="dk" data-c="${esc(c[0])}" aria-label="${esc(c[0])}">${IC(c[1])}<span class="nm">${esc(c[0])}${c[2]?` · ${esc(c[2])}`:''}</span></button>`).join('');
+ $$('.dk',d).forEach(b=>b.onclick=()=>{const i=pres.findIndex(r=>r.t===b.dataset.c);pRun(i<0?0:i)});}
+$('#dock').addEventListener('mousemove',e=>{if(RM)return;$$('.dk',$('#dock')).forEach(b=>{const r=b.getBoundingClientRect();const d=Math.abs(e.clientX-(r.left+r.width/2));b.style.setProperty('--s',(1+Math.max(0,1-d/90)*.6).toFixed(3))})});
+$('#dock').addEventListener('mouseleave',()=>$$('.dk',$('#dock')).forEach(b=>b.style.setProperty('--s',1)));
+$('#pq').oninput=()=>{pi=0;$('#pph').style.visibility=$('#pq').value?'hidden':'';pBuild()};
+$('#pq').onkeydown=e=>{if(e.key==='ArrowDown'){e.preventDefault();pi=(pi+1)%Math.max(1,pres.length);pMark()}else if(e.key==='ArrowUp'){e.preventDefault();pi=(pi-1+pres.length)%Math.max(1,pres.length);pMark()}else if(e.key==='Enter'){pRun(pi)}};
+$('#s-palette').onmousedown=e=>{if(e.target.id==='s-palette')closeAll()};
+
+/* ---------- Beat profile ---------- */
+const BP=[
+ {id:1,t:'State Of Anarchy',st:'finished',bpm:143,key:'B minor',dur:'3:08',ext:'flp',ver:'v3',cr:'Prod. smalls · feat. Metro style',tags:['trap','dark','drill','aggressive','808','choir','nyc','hard'],r:[1,1,1,1,0],seed:3,peaks:1},
+ {id:2,t:'Night Drive',st:'wip',bpm:141,key:'5A',dur:'2:41',ext:'wav',ver:'',cr:'',tags:['melodic','late night'],r:[1,1,1,1,1],seed:7,peaks:1},
+ {id:3,t:'Glass Hours',st:'finished',bpm:128,key:'8A',dur:'3:22',ext:'mp3',ver:'',cr:'',tags:['ambient','pad'],r:[1,1,0,0,0],seed:11,peaks:0},
+ {id:4,t:'Untitled idea 14',st:'idea',bpm:0,key:'',dur:'0:48',ext:'flp',ver:'',cr:'',tags:[],r:[0,0,0,0,0],seed:19,peaks:0}
+];
+const RSTEP=['Audio file','BPM','Key','Genre or vibe tag','Cover'];
+let pbi=0;
+function cover(b){const p=peaks(b.seed*5,28);return `<div class="cover"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${p.map((v,i)=>`<rect x="${i*3.57+.4}" y="${100-v*78}" width="2.8" height="${v*78}" fill="var(--muted)"/>`).join('')}</svg><span class="ini">${esc(b.t[0])}</span></div>`}
+function traceHTML(r,small){const first=r.findIndex(x=>!x);return RSTEP.map((s,i)=>`<li class="${r[i]?'done':''} ${i===first?'cur':''}"><span class="nd">${IC('check')}</span><span>${s}</span>${!r[i]?`<button class="btn sm ghost go" data-tip="Fix: ${s}">Fix</button>`:''}</li>`).join('')}
+function profileRender(){const b=BP[pbi];const r=b.r,done=r.filter(Boolean).length;const prev=BP[pbi-1],next=BP[pbi+1];
+ $('#pfeb').textContent=(b.ext==='flp'?'FL Studio project':b.ext.toUpperCase())+(b.ver?' · '+b.ver:'');
+ $('#pfb').innerHTML=`<div class="pfart">${cover(b)}${b.peaks?`<div class="pfwave"><canvas id="pfc"></canvas></div>`:`<div class="dim" style="font-size:12px">No waveform yet. Export audio to draw one.</div>`}</div>
+ <div class="pfinfo"><h2 class="pft">${esc(b.t)}</h2>
+ <div class="pills"><span class="pill st"><i class="sq ${b.st==='wip'?'wip':b.st}"></i>${b.st==='wip'?'WIP':b.st[0].toUpperCase()+b.st.slice(1)}</span><span class="pill">${b.bpm?b.bpm+' BPM':'no BPM'}</span><span class="pill">${b.key||'no key'}</span><span class="pill">${b.dur}</span></div>
+ ${b.cr?`<div class="dim">${esc(b.cr)}</div>`:''}${b.tags.length?`<div class="pills">${b.tags.slice(0,8).map(t=>`<span class="chip">${esc(t)}</span>`).join('')}</div>`:''}
+ <div class="pfh"><span>Release checklist</span><em><span class="numroll" id="pfd">0</span> / 5</em></div>
+ <ul class="trace sm" id="pft"><i class="beam" id="beam"></i>${traceHTML(r)}</ul>
+ <div class="pfh"><span>Stage</span></div>
+ <div class="seg" role="radiogroup" aria-label="Stage" id="pfst">${['idea','wip','finished','pitched','sold'].map(s=>`<button role="radio" aria-checked="${s===b.st}" class="${s===b.st?'on':''}" data-s="${s}"><i class="sq ${s}"></i>${s==='wip'?'WIP':s[0].toUpperCase()+s.slice(1)}</button>`).join('')}</div>
+ <div class="row" style="margin-top:4px"><button class="btn pri" id="pfplay">${IC('play')}<span>Play</span></button><button class="btn" onclick="toast('Edit details opens the inspector')">${IC('edit')}Edit details</button></div></div>`;
+ $('#pfn').innerHTML=`<button ${prev?'':'disabled'} id="pgp">${IC('left')}<span>${prev?esc(prev.t):''}</span></button><span class="ct">${pbi+1} / 79</span><button ${next?'':'disabled'} id="pgn"><span>${next?esc(next.t):''}</span>${IC('right')}</button>`;
+ $('#pgp').onclick=()=>{pbi--;profileRender()};$('#pgn').onclick=()=>{pbi++;profileRender()};
+ setNum($('#pfd'),0);setTimeout(()=>setNum($('#pfd'),done,700),120);
+ const ul=$('#pft');setTimeout(()=>{const first=r.findIndex(x=>!x);const lis=$$('li',ul);const lastDone=first===-1?lis.length-1:first-1;$('#beam').style.height=lastDone>=0?(lis[lastDone].offsetTop+10-12)+'px':'0'},60);
+ $$('#pfst button').forEach(x=>x.onclick=()=>{b.st=x.dataset.s;profileRender();toast('Stage set to '+x.textContent,{undo:1})});
+ $('#pfplay').onclick=function(){const on=this.dataset.on!=='1';this.dataset.on=on?'1':'';this.innerHTML=IC(on?'pause':'play')+'<span>'+(on?'Pause':'Play')+'</span>'};
+ const c=$('#pfc');if(c){c._d=()=>drawWave(c,b.seed,.42);requestAnimationFrame(c._d);c.onclick=e=>{const r2=c.getBoundingClientRect();drawWave(c,b.seed,(e.clientX-r2.left)/r2.width)}}}
+
+/* ---------- Cleanup ---------- */
+const CP=[
+ ['rouge_v7','Rouge',412,'2 yr ago',212,31,4,'C minor',142,0,'idea',3],['night_drive_final','Night Drive',138,'14 mo ago',88,12,2,'5A',141,1,'finished',7],['untitled 22','',22,'11 mo ago',9,0,0,'',0,0,'',0],['trap_beat_old','Trap beat old',96,'10 mo ago',64,6,1,'F minor',140,0,'',2],['spider_remix','Spider remix',301,'8 mo ago',160,22,3,'F# minor',150,1,'pitched',5],['lowrider','Lowrider',72,'7 mo ago',41,8,0,'10B',100,1,'finished',1],['drill_idea_3','Drill idea 3',54,'5 mo ago',33,4,0,'D minor',144,0,'',0],['velvet hour','Velvet Hour',188,'2 mo ago',120,15,2,'3A',120,0,'wip',4]
+].map((a,i)=>({id:i+1,name:a[0],title:a[1],mb:a[2],ago:a[3],days:[730,420,330,300,240,210,150,60][i],samples:a[4],midi:a[5],bk:a[6],key:a[7],bpm:a[8],ex:!!a[9],status:a[10],seed:i+2,_x:a[11]}));
+const CF=[['all','All','Every project in your FL folders'],['never','Never exported','No bounce found for these'],['exp','Exported','A bounce exists, so the project is safe to let go'],['old','Older than 90 days','Not opened in a quarter'],['marked','Marked','What will go to the Trash']];
+const C={f:'never',q:'',sort:'old',sel:1,mk:new Set(),conf:false,busy:false,msg:''};
+const mb=n=>n>=1000?(n/1000).toFixed(1)+' GB':n+' MB';
+const prot=p=>['finished','pitched','sold'].includes(p.status);
+function cList(){let l=CP.filter(p=>C.f==='all'||(C.f==='never'&&!p.ex)||(C.f==='exp'&&p.ex)||(C.f==='old'&&p.days>90)||(C.f==='marked'&&C.mk.has(p.id)));if(C.q)l=l.filter(p=>(p.name+p.title).toLowerCase().includes(C.q.toLowerCase()));return l.sort((a,b)=>C.sort==='old'?b.days-a.days:C.sort==='new'?a.days-b.days:C.sort==='big'?b.mb-a.mb:a.name.localeCompare(b.name))}
+function art(p){const k=peaks(p.seed,16);return `<div class="art">${k.map(v=>`<i style="height:${v*100}%"></i>`).join('')}</div>`}
+function cRender(){const st=document.body.dataset.st;const total=CP.reduce((a,p)=>a+p.mb,0);
+ $('#csub').textContent=st==='loading'?'Reading your projects…':CP.length+' projects · '+mb(total)+'. Mark the ones you do not want and they move to the Trash, never deleted outright.';
+ $('#cfilters').innerHTML=CF.map(f=>`<button role="tab" class="${C.f===f[0]?'on':''}" data-f="${f[0]}" data-tip="${f[2]}">${f[1]}${f[0]==='marked'?` <span class="n">${C.mk.size}</span>`:''}</button>`).join('');
+ $$('#cfilters button').forEach(b=>b.onclick=()=>{C.f=b.dataset.f;cRender()});
+ const l=cList();const clist=$('#clist'),det=$('#cdet');
+ if(st==='loading'){clist.innerHTML=Array.from({length:7},()=>`<div class="cr"><div class="sk" style="width:18px;height:18px"></div><div class="sk" style="width:40px;height:40px"></div><div style="display:grid;gap:6px"><div class="sk" style="height:12px;width:50%"></div><div class="sk" style="height:10px;width:75%"></div></div><span></span></div>`).join('');det.innerHTML='<div class="sk" style="height:72px"></div><div class="sk" style="height:14px"></div><div class="sk" style="height:14px;width:70%"></div>';footer(true);return}
+ if(st==='error'){clist.innerHTML='<div style="padding:20px"><div class="notice err" role="alert">'+IC('alert')+'<span>Could not read your FL folders. Nothing was changed.</span><button class="btn sm" style="margin-left:auto" onclick="setSt(\'normal\')">Retry</button></div></div>';det.innerHTML='';footer(true);return}
+ if(st==='empty'||!l.length){clist.innerHTML='<div class="empty" style="padding:28px 20px"><div class="glyph">'+IC('folder')+'</div><b>Nothing matches this filter.</b><span>Try All to see every project in your FL folders.</span><button class="btn sm" onclick="C.f=\'all\';setSt(\'normal\')">Show all</button></div>';det.innerHTML=`<div class="hints"><span><kbd>↑</kbd><kbd>↓</kbd> move</span><span><kbd>X</kbd> marks</span><span><kbd>Space</kbd> listens</span><span><kbd>O</kbd> opens</span></div>`;footer();return}
+ if(!l.find(p=>p.id===C.sel))C.sel=l[0].id;
+ clist.innerHTML=l.map(p=>`<div class="cr ${p.id===C.sel?'sel':''} ${C.mk.has(p.id)?'mk':''} ${prot(p)?'prot':''}" data-id="${p.id}"><button class="cb ${C.mk.has(p.id)?'on':''}" aria-label="mark for the Trash" data-m="${p.id}">${IC('check')}</button>${art(p)}<div style="min-width:0"><div class="nm">${esc(p.title||p.name)}</div><small>${p.ago} · ${mb(p.mb)} · ${p.samples} samples · ${p.midi} MIDI</small></div><div class="tags">${p.ex?'<span class="chip ok">exported</span>':'<span class="chip">no bounce</span>'}${prot(p)?`<span class="chip"><i class="sq ${p.status}"></i>${p.status}</span>`:''}${p.bk?`<span class="chip">${p.bk} backups</span>`:''}</div></div>`).join('');
+ $$('.cr',clist).forEach(r=>r.onclick=e=>{if(e.target.closest('[data-m]')){toggle(+r.dataset.id)}else{C.sel=+r.dataset.id;cRender()}});
+ const p=CP.find(x=>x.id===C.sel);const m=C.mk.has(p.id);
+ det.innerHTML=`${art(p)}<div><b style="font-size:15px">${esc(p.title||p.name)}</b><div class="dim" style="font-size:12px;margin-top:2px;overflow-wrap:anywhere">Image-Line/FL Studio/Projects/${esc(p.name)}.flp</div></div>
+ <dl class="facts"><dt>Last edited</dt><dd>${p.ago}</dd><dt>Size</dt><dd>${mb(p.mb)}</dd><dt>Samples</dt><dd>${p.samples}</dd><dt>MIDI</dt><dd>${p.midi}</dd><dt>Tempo</dt><dd>${p.bpm||'-'}</dd><dt>Key</dt><dd>${p.key||'-'}</dd></dl>
+ <p class="dim" style="font-size:12.5px">Only the .flp moves. Samples and exported audio stay where they are.</p>
+ <div class="row"><button class="btn sm">${IC('play')}Listen</button><button class="btn sm">${IC('external')}Open in FL</button><button class="btn sm">${IC('folder')}Show in Finder</button></div>
+ ${prot(p)?`<div class="notice" style="font-size:12.5px">${IC('lock')}<span>This beat is ${p.status} in your vault, so it is protected and can’t be marked.</span></div>`:`<button class="btn ${m?'':'dng'}" id="cmk">${m?`Marked for the Trash (${mb(p.mb)} to undo)`:`Mark for the Trash (${mb(p.mb)})`}</button>`}
+ <div class="hints"><span><kbd>↑</kbd><kbd>↓</kbd> move</span><span><kbd>X</kbd> marks</span><span><kbd>Space</kbd> listens</span><span><kbd>O</kbd> opens</span></div>`;
+ const cm=$('#cmk');if(cm)cm.onclick=()=>{toggle(p.id);const i=l.findIndex(x=>x.id===p.id);if(l[i+1])C.sel=l[i+1].id;cRender()};
+ footer()}
+function toggle(id){const p=CP.find(x=>x.id===id);if(prot(p))return;C.mk.has(id)?C.mk.delete(id):C.mk.add(id);cRender()}
+function footer(skel){const n=C.mk.size,sz=[...C.mk].reduce((a,id)=>a+CP.find(x=>x.id===id).mb,0);const bk=[...C.mk].reduce((a,id)=>a+CP.find(x=>x.id===id).bk,0);const skipped=cList().filter(prot).length;
+ const names=[...C.mk].map(id=>CP.find(x=>x.id===id).title||CP.find(x=>x.id===id).name);
+ const cn=$('#cnote');cn.style.display=C.msg?'flex':'none';if(C.msg){cn.className='notice '+(C.msg.err?'err':'ok');cn.innerHTML=IC(C.msg.err?'alert':'check')+'<span>'+esc(C.msg.t)+'</span>'}
+ const cf=$('#cconf');cf.classList.toggle('on',C.conf);
+ if(C.conf)cf.innerHTML=`<h3>Move ${n} project${n>1?'s':''} (${mb(sz)}) to the Trash?</h3><p class="dim">${esc(names.slice(0,4).join(', '))}${names.length>4?` and ${names.length-4} more`:''}. Only the .flp files move; samples and exported audio are untouched.</p>${bk?`<label class="chk" style="align-items:center"><button class="sw" role="switch" aria-checked="false" onclick="this.setAttribute('aria-checked',this.getAttribute('aria-checked')!=='true')"></button><span>Also move their ${bk} FL autosave backups</span></label>`:''}<div class="row"><button class="btn" onclick="C.conf=false;cRender()" ${C.busy?'disabled':''}>Cancel</button><button class="btn dng fill" id="cgo">${C.busy?'Moving…':'Move to Trash'}</button></div>`;
+ if(C.conf)$('#cgo').onclick=()=>{C.busy=true;cRender();setTimeout(()=>{C.busy=false;C.conf=false;const done=[...C.mk];C.msg={t:`Moved ${done.length} project${done.length>1?'s':''} to the Trash (${mb(sz)}). Restore from the Trash in Finder if you change your mind.`};for(let i=CP.length-1;i>=0;i--)if(C.mk.has(CP[i].id))CP.splice(i,1);C.mk.clear();cRender();toast(`Moved ${done.length} to the Trash`,{undo:1})},900)};
+ $('#cfoot').style.display=C.conf?'none':'flex';
+ $('#cfoot').innerHTML=skel?'<div class="sk" style="height:28px;width:260px"></div>':`<span><b class="numroll" id="cn">${n}</b> marked${n?` · ${mb(sz)}`:''}</span><button class="btn sm" id="cmall">Mark all shown (skips ${skipped})</button><button class="btn sm ghost" id="cclr" ${n?'':'disabled'}>Clear marks</button><span class="sp"></span><button class="btn dng fill" id="ctr" ${n?'':'disabled'}>${IC('trash')}Move to Trash…</button>`;
+ if(!skel){$('#cmall').onclick=()=>{cList().filter(p=>!prot(p)).forEach(p=>C.mk.add(p.id));C.msg='';cRender()};$('#cclr').onclick=()=>{C.mk.clear();cRender()};$('#ctr').onclick=()=>{C.conf=true;C.msg='';cRender()};setNum($('#cn'),n,300)}}
+$('#cq').oninput=e=>{C.q=e.target.value;cRender()};$('#csort').onchange=e=>{C.sort=e.target.value;cRender()};
+
+/* ---------- Dupes ---------- */
+const DG=[
+ {size:'4.20 MB',files:[['Dark Trap Vol 2/808s/808 Sub Long.wav',1],['Backups/Old samples/808 Sub Long.wav',0],['Downloads/808 Sub Long (1).wav',0]]},
+ {size:'1.10 MB',files:[['Dusty Drums/Snares/Vinyl Snare.wav',0],['Packs/Dusty Drums copy/Vinyl Snare.wav',0]]},
+ {size:'12.6 MB',files:[['Analog Pads/Driver Pad.wav',0],['Loops/Driver Pad.wav',0]]}
+];
+const D={t:new Set()};
+const kb=n=>n;
+function dRender(){const extra=DG.reduce((a,g)=>a+g.files.length-1,0);
+ $('#dsub').textContent=`${DG.length} groups of identical files · ${extra} extra copies`;
+ const rec=DG.reduce((a,g,gi)=>a+g.files.filter((_,fi)=>D.t.has(gi+':'+fi)).length*parseFloat(g.size),0);
+ $('#dnormal').innerHTML=`<div class="dh" style="border:0;padding-bottom:0"><p style="margin:0">Files with identical audio are matched byte for byte. Nothing is ticked yet. Tick copies yourself, or let it tick all but one per group (a favorite is always the one kept). At least one copy per group always stays.</p></div>
+ <div class="dtools"><button class="btn sm" id="dold">Tick extras, keep the oldest copy</button><button class="btn sm" id="dshort">Tick extras, keep the shortest path</button><button class="btn sm ghost" id="dclr">Clear</button></div>
+ <div class="dgroups">${DG.map((g,gi)=>`<div class="dgroup"><div class="dgh"><span>${g.size} · ${g.files.length} copies</span><span class="dim">${gi===0?'1 favorite':'no favorite'}</span></div>${g.files.map((f,fi)=>{const k=gi+':'+fi,on=D.t.has(k);const keep=!on&&g.files.every((_,j)=>j===fi||D.t.has(gi+':'+j));return `<label class="dfile ${on?'tr':''}" data-k="${k}"><button class="cb ${on?'on':''}" role="checkbox" aria-checked="${on}" tabindex="0">${IC('check')}</button><span class="p" title="${esc(f[0])}">${f[1]?IC('star'):''}${esc(f[0])}</span>${on?'<span class="trash">Trash</span>':keep?'<span class="keep">Kept</span>':''}</label>`}).join('')}</div>`).join('')}</div>
+ <div class="df"><span class="dim" id="dsum" aria-live="polite">${D.t.size?`${D.t.size} file${D.t.size>1?'s':''} · ${rec.toFixed(1)} MB to reclaim`:'Nothing ticked'}</span><span class="sp"></span><button class="btn dng fill" id="dgo" ${D.t.size?'':'disabled'}>${IC('trash')}Move ${D.t.size||''} to Trash</button></div>
+ <div class="confirm" id="dconf"></div>`;
+ $$('.dfile').forEach(l=>l.onclick=e=>{e.preventDefault();const [gi]=l.dataset.k.split(':').map(Number);const g=DG[gi];const k=l.dataset.k;if(D.t.has(k))D.t.delete(k);else if(g.files.some((_,j)=>gi+':'+j!==k&&!D.t.has(gi+':'+j)))D.t.add(k);dRender()});
+ const pick=rule=>{D.t.clear();DG.forEach((g,gi)=>{const favs=g.files.map((f,i)=>f[1]?i:-1).filter(i=>i>=0);const pool=favs.length?favs:g.files.map((_,i)=>i);const keep=pool.sort((a,b)=>rule==='short'?g.files[a][0].length-g.files[b][0].length:a-b)[0];g.files.forEach((_,i)=>{if(i!==keep)D.t.add(gi+':'+i)})});dRender()};
+ $('#dold').onclick=()=>pick('old');$('#dshort').onclick=()=>pick('short');$('#dclr').onclick=()=>{D.t.clear();dRender()};
+ $('#dgo').onclick=()=>{const c=$('#dconf');c.classList.add('on');c.innerHTML=`<h3>Move ${D.t.size} duplicate file${D.t.size>1?'s':''} (${rec.toFixed(1)} MB) to the Trash?</h3><p class="dim">They stay in the Trash until you empty it, so you can put them back.</p><div class="row"><button class="btn" id="dno">Cancel</button><button class="btn dng fill" id="dyes">Move to Trash</button></div>`;$('#dno').onclick=()=>c.classList.remove('on');$('#dyes').onclick=()=>{const n=D.t.size;D.t.clear();closeAll();toast(`Moved ${n} duplicate${n===1?'':'s'} to the Trash`,{undo:1})}}}
+
+/* ---------- System board bits ---------- */
+$('#rdtrace').innerHTML='<i class="beam" id="rbeam"></i>'+traceHTML([1,1,1,0,0]);
+const REL=[
+ ['store','Store','done','Listed at $29 · Lease','Manage',`<div class="line"><span>Basic lease</span><b>$29</b></div><div class="line"><span>Exclusive</span><b>$299</b></div>`],
+ ['video','Video','todo','','Make video, titles and tags…',''],
+ ['post','Post','na','',null,''],
+ ['pitch','Pitch','doing','2 people','Pitch this beat…',`<div class="line"><span>moneyman</span><span class="dim">sent · 3 days ago</span></div><div class="line"><span>lilbaby</span><span class="dim">replied</span></div>`],
+ ['feedback','Feedback','todo','','Get timestamped feedback…',''],
+ ['splits','Splits','done','You 70% · Guest 30%','Edit splits',`<div class="line"><span>Writers</span><b>100%</b></div><div class="line"><span>Producers <span class="chip warn">not 100%</span></span><b>90%</b></div><button class="btn sm" disabled style="justify-self:start">${IC('file')}Split sheet PDF</button><span class="dim" style="font-size:12px">Enabled when both totals are 100%.</span>`],
+ ['sale','Sale','todo','No sales logged yet.','Log a sale',`<div class="line"><span>Night Drive · lilbaby</span><span>${IC('lock')} $800 exclusive</span></div>`]
+];
+$('#rel').innerHTML=REL.map(r=>`<div class="rr ${r[2]}" data-r="${r[0]}"><${r[5]?'button':'div'} class="rrh" ${r[5]?'aria-expanded="false"':''}><span class="mk2" role="img" aria-label="${r[2]}">${IC('check')}</span><span class="lab">${r[1]}</span><span class="sub">${r[3]}</span><span class="row" style="gap:8px;flex-wrap:nowrap">${r[4]?`<span class="btn sm ${r[2]==='doing'?'pri':''}" ${r[1]==='Post'?'':''}>${r[4]}</span>`:''}${r[5]?IC('right','chev'):''}</span></${r[5]?'button':'div'}>${r[5]?`<div class="rrb">${r[5]}</div>`:''}</div>`).join('');
+$$('.rr button.rrh').forEach(b=>b.onclick=()=>{const rr=b.parentElement;const o=rr.classList.toggle('open');b.setAttribute('aria-expanded',o)});
+function sysIn(){setTimeout(()=>{const ul=$('#rdtrace');const lis=$$('li',ul);$('#rbeam').style.height=(lis[2].offsetTop-2)+'px'},80);setNum($('#rdn'),0);setTimeout(()=>setNum($('#rdn'),3,700),150)}
+
+/* ---------- icon sheet ---------- */
+$('#isheet').innerHTML=`<div class="spec2">
+ <div class="specc"><h3>Construction</h3><div class="big"><svg viewBox="0 0 16 16">${ICONS.vault}</svg></div><p class="dim">16 px grid. 2 px safe margin shown dashed.</p></div>
+ <div class="specc"><h3>Stroke</h3><div class="row" style="gap:18px"><div style="display:grid;gap:6px;justify-items:center"><svg class="i" style="width:48px;height:48px;stroke-width:1.5" viewBox="0 0 16 16"><path d="M3 3h10v10H3z"/></svg><b>1.5 px</b></div><div style="display:grid;gap:6px;justify-items:center;opacity:.5"><svg class="i" style="width:48px;height:48px;stroke-width:2" viewBox="0 0 16 16"><path d="M3 3h10v10H3z"/></svg><span class="dim">2 px: not used</span></div></div><p class="dim">Round caps and joins. No fills, so icons stay one weight at any size.</p></div>
+ <div class="specc"><h3>Sizes</h3><div class="row" style="gap:18px;align-items:flex-end"><span style="display:grid;gap:6px;justify-items:center">${IC('vault')}<small class="dim">16</small></span><span style="display:grid;gap:6px;justify-items:center"><svg class="i" style="width:20px;height:20px" viewBox="0 0 16 16">${ICONS.vault}</svg><small class="dim">20</small></span><span style="display:grid;gap:6px;justify-items:center"><svg class="i" style="width:24px;height:24px" viewBox="0 0 16 16">${ICONS.vault}</svg><small class="dim">24</small></span></div><p class="dim">Strip and buttons use 16. The 20 and 24 sizes scale from the same drawing.</p></div>
+ <div class="specc"><h3>States</h3><div class="row" style="gap:14px"><span style="color:var(--fg-3)">${IC('vault')}</span><span style="color:var(--fg-2)">${IC('vault')}</span><span>${IC('vault')}</span><span style="color:var(--primary)">${IC('vault')}</span><span style="color:var(--danger)">${IC('trash')}</span></div><p class="dim">Colour only. Dim, default, active, accent, danger.</p></div></div>`+
+ GROUPS.map(([title,names,labels])=>`<div><div class="shead"><h2>${title}</h2><span class="dim">${names.length} icons</span></div><div class="igrid">${names.map(n=>`<div class="itile"><div class="bg"><svg viewBox="0 0 16 16">${ICONS[n]}</svg></div><div class="act">${IC(n)}<span style="color:var(--fg-3)">${IC(n)}</span></div><b>${n}</b>${labels[n]?`<small>${labels[n]}</small>`:''}</div>`).join('')}</div></div>`).join('');
+
+/* ---------- screens, dialogs, states ---------- */
+function setSt(s){document.body.dataset.st=s;syncSt();if(openD.cur==='palette')pBuild();if($('#s-cleanup').classList.contains('on'))cRender();if(screen==='assistant'){aRender();aBusy()}}
+function syncSt(){$$('#mc [data-st]').forEach(b=>b.classList.toggle('on',b.dataset.st===document.body.dataset.st))}
+let screen='themes';
+function go(s){closeAll();screen=s;$$('.view').forEach(v=>v.classList.toggle('on',v.id==='v-'+s));$$('#strip button').forEach(b=>b.classList.toggle('on',b.dataset.s===SCREEN2STRIP[s]));$$('[data-go]').forEach(b=>b.classList.toggle('on',b.dataset.go===s));requestAnimationFrame(glide);
+ if(s==='themes'){pvRender();fitPv()}if(s==='assistant')aRender(),aBusy();if(s==='system')sysIn();if(s==='icons'){}}
+function openD(n){closeAll(false);const e=$('#s-'+n);e.classList.add('on');e.setAttribute('aria-hidden','false');openD.cur=n;$$('[data-open]').forEach(b=>b.classList.toggle('on',b.dataset.open===n));
+ if(n==='palette'){$('#pq').value='';$('#pph').style.visibility='';pi=0;pBuild();setTimeout(()=>$('#pq').focus(),30)}
+ if(n==='profile'){pbi=0;profileRender()}if(n==='cleanup'){C.conf=false;C.msg='';cRender()}if(n==='dupes'){D.t.clear();dRender()}}
+function closeAll(){$$('.scrim.on').forEach(e=>{e.classList.remove('on');e.setAttribute('aria-hidden','true')});openD.cur=null;$$('[data-open]').forEach(b=>b.classList.remove('on'))}
+$$('.scrim').forEach(s=>{if(s.id!=='s-palette')s.onmousedown=e=>{if(e.target===s)closeAll()}});
+document.addEventListener('keydown',e=>{
+ if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openD.cur==='palette'?closeAll():openD('palette');return}
+ if(e.key==='Escape'){if(openD.cur==='cleanup'&&C.conf){C.conf=false;cRender();return}if(openD.cur){closeAll()}return}
+ const typing=/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
+ if(openD.cur==='profile'&&!typing){if(e.key==='ArrowRight'&&pbi<BP.length-1){pbi++;profileRender()}if(e.key==='ArrowLeft'&&pbi>0){pbi--;profileRender()}}
+ if(openD.cur==='cleanup'&&!typing&&!C.conf&&!C.busy){const l=cList(),i=l.findIndex(p=>p.id===C.sel);if(e.key==='ArrowDown'||e.key==='j'){if(l[i+1]){C.sel=l[i+1].id;cRender()}e.preventDefault()}else if(e.key==='ArrowUp'||e.key==='k'){if(l[i-1]){C.sel=l[i-1].id;cRender()}e.preventDefault()}else if(e.key.toLowerCase()==='x'||e.key==='Delete'||e.key==='Backspace'){toggle(C.sel);if(l[i+1]){C.sel=l[i+1].id;cRender()}e.preventDefault()}}
+});
+$$('#mc [data-go]').forEach(b=>b.onclick=()=>go(b.dataset.go));
+$$('#mc [data-open]').forEach(b=>b.onclick=()=>b.classList.contains('on')?closeAll():openD(b.dataset.open));
+$$('#mc [data-st]').forEach(b=>b.onclick=()=>setSt(b.dataset.st));
+$$('#mc [data-wc]').forEach(b=>b.onclick=()=>setWC(+b.dataset.wc));
+$('#tp').onclick=function(){const on=this.dataset.on!=='1';this.dataset.on=on?'1':'';this.innerHTML=IC(on?'pause':'play')};
+new ResizeObserver(()=>{fitPv();glide();dw()}).observe(document.body);
+const dw=()=>{const c=$('#deckwave');drawWave(c,3,.38)};
+document.fonts.ready.then(()=>{glide();dw()});
+$$('canvas').forEach(c=>c._d=null);$('#deckwave')._d=dw;
+
+/* boot: #screen,dialog,state,worlds */
+function boot(){const [s,d,st,wc]=(location.hash.slice(1)||'themes').split(',');setWC(+wc||1);go(s||'themes');setSt(st||'normal');if(d)openD(d);glide();dw();if(s==='settings')$('#v-settings').dispatchEvent(new Event('scroll'))}
+boot();addEventListener('hashchange',boot);
+</script>
+</body>
+</html>

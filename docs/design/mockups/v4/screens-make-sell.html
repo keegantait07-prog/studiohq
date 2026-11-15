@@ -1,0 +1,1510 @@
+<!DOCTYPE html>
+<html lang="en" data-w="deck">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Studio HQ v4 · Make and Sell screens · Deck</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@112..125,500..800&family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Studio HQ v4, Deck. Make + Sell screens: Sounds, Kits, Map, Store, Sales (4 views), Plugins + 4 dialogs.
+   Tokens, transport, strip, toast and dialog CSS copied from flagship.html (theme [data-w=deck] only). */
+:root{
+  --dur-1:.08s; --dur-2:.18s; --dur-3:.32s; --ease-out:cubic-bezier(.23,1,.32,1); --ease-io:cubic-bezier(.65,.05,.36,1);
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px;
+}
+[data-w=deck]{
+  --background:#0b0b0a; --card:#121210; --raised:#1a1917; --well:#070706; --muted:#22211e; --border:rgba(255,244,230,.08); --border-2:rgba(255,244,230,.16);
+  --foreground:#f3efe8; --fg-2:#aaa49a; --fg-3:#8a847b; --primary:#ff5533; --on-primary:#0b0b0a; --ring:#ff5533;
+  --idea:#a08cff; --wip:#ffb547; --done:#4fd89a; --sent:#5fb6ff; --sold:#ff5533; --bad:#ff7a63;
+  --r-ctl:8px; --r-card:10px; --r-chip:4px;
+  --font-display:"Archivo",sans-serif; --font:"Inter Tight",sans-serif; --display-case:uppercase; --display-track:.01em;
+  --title-fill:linear-gradient(#f3efe8,#f3efe8);
+}
+[data-w=deck] body{background-image:radial-gradient(rgba(255,244,230,.035) 1px,transparent 1.2px);background-size:5px 5px}
+[data-w=deck] .mark{font-stretch:125%}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--background);color:var(--foreground);font:400 13.5px/1.45 var(--font);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+:is(button,input,select,textarea){font:inherit;color:inherit;background:none;border:0}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
+h1,h2,h3{text-wrap:balance}
+[hidden]{display:none!important}
+.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.app{display:grid;grid-template-rows:64px 44px minmax(0,1fr);height:calc(100vh - var(--mockh,0px))}
+
+/* transport (flagship) */
+.transport{display:grid;grid-template-columns:auto minmax(300px,1fr) 300px auto;gap:var(--s5);align-items:center;padding:0 var(--s5);border-bottom:1px solid var(--border)}
+.mark{font:800 15px var(--font-display);text-transform:var(--display-case);letter-spacing:var(--display-track);color:var(--foreground);white-space:nowrap}
+.deck{position:relative;display:grid;grid-template-columns:auto 170px 1fr auto;align-items:center;gap:var(--s3);height:44px;padding:0 var(--s3) 0 6px;background:var(--well);border:1px solid var(--border)}
+.deck::before,.deck::after{content:"";position:absolute;width:8px;height:8px;border:1.5px solid var(--fg-3)}
+.deck::before{left:-1px;top:-1px;border-right:0;border-bottom:0}.deck::after{right:-1px;bottom:-1px;border-left:0;border-top:0}
+.play{width:34px;height:34px;border-radius:var(--r-ctl);background:var(--primary);color:var(--on-primary);display:grid;place-items:center;transition:transform var(--dur-1) var(--ease-out)}
+.play:active{transform:scale(.94)}
+.np{min-width:0}
+.np b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.np small{color:var(--fg-3);font-size:11.5px}
+.deck canvas{width:100%;height:26px}
+.deck .t{color:var(--fg-2);font-size:12px;white-space:nowrap}
+.search{display:flex;align-items:center;gap:var(--s2);height:36px;padding:0 var(--s3);border:1px solid var(--border);border-radius:var(--r-ctl);color:var(--fg-3);white-space:nowrap;overflow:hidden}
+.search kbd{margin-left:auto;font:500 11px var(--font);padding:1px 6px;border:1px solid var(--border-2);border-radius:5px;color:var(--fg-2)}
+.session{display:flex;gap:var(--s2);align-items:center;color:var(--fg-2);font-size:12.5px;white-space:nowrap}
+.rec{width:7px;height:7px;border-radius:50%;background:var(--sold);animation:pulse 2s infinite}
+@keyframes pulse{50%{opacity:.35}}
+
+/* strip with gliding indicator */
+.strip{position:relative;display:flex;align-items:stretch;padding:0 var(--s4);border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none}
+.strip::-webkit-scrollbar{display:none}
+.strip button{position:relative;z-index:1;padding:0 var(--s3);color:var(--fg-2);font-weight:500;display:flex;gap:6px;align-items:center;white-space:nowrap;transition:color var(--dur-2) ease}
+.strip button:hover,.strip button.on{color:var(--foreground)}
+.strip .n{font-size:11px;color:var(--fg-3)}
+.strip .due{background:var(--sold);color:#000;border-radius:9px;padding:0 6px;font-weight:700;font-size:10.5px}
+.strip .gap{flex:1;min-width:8px}
+.glide{position:absolute;bottom:0;left:0;height:2px;background:var(--foreground);transition:transform var(--dur-3) var(--ease-io),width var(--dur-3) var(--ease-io)}
+main{min-height:0;display:grid;position:relative}
+.view{display:none;min-height:0;min-width:0}.view.on{display:grid;animation:in var(--dur-3) var(--ease-out) both}
+@keyframes in{from{opacity:0;transform:translateY(6px)}}
+
+/* shared controls */
+.btn{height:34px;padding:0 var(--s4);border-radius:var(--r-ctl);display:inline-flex;align-items:center;gap:var(--s2);font-weight:600;font-size:13px;white-space:nowrap;transition:background-color var(--dur-2) ease,transform var(--dur-1) var(--ease-out),border-color var(--dur-2) ease}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:var(--primary);color:var(--on-primary)}
+.btn.primary:hover{background:#ff6a4d}
+.btn.ghost{border:1px solid var(--border-2)}
+.btn.ghost:hover{background:var(--muted)}
+.btn.sm{height:28px;padding:0 10px;font-size:12.5px}
+.btn.danger{border:1px solid color-mix(in srgb,var(--bad) 55%,transparent);color:var(--bad)}
+.btn.danger:hover{background:color-mix(in srgb,var(--bad) 14%,transparent)}
+.btn[disabled],.btn.off{opacity:.45;pointer-events:none}
+.ib{width:32px;height:32px;border-radius:var(--r-ctl);display:inline-grid;place-items:center;color:var(--fg-2);position:relative;transition:background-color var(--dur-2) ease,color var(--dur-2) ease}
+.ib:hover{background:var(--muted);color:var(--foreground)}
+.ib.on{color:var(--wip)}
+.ib.sm{width:26px;height:26px}
+[data-tip]{position:relative}
+[data-tip]::after{content:attr(data-tip);position:absolute;left:50%;top:calc(100% + 6px);transform:translate(-50%,4px);background:var(--foreground);color:var(--background);font:600 11.5px var(--font);padding:4px 8px;border-radius:var(--r-chip);white-space:nowrap;opacity:0;pointer-events:none;transition:opacity var(--dur-2) ease,transform var(--dur-2) var(--ease-out);z-index:30}
+[data-tip]:hover::after,[data-tip]:focus-visible::after{opacity:1;transform:translate(-50%,0);transition-delay:.35s}
+[data-tip].tl::after{left:auto;right:0;transform:translate(0,4px)}[data-tip].tl:hover::after{transform:none}
+.in{height:34px;padding:0 var(--s3);background:var(--well);border:1px solid var(--border);border-radius:var(--r-ctl);width:100%;min-width:0;transition:border-color var(--dur-2) ease}
+.in::placeholder{color:var(--fg-3)}
+.in:hover{border-color:var(--border-2)}.in:focus{border-color:var(--primary);outline:0}
+textarea.in{height:auto;padding:8px var(--s3);resize:none;line-height:1.4}
+select.in{appearance:none;padding-right:28px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23aaa49a' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;background-size:14px}
+.in.sm{height:28px;font-size:12.5px}
+.sfield{position:relative;display:block}
+.sfield .i{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--fg-3);pointer-events:none}
+.sfield .in{padding-left:32px}
+.seg{display:flex;padding:3px;background:var(--well);border:1px solid var(--border);border-radius:var(--r-ctl);flex:none}
+.seg button{padding:5px 11px;border-radius:var(--r-ctl);font-size:12.5px;color:var(--fg-2);display:flex;gap:6px;align-items:center;white-space:nowrap;transition:background-color var(--dur-2) ease,color var(--dur-2) ease}
+.seg button:hover{color:var(--foreground)}
+.seg button.on{background:var(--raised);color:var(--foreground);box-shadow:0 1px 2px rgba(0,0,0,.4)}
+.seg .c{color:var(--fg-3);font-size:11.5px}
+.seg i{width:7px;height:7px;border-radius:2px;background:var(--c)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{display:inline-flex;gap:6px;align-items:center;height:26px;padding:0 10px;border-radius:var(--r-chip);border:1px solid var(--border-2);font-size:12.5px;color:var(--fg-2);transition:background-color var(--dur-2) ease,color var(--dur-2) ease,border-color var(--dur-2) ease}
+.chip:hover{border-color:var(--fg-3);color:var(--foreground)}
+.chip.on{background:var(--foreground);color:var(--background);border-color:var(--foreground)}
+.chip em{font-style:normal;font-size:11.5px;opacity:.7}
+.pill{display:inline-flex;gap:6px;align-items:center;font-size:12px;font-weight:600;padding:3px 9px;border-radius:var(--r-chip);background:color-mix(in srgb,var(--c,var(--fg-3)) 18%,transparent);color:color-mix(in srgb,var(--c,var(--fg-3)) 70%,var(--foreground));white-space:nowrap}
+.pill::before{content:"";width:6px;height:6px;border-radius:2px;background:var(--c,var(--fg-3))}
+.tag{display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 7px;border-radius:var(--r-chip);background:var(--muted);color:var(--fg-2);font-size:11.5px;font-weight:500;white-space:nowrap}
+.tag.edm{background:color-mix(in srgb,var(--idea) 22%,transparent);color:#cfc4ff}
+.tag.ok{background:color-mix(in srgb,var(--done) 20%,transparent);color:#9ff0c9}
+.tag.warn{background:color-mix(in srgb,var(--wip) 20%,transparent);color:#ffd48a}
+.tag.bad{background:color-mix(in srgb,var(--bad) 20%,transparent);color:#ffb3a5}
+.tag button{display:grid;place-items:center;color:inherit;opacity:.7}.tag button:hover{opacity:1}
+.cbx{appearance:none;width:16px;height:16px;border-radius:4px;border:1.5px solid var(--border-2);display:inline-grid;place-items:center;flex:none;cursor:pointer;transition:background-color var(--dur-1) ease,border-color var(--dur-1) ease}
+.cbx:hover{border-color:var(--fg-3)}
+.cbx:checked{background:var(--primary);border-color:var(--primary)}
+.cbx:checked::after{content:"";width:8px;height:4.5px;border-left:1.5px solid var(--on-primary);border-bottom:1.5px solid var(--on-primary);transform:translateY(-1px) rotate(-45deg)}
+.cbx:indeterminate{background:var(--primary);border-color:var(--primary)}
+.cbx:indeterminate::after{content:"";width:8px;height:0;border-top:1.5px solid var(--on-primary)}
+.lbl{display:inline-flex;align-items:center;gap:var(--s2);color:var(--fg-2);font-size:12.5px;cursor:pointer;white-space:nowrap}
+.tgl{appearance:none;width:30px;height:18px;border-radius:9px;background:var(--muted);border:1px solid var(--border-2);position:relative;cursor:pointer;flex:none;transition:background-color var(--dur-2) ease}
+.tgl::after{content:"";position:absolute;left:2px;top:2px;width:12px;height:12px;border-radius:50%;background:var(--fg-2);transition:transform var(--dur-2) var(--ease-out),background-color var(--dur-2) ease}
+.tgl:checked{background:var(--primary);border-color:var(--primary)}.tgl:checked::after{transform:translateX(12px);background:var(--on-primary)}
+.dim{color:var(--fg-3)}.mono{font-variant-numeric:tabular-nums}
+.r{text-align:right;justify-self:end}
+.kv{display:grid;grid-template-columns:96px 1fr auto;align-items:center;gap:var(--s3);min-height:32px;font-size:13px}
+.kv span{color:var(--fg-3)}.kv em{font-style:normal;color:var(--fg-3);font-size:11.5px}
+.notice{display:flex;gap:var(--s3);align-items:flex-start;padding:10px var(--s3);border-radius:var(--r-ctl);background:var(--raised);border:1px solid var(--border);color:var(--fg-2);font-size:13px}
+.notice>.i{margin-top:1px}
+.notice.warn{border-color:color-mix(in srgb,var(--wip) 45%,transparent)}.notice.warn>.i{color:var(--wip)}
+.notice.err{border-color:color-mix(in srgb,var(--bad) 50%,transparent);background:color-mix(in srgb,var(--bad) 8%,var(--raised))}.notice.err>.i{color:var(--bad)}
+.notice.ok>.i{color:var(--done)}
+.notice b{color:var(--foreground)}
+.notice .x{margin-left:auto}
+.help{color:var(--fg-2);font-size:13px;max-width:62ch}
+.help a,.lnk{color:var(--foreground);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.tools{display:flex;align-items:center;gap:var(--s2);padding:var(--s4) var(--s5) var(--s3);flex-wrap:wrap;min-width:0}
+.tools h2{font:700 20px var(--font-display);font-stretch:125%;text-transform:var(--display-case);margin-right:var(--s3)}
+.tools .r{margin-left:auto}
+.tools .grow{flex:1}
+.lede{color:var(--fg-2);font-size:13px;display:flex;align-items:center;gap:var(--s2)}
+.dotp{width:7px;height:7px;border-radius:50%;background:var(--wip);flex:none}
+.thead,.row{display:grid;gap:var(--s3);align-items:center;padding:0 var(--s5)}
+.thead{height:32px;font-size:12px;color:var(--fg-3);border-block:1px solid var(--border);background:var(--card);position:sticky;top:0;z-index:2}
+.thead button{display:inline-flex;gap:4px;align-items:center;color:inherit;text-align:left}
+.thead button:hover{color:var(--foreground)}
+.thead .sorted{color:var(--foreground)}
+.rows{overflow:auto;min-height:0}
+.row{min-height:46px;border-bottom:1px solid var(--border);cursor:pointer;transition:background-color var(--dur-1) ease}
+.row:hover{background:var(--card)}
+.row.sel{background:var(--raised);box-shadow:inset 3px 0 0 var(--primary)}
+.row b{font-weight:600}
+.row .d{color:var(--fg-2)}
+.tfoot{display:flex;gap:var(--s5);padding:10px var(--s5);border-top:1px solid var(--border);color:var(--fg-3);font-size:12px;background:var(--card);flex-wrap:wrap}
+.tfoot b{color:var(--foreground);font-weight:600}
+.rail{border-left:1px solid var(--border);overflow:auto;display:flex;flex-direction:column;min-width:0;min-height:0}
+.rail section{padding:var(--s4) var(--s5);border-bottom:1px solid var(--border)}
+.rail h2,.rail h3.t{font:700 20px/1.1 var(--font-display);font-stretch:125%;text-transform:var(--display-case)}
+.rail h4,.sech{font-size:12px;color:var(--fg-3);font-weight:600;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center}
+.empty{border:1px dashed var(--border-2);border-radius:var(--r-card);padding:var(--s4);color:var(--fg-2);font-size:13px}
+.empty b{display:block;color:var(--foreground);margin-bottom:4px}
+.pgrid{display:grid}
+.scroll-fade{mask-image:linear-gradient(#000 calc(100% - 28px),transparent);-webkit-mask-image:linear-gradient(#000 calc(100% - 28px),transparent)}
+
+/* designed states (empty / loading / error) */
+.vstate{display:none;grid-column:1/-1;grid-row:1/-1;grid-template-rows:auto 1fr;min-height:0;overflow:auto}
+.vstate .tools{padding-bottom:0}
+.vstate .sw2{display:grid;place-items:center;padding:var(--s6)}
+body:not([data-state=normal]) .view>.vstate{display:grid}
+body:not([data-state=normal]) .view>:not(.vstate){display:none!important}
+.sbox{max-width:480px;display:grid;gap:var(--s3);justify-items:start}
+.sbox .gl{width:44px;height:44px;border-radius:var(--r-card);border:1px solid var(--border-2);display:grid;place-items:center;color:var(--fg-2);background:var(--card)}
+body[data-state=error] .sbox .gl{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 50%,transparent)}
+.sbox h3{font:700 20px/1.1 var(--font-display);font-stretch:125%;text-transform:var(--display-case)}
+.sbox p{color:var(--fg-2);max-width:46ch}
+.sbox .acts{display:flex;gap:var(--s2);flex-wrap:wrap;margin-top:var(--s2)}
+.sbox code{font:500 12px ui-monospace,Menlo,monospace;background:var(--well);border:1px solid var(--border);border-radius:var(--r-chip);padding:2px 6px;color:var(--fg-2)}
+.skel{width:min(640px,100%);display:grid;gap:10px}
+.skel i{display:block;height:34px;border-radius:var(--r-chip);background:var(--card);border:1px solid var(--border);animation:sk 1.4s ease-in-out infinite}
+.skel i:nth-child(2n){animation-delay:.15s}.skel i:nth-child(3n){animation-delay:.3s}
+@keyframes sk{50%{opacity:.45}}
+.prog{width:100%;height:4px;border-radius:2px;background:var(--muted);overflow:hidden}
+.prog i{display:block;height:100%;background:var(--primary);width:var(--p,40%);transition:width var(--dur-3) var(--ease-out)}
+.prog.ind i{width:35%;animation:ind 1.3s var(--ease-io) infinite}
+@keyframes ind{from{transform:translateX(-100%)}to{transform:translateX(290%)}}
+body:not([data-state=loading]) .only-load,body:not([data-state=empty]) .only-empty,body:not([data-state=error]) .only-err{display:none!important}
+
+/* PEAK family (animated, data-driven card; SVG stand-in for the canvas component) */
+.peak{position:relative;border:1px solid var(--border);border-radius:var(--r-card);background:var(--card);overflow:hidden;isolation:isolate;display:flex;flex-direction:column;min-width:0}
+.peak::before{content:"";position:absolute;inset:-20%;z-index:-1;background:radial-gradient(closest-side,color-mix(in srgb,var(--primary) 30%,transparent),transparent);left:calc(var(--gx,70%) - 50%);top:calc(var(--gy,60%) - 40%);transition:left .35s var(--ease-out),top .35s var(--ease-out),opacity .35s ease;opacity:.9;filter:blur(18px)}
+.peak.tall{aspect-ratio:540/696}
+.peak.wide{height:132px;flex-direction:row;align-items:stretch}
+.pk-head{display:flex;justify-content:space-between;align-items:center;gap:var(--s2);padding:var(--s3) var(--s4) 0}
+.pk-t{font-size:12px;font-weight:600;color:var(--fg-2);display:flex;align-items:center;gap:6px}
+.pk-per{display:flex;gap:2px;padding:2px;border-radius:var(--r-ctl);background:rgba(0,0,0,.4);border:1px solid var(--border)}
+.pk-per button{padding:3px 8px;border-radius:6px;font-size:11.5px;color:var(--fg-2);transition:background-color var(--dur-2) ease,color var(--dur-2) ease}
+.pk-per button:hover{color:var(--foreground)}
+.pk-per button.on{background:var(--foreground);color:var(--background);font-weight:600}
+.pk-num{padding:var(--s2) var(--s4) 0}
+.pk-num b{display:block;font:700 40px/1 var(--font-display);font-stretch:125%;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.pk-num small{color:var(--fg-3);font-size:12px}
+.peak.tall .pk-num b{font-size:46px}
+.pk-plot{position:relative;flex:1;min-height:0;margin-top:var(--s2)}
+.pk-plot svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.pk-tip{position:absolute;pointer-events:none;background:var(--background);border:1px solid var(--border-2);border-radius:var(--r-ctl);padding:5px 9px;font-size:12px;white-space:nowrap;opacity:0;transform:translate(-50%,-130%);transition:opacity var(--dur-2) ease;z-index:3}
+.pk-tip b{display:block;font-weight:700;font-size:13px}.pk-tip span{color:var(--fg-3)}
+.peak.wide .pk-side{display:flex;flex-direction:column;justify-content:space-between;padding:var(--s3) var(--s4);width:210px;flex:none}
+.peak.wide .pk-num{padding:0}.peak.wide .pk-num b{font-size:34px}
+.peak.wide .pk-plot{margin:0}
+.peak.wide .pk-head{padding:0}
+.pk-mini{display:flex;gap:2px;padding:2px;border-radius:var(--r-ctl);background:rgba(0,0,0,.4);border:1px solid var(--border)}
+.pk-mini button{padding:3px 8px;border-radius:6px;font-size:11.5px;color:var(--fg-2)}.pk-mini button.on{background:var(--raised);color:var(--foreground)}
+
+/* rolling numbers (S37) */
+.roll{display:inline-flex;align-items:flex-end;height:1.1em;line-height:1.1;overflow:hidden;font-variant-numeric:tabular-nums;vertical-align:bottom}
+.roll .rd{display:inline-block;height:1.1em;overflow:hidden}
+.roll .rd span{display:block;height:1.1em;text-align:center;transition:transform .8s var(--ease-out);transform:translateY(calc(var(--d)*-1.1em))}
+.roll .rs{display:inline-block;height:1.1em}
+.stat b{display:block;font:700 30px/1.1 var(--font-display);font-stretch:125%;letter-spacing:-.01em}
+.stat span{color:var(--fg-2);font-size:12.5px}
+
+/* dialogs: blur-fade entrance (M blur-fade) */
+.scrim{position:fixed;inset:0;display:none;place-items:center;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);z-index:50;padding:var(--s4)}
+.scrim.on{display:grid;animation:fade var(--dur-2) ease-out both}
+@keyframes fade{from{opacity:0}}
+.dlg{width:560px;max-width:100%;max-height:calc(100vh - 32px);display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border-2);border-radius:calc(var(--r-card) + 4px);box-shadow:0 40px 100px rgba(0,0,0,.6);overflow:hidden}
+.scrim.on .dlg{animation:bfade .42s var(--ease-out) both}
+@keyframes bfade{from{opacity:0;filter:blur(10px);transform:scale(.97) translateY(10px)}60%{filter:blur(2px)}}
+.dlg.w2{width:760px}.dlg.w3{width:920px}
+.dlg header{display:flex;align-items:baseline;gap:var(--s3);padding:var(--s4) var(--s5);border-bottom:1px solid var(--border);flex:none}
+.dlg header h2{font:700 20px var(--font-display);font-stretch:125%;text-transform:var(--display-case)}
+.dlg header p,.dlg header small{color:var(--fg-2)}
+.dlg header .x{margin-left:auto;align-self:center}
+.dlg .bd{padding:var(--s4) var(--s5);overflow:auto;min-height:0;display:flex;flex-direction:column;gap:var(--s3)}
+.dlg footer{display:flex;align-items:center;gap:var(--s3);padding:var(--s3) var(--s5);border-top:1px solid var(--border);background:var(--raised);flex:none;flex-wrap:wrap}
+.dlg footer .sum{color:var(--fg-2);font-size:12.5px}
+.dlg footer .r{margin-left:auto;display:flex;gap:var(--s2);justify-self:auto}
+.fld{display:grid;gap:5px;min-width:0}
+.fld>label,.fld>.fl{font-size:12px;color:var(--fg-3);font-weight:600}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:var(--s3)}
+.three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:var(--s3)}
+.toast{position:fixed;left:50%;bottom:calc(var(--mockh,0px) + 20px);transform:translateX(-50%);display:flex;gap:var(--s3);align-items:center;padding:10px 12px 10px 16px;background:var(--foreground);color:var(--background);border-radius:var(--r-ctl);font-weight:500;box-shadow:0 12px 30px rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:opacity var(--dur-2) ease,transform var(--dur-3) var(--ease-out);z-index:60}
+.toast.on{opacity:1;transform:translate(-50%,-6px);pointer-events:auto}
+.toast button{font-weight:700;text-decoration:underline}
+.dropz{display:grid;place-items:center;gap:6px;text-align:center;padding:var(--s5) var(--s4);border:1.5px dashed var(--border-2);border-radius:var(--r-card);color:var(--fg-2);position:relative;transition:border-color var(--dur-2) ease,background-color var(--dur-2) ease}
+.dropz:hover,.dropz.over{border-color:var(--primary);background:color-mix(in srgb,var(--primary) 7%,transparent)}
+.dropz .gl{width:36px;height:36px;border-radius:var(--r-ctl);border:1px solid var(--border-2);display:grid;place-items:center;transition:transform var(--dur-3) var(--ease-out)}
+.dropz.over .gl{transform:translateY(-4px);border-color:var(--primary);color:var(--primary)}
+.dropz b{color:var(--foreground)}
+.dropov{position:fixed;inset:0;z-index:55;display:none;place-items:center;background:rgba(11,11,10,.82);pointer-events:none}
+.dropov.on{display:grid;animation:fade var(--dur-2) ease-out both}
+.dropov .dropz{width:min(520px,90vw);padding:48px;border-color:var(--primary);background:var(--card)}
+
+/* mockup controls (not part of the design) */
+.mock{position:fixed;left:0;right:0;bottom:0;z-index:90;display:flex;flex-wrap:wrap;gap:4px 3px;align-items:center;padding:5px 8px;background:#000;border-top:1px solid #555;font:500 12px system-ui;color:#bbb}
+.mock b{font-weight:600;color:#777;padding:0 4px 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+.mock button{padding:5px 8px;border-radius:6px;font:inherit;color:inherit}
+.mock button:hover{background:#222}
+.mock button.on{background:#fff;color:#000}
+.mock i{width:1px;height:16px;background:#444;margin:0 4px}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+@media (max-width:1180px){
+  .transport{grid-template-columns:auto minmax(260px,1fr) 40px auto;gap:var(--s4);padding:0 var(--s4)}
+  .search{padding:0;justify-content:center}.search span,.search kbd{display:none}
+  .strip button{padding:0 9px}
+  .tools{padding:var(--s3) var(--s4) var(--s2)}
+}
+
+/* ============ SOUNDS ============ */
+#sounds{grid-template-columns:252px minmax(0,1fr) 340px}
+.tree{border-right:1px solid var(--border);display:flex;flex-direction:column;min-height:0;min-width:0}
+.tree-h{padding:var(--s4) var(--s4) var(--s2);display:grid;gap:var(--s2)}
+.tree-h .seg{width:100%}.tree-h .seg button{flex:1;justify-content:center}
+.tlist{overflow:auto;padding:0 var(--s2) var(--s3);min-height:0;flex:1}
+.node{display:grid;grid-template-columns:16px minmax(0,1fr) auto;gap:8px;align-items:center;min-height:30px;padding:0 8px;border-radius:var(--r-chip);color:var(--fg-2);cursor:pointer;font-size:13px;width:100%;text-align:left;transition:background-color var(--dur-1) ease,color var(--dur-1) ease}
+.node span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.node:hover{background:var(--card);color:var(--foreground)}
+.node.on{background:var(--raised);color:var(--foreground);box-shadow:inset 2px 0 0 var(--primary)}
+.node.l2{margin-left:16px;width:calc(100% - 16px)}.node.l3{margin-left:32px;width:calc(100% - 32px)}
+.node .n{color:var(--fg-3);font-size:11.5px}
+.node.orph{margin-top:var(--s2);border-top:1px dashed var(--border);border-radius:0 0 var(--r-chip) var(--r-chip)}
+.proj{display:grid;gap:2px;padding:8px 10px;border-radius:var(--r-chip);cursor:pointer;width:100%;text-align:left}
+.proj:hover{background:var(--card)}.proj.on{background:var(--raised);box-shadow:inset 2px 0 0 var(--primary)}
+.proj b{font-weight:600;font-size:13px}.proj small{color:var(--fg-3);font-size:12px}
+.proj .miss{color:var(--wip)}
+.slist{overflow:hidden;min-height:0;display:grid;grid-template-rows:auto auto auto minmax(0,1fr) auto}
+.filters{display:flex;gap:var(--s3);align-items:center;padding:0 var(--s5) var(--s3);flex-wrap:wrap}
+.filters .chips{flex:1;min-width:220px}
+.sgrid{grid-template-columns:34px 30px minmax(140px,1.7fr) 78px minmax(90px,1.1fr) 58px 48px 62px 62px}
+.sr{border-bottom:1px solid var(--border);transition:background-color var(--dur-1) ease}
+.sr .row{border:0;background:none;box-shadow:none}
+.sr:hover{background:var(--card)}
+.sr.sel{background:var(--raised);box-shadow:inset 3px 0 0 var(--primary)}
+.sr .p{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--border-2);color:var(--fg-2);transition:background-color var(--dur-2) ease,color var(--dur-2) ease}
+.sr:hover .p,.sr.sel .p{background:var(--primary);color:var(--on-primary);border-color:var(--primary)}
+.sr .nm{min-width:0;display:grid}.sr .nm b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sr .nm small{color:var(--fg-3);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sr .tg{display:flex;gap:4px;overflow:hidden}
+.sr .xp{display:grid;grid-template-rows:0fr;transition:grid-template-rows .26s var(--ease-out)}
+.sr:hover .xp,.sr:focus-within .xp{grid-template-rows:1fr;transition-delay:.14s}
+.sr .xp>div{overflow:hidden;min-height:0;padding:0 var(--s5) 0 64px;display:flex;gap:var(--s3);align-items:center}
+.sr:hover .xp>div{padding-bottom:10px}
+.sr .xp canvas{flex:1;height:34px;min-width:0}
+.fav{color:var(--fg-3)}.fav.on{color:var(--wip)}.fav.on .i{fill:var(--wip)}
+.kdot{width:8px;height:8px;border-radius:2px;display:inline-block;margin-right:6px;background:var(--c)}
+.sinsp .pv{height:140px;border-bottom:1px solid var(--border);position:relative;background:var(--well)}
+.sinsp .pv canvas{position:absolute;inset:16px;width:calc(100% - 32px);height:108px}
+.sinsp .ph{position:absolute;top:10px;bottom:10px;left:30%;width:2px;background:var(--wip)}
+.pvc{display:flex;align-items:center;gap:var(--s3);padding:var(--s3) var(--s5);border-bottom:1px solid var(--border)}
+.pvc .play{width:38px;height:38px}
+.draghandle{display:flex;align-items:center;gap:var(--s3);padding:10px var(--s3);border:1px dashed var(--border-2);border-radius:var(--r-card);color:var(--fg-2);cursor:grab;transition:border-color var(--dur-2) ease,background-color var(--dur-2) ease}
+.draghandle:hover{border-color:var(--primary);background:color-mix(in srgb,var(--primary) 7%,transparent);color:var(--foreground)}
+.dupbar{display:none;margin:0 var(--s5) var(--s3)}.dupbar.on{display:flex}
+.peakwrap{padding:0 var(--s5) var(--s3);transition:margin var(--dur-3) var(--ease-out)}
+.peakwrap.hid .peak{display:none}
+.hint{padding:8px var(--s5);color:var(--fg-3);font-size:12px;border-top:1px solid var(--border);display:flex;gap:var(--s4);flex-wrap:wrap}
+.hint kbd{font:500 11px var(--font);padding:0 5px;border:1px solid var(--border-2);border-radius:4px;color:var(--fg-2)}
+@media (max-width:1180px){
+  #sounds{grid-template-columns:204px minmax(0,1fr) 296px}
+  .sgrid{grid-template-columns:30px 28px minmax(90px,1.6fr) 64px 50px 44px 54px}
+  .sgrid .c-tags,.sgrid .c-size{display:none}
+  .sgrid{padding:0 var(--s3);gap:8px;grid-template-columns:28px 26px minmax(90px,1.6fr) 62px 48px 42px 62px}
+  .sr .xp>div{padding-left:58px}
+  .peak.wide .pk-side{width:176px}
+}
+
+/* ============ KITS ============ */
+#kits{grid-template-rows:auto auto minmax(0,1fr)}
+.cflow{position:relative;height:210px;perspective:1000px;overflow:hidden;border-block:1px solid var(--border);background:var(--well);--rx:0deg;--ry:0deg}
+.cf-track{position:absolute;inset:0;transform-style:preserve-3d}
+.cv{position:absolute;left:50%;top:46%;width:136px;height:136px;margin:-68px 0 0 -68px;border-radius:var(--r-ctl);cursor:pointer;transition:transform .55s var(--ease-out),opacity .4s ease,filter .4s ease;will-change:transform}
+.cv .art{width:100%;height:100%;border-radius:inherit;overflow:hidden;display:block;border:1px solid var(--border-2);transition:transform var(--dur-2) ease-out,box-shadow .4s ease}
+.cv.act .art{transform:rotateX(var(--rx)) rotateY(var(--ry));box-shadow:0 18px 40px rgba(0,0,0,.55),0 0 0 1px var(--primary)}
+.cv.new .art{display:grid;place-items:center;background:var(--card);border-style:dashed;color:var(--fg-2)}
+.cf-cap{position:absolute;left:var(--s5);bottom:12px;z-index:3;display:grid;gap:2px;pointer-events:none;max-width:40%}
+.cf-cap b{font:700 15px var(--font-display);font-stretch:125%;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cf-cap small{color:var(--fg-2);font-size:12px}
+.cf-nav{position:absolute;right:var(--s4);bottom:10px;z-index:3;display:flex;gap:4px;align-items:center}
+.cf-nav .c{color:var(--fg-3);font-size:12px;margin-right:6px}
+.kbody{display:grid;grid-template-columns:232px minmax(0,1fr) 340px;min-height:0}
+.slots{border-right:1px solid var(--border);padding:var(--s3) var(--s2);overflow:auto;min-height:0}
+.slot{display:grid;grid-template-columns:1fr auto;gap:5px 8px;padding:9px 10px;border-radius:var(--r-chip);cursor:pointer;width:100%;text-align:left;transition:background-color var(--dur-1) ease}
+.slot:hover{background:var(--card)}.slot.on{background:var(--raised);box-shadow:inset 2px 0 0 var(--primary)}
+.slot b{font-weight:600}.slot em{font-style:normal;color:var(--fg-2);font-size:12px}
+.slot .prog{grid-column:1/-1;height:3px}
+.slot.done .prog i{background:var(--done)}
+.slot .step{display:flex;gap:2px;align-items:center}
+.slot .step button{width:18px;height:18px;border-radius:4px;color:var(--fg-3);display:grid;place-items:center}.slot .step button:hover{background:var(--muted);color:var(--foreground)}
+.kmain{display:grid;grid-template-rows:auto auto minmax(0,1fr) auto;min-height:0;min-width:0}
+.ktools{display:flex;gap:var(--s2);align-items:center;padding:var(--s3) var(--s5) var(--s2);flex-wrap:wrap}
+.ktools .sfield{flex:1;min-width:150px}
+.kgrid{grid-template-columns:30px minmax(120px,1.6fr) minmax(80px,1fr) 56px 30px}
+.krow{min-height:42px;cursor:default}
+.krow .p{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--border-2);color:var(--fg-2);cursor:pointer}
+.krow .p:hover,.krow.pl .p{background:var(--primary);color:var(--on-primary);border-color:var(--primary)}
+.krow.added{opacity:.55}
+.kgroup{padding:var(--s3) var(--s5) 4px;font-size:12.5px;font-weight:600;color:var(--fg-2);display:flex;gap:var(--s2);align-items:center}
+.kside .nm{display:flex;flex-direction:column;gap:4px}
+.kfoot{padding:8px var(--s5);border-top:1px solid var(--border);color:var(--fg-3);font-size:12px;background:var(--card)}
+.warnline{display:flex;gap:6px;align-items:center;color:var(--wip);font-size:12px;margin-top:2px}
+@media (max-width:1180px){
+  .kbody{grid-template-columns:196px minmax(0,1fr) 292px}
+  .kgrid{grid-template-columns:28px minmax(100px,1.6fr) 52px 28px}.kgrid .c-fold{display:none}
+}
+
+/* ============ MAP ============ */
+#map{grid-template-columns:minmax(0,1fr) 360px}
+.stage{position:relative;container-type:size;display:grid;place-items:center;min-height:0;min-width:0;overflow:hidden}
+.mapwrap{position:relative;width:min(100cqw,100cqh);height:min(100cqw,100cqh)}
+.mapwrap svg{width:100%;height:100%;display:block;cursor:crosshair}
+.mapwrap .sec{fill:var(--c);fill-opacity:.07;stroke:var(--border);stroke-width:1}
+.mapwrap .lab{font:600 11px var(--font);fill:var(--c);opacity:.9}
+.mapwrap .lab tspan{fill:var(--fg-3);font-weight:400}
+.mapwrap .hub{fill:var(--well);stroke:var(--border-2)}
+.mapwrap .ctr{font:600 13px var(--font);fill:var(--fg-2);text-anchor:middle}
+.mapwrap .ctr.big{font:800 17px var(--font-display);fill:var(--foreground);text-transform:uppercase}
+.mapwrap .ctr.d{fill:var(--fg-3);font-weight:400;font-size:12px}
+.dot{transition:r .18s var(--ease-out),fill-opacity .2s ease,stroke-opacity .2s ease;cursor:pointer}
+.focusring{fill:none;stroke:var(--primary);stroke-width:1.5;stroke-dasharray:3 5;pointer-events:none;transition:opacity .2s ease}
+.focusglow{fill:var(--primary);fill-opacity:.06;pointer-events:none;transition:opacity .2s ease}
+.mtip{position:absolute;pointer-events:none;z-index:5;min-width:190px;background:var(--background);border:1px solid var(--border-2);border-radius:var(--r-ctl);padding:9px 11px;opacity:0;transition:opacity var(--dur-2) ease;display:grid;gap:3px;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+.mtip.on{opacity:1}
+.mtip b{font-weight:700;font-size:13.5px}.mtip small{color:var(--fg-2);font-size:12px}.mtip .f{color:var(--fg-3);font-size:11.5px;margin-top:2px}
+.legend{display:flex;flex-wrap:wrap;gap:6px}
+.lg{display:inline-flex;gap:7px;align-items:center;height:28px;padding:0 10px;border-radius:var(--r-chip);border:1px solid var(--border-2);font-size:12.5px;text-transform:capitalize;color:var(--foreground);transition:opacity var(--dur-2) ease}
+.lg i{width:10px;height:10px;border-radius:50%;border:2px solid var(--c)}
+.lg span{color:var(--fg-3);font-size:11.5px}
+.lg.off{opacity:.4;text-decoration:line-through}
+.msel{display:grid;gap:var(--s3)}
+.mart{width:100%;aspect-ratio:2/1;border-radius:var(--r-card);overflow:hidden;border:1px solid var(--border)}
+.mates{display:grid}
+.mate{display:grid;grid-template-columns:38px 1fr auto;gap:var(--s3);align-items:center;height:34px;border-top:1px solid var(--border);cursor:pointer;font-size:13px}
+.mate:hover{background:var(--card)}
+.mate .vl{font-weight:700;font-size:12px}
+@media (max-width:1180px){#map{grid-template-columns:minmax(0,1fr) 300px}}
+
+/* ============ STORE ============ */
+#store{grid-template-columns:minmax(0,1fr) 360px}
+.stlist{display:grid;grid-template-rows:auto auto auto minmax(0,1fr) auto;min-height:0;min-width:0}
+.stgrid{grid-template-columns:24px 34px 18px minmax(130px,1.2fr) minmax(80px,.7fr) minmax(130px,1.2fr) 118px 58px}
+.cin{height:30px;width:100%;min-width:0;background:transparent;border:1px solid transparent;border-radius:6px;padding:0 8px;transition:border-color var(--dur-2) ease,background-color var(--dur-2) ease}
+.cin:hover{border-color:var(--border-2)}.cin:focus{outline:0;border-color:var(--primary);background:var(--well)}
+.cin::placeholder{color:var(--fg-3)}
+.grip{color:var(--fg-3);cursor:grab}
+.strow.drag{opacity:.4}.strow.dover{box-shadow:inset 0 2px 0 var(--primary)}
+.strow .mv{display:flex;gap:2px;justify-content:flex-end}
+.strow .no{color:var(--wip);font-size:12px;margin-left:6px}
+.bulk{display:none;align-items:center;gap:var(--s3);padding:8px var(--s5);background:var(--raised);border-bottom:1px solid var(--border)}
+.bulk.on{display:flex;animation:in var(--dur-2) var(--ease-out) both}
+.stick{position:sticky;top:0;z-index:5;background:var(--background);padding:var(--s4) var(--s5)!important}
+.sitecard{border:1px solid var(--border-2);border-radius:var(--r-card);padding:var(--s3) var(--s4);display:grid;gap:var(--s2);background:var(--card)}
+.sitecard .top{display:flex;align-items:center;gap:var(--s2);font-weight:600}
+.sitecard .url{color:var(--fg-2);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.car{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;padding:2px var(--s5) var(--s3);margin:0 calc(var(--s5)*-1);scrollbar-width:none}
+.car::-webkit-scrollbar{display:none}
+.pc{flex:0 0 132px;scroll-snap-align:start;border:1px solid var(--border);border-radius:var(--r-card);background:var(--card);overflow:hidden;transition:transform var(--dur-3) var(--ease-out),border-color var(--dur-2) ease}
+.pc:first-child{margin-left:var(--s5)}.pc:last-child{margin-right:var(--s5)}
+.pc:hover{transform:translateY(-3px);border-color:var(--border-2)}
+.pc .art{aspect-ratio:1;display:block;width:100%}
+.pc div{padding:7px 9px;display:grid}.pc b{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pc small{color:var(--fg-3);font-size:11.5px}
+.sp-dots{display:flex;gap:5px;justify-content:center}
+.sp-dots i{width:6px;height:6px;border-radius:50%;background:var(--muted);transition:background-color var(--dur-2) ease,transform var(--dur-2) ease}
+.sp-dots i.on{background:var(--primary);transform:scale(1.3)}
+.fieldrow{display:grid;gap:var(--s3)}
+@media (max-width:1180px){
+  #store{grid-template-columns:minmax(0,1fr) 300px}
+  .stgrid{grid-template-columns:24px 30px minmax(100px,1.2fr) minmax(70px,.7fr) minmax(100px,1.2fr) 108px 54px}.stgrid .c-grip{display:none}
+}
+
+/* ============ SALES ============ */
+#sales{grid-template-rows:auto minmax(0,1fr)}
+.sbody{display:grid;min-height:0;min-width:0}
+.sv{display:none;min-height:0;min-width:0}.sv.on{display:grid;animation:in var(--dur-3) var(--ease-out) both}
+#sv-sales{grid-template-columns:minmax(0,1fr) 360px}
+.salelist{display:grid;grid-template-rows:auto auto minmax(0,1fr) auto;min-height:0;min-width:0}
+.subbar{display:flex;gap:var(--s3);align-items:center;padding:0 var(--s5) var(--s3);flex-wrap:wrap}
+.subbar .sfield{width:min(340px,100%)}
+.slgrid{grid-template-columns:78px minmax(130px,1.3fr) minmax(100px,1fr) minmax(110px,1fr) 84px 76px 72px 62px}
+.lockl{display:inline-flex;gap:5px;align-items:center;color:var(--sold);font-weight:600}
+.sact{display:flex;gap:2px;justify-content:flex-end;opacity:.0;transition:opacity var(--dur-2) ease}
+.row:hover .sact,.row:focus-within .sact{opacity:1}
+.beatlnk{text-decoration:underline;text-decoration-color:var(--border-2);text-underline-offset:3px}.beatlnk:hover{text-decoration-color:var(--foreground)}
+.srcdot{display:inline-flex;gap:6px;align-items:center;color:var(--fg-2)}
+.srcdot i{width:6px;height:6px;border-radius:50%;background:var(--c)}
+.sumcard{display:grid;gap:2px}
+.rev{overflow:auto;padding:var(--s2) var(--s5) var(--s5);display:grid;gap:var(--s3);align-content:start}
+.rtool{display:flex;gap:var(--s3);align-items:center;flex-wrap:wrap}
+.rstats{display:grid;grid-template-columns:1.5fr repeat(4,1fr);gap:var(--s2)}
+.rstats .blk{border-radius:var(--r-card);padding:var(--s4);min-height:100px;display:flex;flex-direction:column;justify-content:space-between;background:var(--card);border:1px solid var(--border)}
+.rstats .blk.hot{background:var(--primary);color:#0b0b0b;border-color:var(--primary)}
+.rstats .blk.hot span{color:#0b0b0b;opacity:.75}
+.rstats .stat b{font-size:28px}.rstats .blk.hot .stat b{font-size:40px}
+.panel{border:1px solid var(--border);border-radius:var(--r-card);background:var(--card);padding:var(--s4);min-width:0}
+.panel h3{font-size:13px;font-weight:600;display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s3);flex-wrap:wrap}
+.panel h3 .leg{margin-left:auto;display:flex;gap:var(--s3);align-items:center;color:var(--fg-2);font-weight:400;font-size:12px}
+.sw{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;background:var(--c)}
+.chart{position:relative;height:250px}
+.chart svg{width:100%;height:100%;display:block;overflow:visible}
+.chart .bar{transition:opacity var(--dur-2) ease;transform-origin:bottom;animation:grow .7s var(--ease-out) both;animation-delay:calc(var(--i)*35ms)}
+@keyframes grow{from{transform:scaleY(0)}}
+.chart:has(.bar.h) .bar:not(.h){opacity:.45}
+.chart .rd{position:absolute;pointer-events:none;background:var(--background);border:1px solid var(--border-2);border-radius:var(--r-ctl);padding:7px 10px;font-size:12px;opacity:0;transform:translate(-50%,-105%);transition:opacity var(--dur-2) ease;white-space:nowrap;z-index:3}
+.chart .rd b{display:block;font-size:13px}.chart .rd div{display:flex;justify-content:space-between;gap:var(--s4);color:var(--fg-2)}
+.rtable{width:100%;border-collapse:collapse}.rtable th{font-weight:500;color:var(--fg-3);font-size:12px;text-align:left;padding:8px 6px;border-bottom:1px solid var(--border)}.rtable td{padding:8px 6px;border-bottom:1px solid var(--border)}.rtable .r{text-align:right}
+.r3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s3)}
+.bl{display:grid;gap:6px}
+.bl-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;font-size:12.5px;position:relative;padding:5px 0}
+.bl-row .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bl-row .v{color:var(--fg-2)}
+.bl-row .bar{grid-column:1/-1;height:3px;border-radius:2px;background:var(--muted);overflow:hidden}.bl-row .bar i{display:block;height:100%;width:var(--w);background:var(--primary);animation:wipe .8s var(--ease-out) both;transform-origin:left}
+@keyframes wipe{from{transform:scaleX(0)}}
+.cgrid{grid-template-columns:minmax(0,1fr) 250px auto}
+.spst{font-size:12.5px;display:flex;gap:6px;align-items:center}
+.spst::before{content:"";width:7px;height:7px;border-radius:2px;background:var(--c)}
+.spst.none{--c:var(--fg-3);color:var(--fg-3)}.spst.bad{--c:var(--wip);color:#ffd48a}.spst.ok{--c:var(--sent)}.spst.sheet{--c:var(--done)}
+.vb{font-size:11.5px;color:var(--fg-3);margin-left:8px;font-weight:400}
+.lics{overflow:auto;padding:var(--s2) var(--s5) var(--s6);display:grid;grid-template-columns:minmax(200px,260px) minmax(0,660px);gap:var(--s6);align-items:start;position:relative}
+.lics>aside{position:sticky;top:0;display:grid;gap:var(--s3)}
+.lstack{display:grid;gap:0;padding-bottom:var(--s5)}
+.lc{position:sticky;top:calc(var(--i)*46px);border:1px solid var(--border-2);border-radius:var(--r-card);background:var(--card);margin-bottom:var(--s3);box-shadow:0 -10px 24px rgba(0,0,0,.45);transition:border-color var(--dur-2) ease}
+.lc:hover,.lc:focus-within{border-color:var(--fg-3)}
+.lc .lh{display:grid;grid-template-columns:8px minmax(0,1fr) auto auto 28px;gap:var(--s3);align-items:center;height:46px;padding:0 var(--s3) 0 var(--s4)}
+.lc .lh i{width:8px;height:8px;border-radius:2px;background:var(--c)}
+.lc .lh b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lc .lb{padding:var(--s3) var(--s4) var(--s4);border-top:1px solid var(--border);display:grid;gap:var(--s3);grid-template-columns:1fr 1fr}
+.lc .lb .full{grid-column:1/-1}
+.lc .xl{display:inline-flex;gap:var(--s2);align-items:center;color:var(--fg-2);font-size:12.5px}
+.saved{color:var(--done);font-size:12px;opacity:0;transition:opacity var(--dur-2) ease}.saved.on{opacity:1}
+@media (max-width:1180px){
+  #sv-sales{grid-template-columns:minmax(0,1fr) 296px}
+  .slgrid{grid-template-columns:70px minmax(110px,1.3fr) minmax(90px,1fr) minmax(100px,1fr) 70px 58px}.slgrid .c-src,.slgrid .c-net{display:none}
+  .rstats{grid-template-columns:1fr 1fr 1fr}.rstats .blk.hot{grid-column:1/-1}
+  .r3{grid-template-columns:1fr}
+  .lics{grid-template-columns:minmax(0,1fr)}.lics>aside{position:static}
+}
+
+/* ============ PLUGINS ============ */
+#plugins{grid-template-rows:auto auto minmax(0,1fr)}
+.pstats{display:flex;gap:var(--s5);padding:0 var(--s5) var(--s3);color:var(--fg-2);font-size:12.5px;align-items:center;flex-wrap:wrap}
+.pstats b{color:var(--foreground);font-weight:600;font-family:var(--font-display);font-stretch:125%;font-size:15px;margin-right:6px}
+.pnote{margin:0 var(--s5) var(--s3);cursor:pointer}
+.plv{display:none;min-height:0;min-width:0}.plv.on{display:grid;animation:in var(--dur-3) var(--ease-out) both}
+#pv-plugins{grid-template-columns:minmax(0,1fr) 380px}
+.plist{display:grid;grid-template-rows:auto auto minmax(0,1fr) auto;min-height:0;min-width:0}
+.ptools{display:flex;gap:var(--s2);align-items:center;padding:0 var(--s5) var(--s2);flex-wrap:wrap}
+.ptools .sfield{flex:1;min-width:150px}.ptools select{width:150px}
+.pgridc{grid-template-columns:22px 10px minmax(0,1fr) 120px 72px 24px}
+.pr{border-bottom:1px solid var(--border);transition:background-color var(--dur-1) ease}
+.pr .row{border:0;min-height:48px}
+.pr:hover{background:var(--card)}.pr.sel{background:var(--raised);box-shadow:inset 3px 0 0 var(--primary)}
+.sdot{width:9px;height:9px;border-radius:50%;background:var(--done)}.sdot.bad{background:var(--bad)}.sdot.warn{background:var(--wip)}
+.pr .nm{display:grid;min-width:0}.pr .nm b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pr .nm small{color:var(--fg-3);font-size:12px}
+.fmt{display:flex;gap:4px;overflow:hidden}
+.pr .chev{transition:transform var(--dur-3) var(--ease-out);color:var(--fg-3)}.pr.open .chev{transform:rotate(180deg)}
+.pr .xp{display:grid;grid-template-rows:0fr;transition:grid-template-rows .3s var(--ease-out)}
+.pr.open .xp{grid-template-rows:1fr}
+.pr .xp>div{overflow:hidden;min-height:0;padding:0 var(--s5) 0 64px}
+.pr.open .xp>div{padding-bottom:12px}
+.pr .mini{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s3);font-size:12.5px;color:var(--fg-2)}
+.pr .mini span{display:block;color:var(--fg-3);font-size:11.5px}
+.pdet .pgroup h4{font-size:12px;color:var(--fg-3);font-weight:600;margin:var(--s3) 0 4px}
+.pfile{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:var(--s2);align-items:center;min-height:40px;border-top:1px solid var(--border);font-size:12.5px}
+.pfile .pp{min-width:0;display:grid}.pfile .pp b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pfile .pp small{color:var(--fg-3);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#pv-problems,#pv-disabled{overflow:auto;padding:0 var(--s5) var(--s5);align-content:start;gap:var(--s3)}
+.cleanup{display:grid;grid-template-columns:1fr auto;gap:var(--s4);align-items:center;padding:var(--s4);border:1px solid var(--primary);border-radius:var(--r-card);background:color-mix(in srgb,var(--primary) 7%,var(--card))}
+.cleanup b{font:700 17px/1.2 var(--font-display);font-stretch:125%;text-transform:uppercase;display:block;margin-bottom:4px}
+.pg{border:1px solid var(--border);border-radius:var(--r-card);background:var(--card);overflow:hidden}
+.pg>header{display:grid;grid-template-columns:10px minmax(0,1fr) auto auto;gap:var(--s3);align-items:center;padding:var(--s3) var(--s4)}
+.pg>header b{font-weight:600}.pg>header small{display:block;color:var(--fg-3);font-size:12px}
+.pg .items{display:grid;grid-template-rows:0fr;transition:grid-template-rows .3s var(--ease-out)}.pg.open .items{grid-template-rows:1fr}
+.pg .items>div{overflow:hidden;min-height:0}
+.pg .it{display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:var(--s3);align-items:center;min-height:40px;padding:0 var(--s4);border-top:1px solid var(--border);font-size:12.5px;color:var(--fg-2)}
+.pg .it b{color:var(--foreground);font-weight:600}
+.drow{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:var(--s3);align-items:center;min-height:52px;padding:0 var(--s4);border:1px solid var(--border);border-radius:var(--r-card);background:var(--card)}
+@media (max-width:1180px){
+  #pv-plugins{grid-template-columns:minmax(0,1fr) 316px}
+  .pgridc{grid-template-columns:22px 10px minmax(0,1fr) 64px 24px}.pgridc .c-fmt{display:none}
+  .cleanup{grid-template-columns:1fr}
+}
+
+/* ============ DIALOG BITS ============ */
+.alist{max-height:300px;overflow:auto;border:1px solid var(--border);border-radius:var(--r-ctl);background:var(--well)}
+.arow{display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:var(--s3);align-items:center;min-height:40px;padding:0 var(--s3);border-bottom:1px solid var(--border);cursor:pointer}
+.arow:last-child{border:0}.arow:hover{background:var(--card)}
+.picks{max-height:196px;overflow:auto;border:1px solid var(--border);border-radius:var(--r-ctl);background:var(--well)}
+.pk{display:grid;grid-template-columns:minmax(0,1fr) auto 10px;gap:var(--s3);align-items:center;min-height:38px;padding:0 var(--s3);border-bottom:1px solid var(--border);cursor:pointer}.pk:last-child{border:0}.pk:hover{background:var(--card)}
+.chosen{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--s3);align-items:center;padding:10px var(--s3);border:1px solid var(--border-2);border-radius:var(--r-ctl);background:var(--raised)}
+.chosen small{color:var(--fg-3);display:block}
+.radio{display:flex;gap:6px;flex-wrap:wrap}
+.radio button{height:30px;padding:0 12px;border-radius:var(--r-chip);border:1px solid var(--border-2);color:var(--fg-2);font-size:12.5px;transition:all var(--dur-2) ease}
+.radio button:hover{color:var(--foreground);border-color:var(--fg-3)}
+.radio button.on{background:var(--foreground);color:var(--background);border-color:var(--foreground);font-weight:600}
+.keep{display:flex;justify-content:space-between;align-items:center;padding:8px var(--s3);border-radius:var(--r-ctl);background:color-mix(in srgb,var(--done) 10%,var(--well));border:1px solid color-mix(in srgb,var(--done) 30%,transparent);font-size:13px}
+.keep b{font-family:var(--font-display);font-stretch:125%}
+kbd.k{font:500 11px var(--font);padding:0 5px;border:1px solid color-mix(in srgb,var(--on-primary) 40%,transparent);border-radius:4px;margin-left:6px;opacity:.8}
+.spg{display:grid;grid-template-columns:minmax(110px,1.2fr) 100px minmax(110px,1.2fr) 74px 74px 66px 66px 28px;gap:6px;align-items:center}
+.spg.h{font-size:12px;color:var(--fg-3);font-weight:600;padding-bottom:4px;border-bottom:1px solid var(--border)}
+.spg .in{height:32px;padding:0 8px;font-size:12.5px}.spg select.in{padding-right:22px}
+.spg .in.r{text-align:right}
+.sptot{border-top:1px solid var(--border-2);padding-top:8px;font-weight:600}
+.okc{color:var(--done)}.badc{color:var(--bad)}
+.splitbar{display:flex;height:6px;border-radius:3px;overflow:hidden;background:var(--muted)}.splitbar i{background:var(--c);transition:width var(--dur-3) var(--ease-out)}
+.imgrid{display:grid;grid-template-columns:128px 90px minmax(0,1.2fr) minmax(0,1fr) 70px minmax(160px,1.2fr);gap:var(--s3);align-items:center}
+.imrow{min-height:42px;border-bottom:1px solid var(--border);padding:0 var(--s3);font-size:12.5px}
+.imrow.h{min-height:32px;color:var(--fg-3);font-size:12px;position:sticky;top:0;background:var(--card);z-index:1}
+.imbox{border:1px solid var(--border);border-radius:var(--r-ctl);overflow:auto;max-height:300px;background:var(--well)}
+.im-s{font-weight:600}.im-s.n{color:var(--done)}.im-s.u{color:var(--wip)}.im-s.d,.im-s.k{color:var(--fg-3);font-weight:400}
+.imstep{display:flex;gap:var(--s2);align-items:center;font-size:12px;color:var(--fg-3)}
+.imstep span{display:inline-flex;gap:6px;align-items:center}.imstep span.on{color:var(--foreground)}
+.imstep em{font-style:normal;width:18px;height:18px;border-radius:50%;border:1.5px solid currentColor;display:grid;place-items:center;font-size:10.5px;font-weight:700}
+.imstep span.on em{background:var(--foreground);color:var(--background);border-color:var(--foreground)}
+.imstep .ln{width:20px;height:1px;background:var(--border-2)}
+.uplist{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.uplist li{border:1px solid var(--border);border-radius:var(--r-ctl);background:var(--well);padding:10px var(--s3);display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:var(--s3);align-items:center}
+.uplist li small{display:block;color:var(--fg-3);font-size:12px}
+@media (max-width:1180px){
+  .imgrid{grid-template-columns:112px 76px minmax(0,1.2fr) minmax(0,1fr) 66px minmax(140px,1.2fr)}
+  .spg{grid-template-columns:minmax(90px,1.2fr) 88px minmax(90px,1.2fr) 62px 62px 56px 56px 26px}
+}
+</style>
+</head>
+<body data-state="normal">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-play" viewBox="0 0 16 16"><path d="M5 3.2v9.6L12.5 8z"/></symbol>
+<symbol id="i-pause" viewBox="0 0 16 16"><path d="M5.5 3.5v9M10.5 3.5v9"/></symbol>
+<symbol id="i-star" viewBox="0 0 16 16"><path d="M8 2l1.8 3.7 4 .6-2.9 2.8.7 4L8 11.2 4.4 13.1l.7-4L2.2 6.3l4-.6z"/></symbol>
+<symbol id="i-folder" viewBox="0 0 16 16"><path d="M2 4.5a1 1 0 0 1 1-1h3l1.5 1.5H13a1 1 0 0 1 1 1V12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z"/></symbol>
+<symbol id="i-search" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></symbol>
+<symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></symbol>
+<symbol id="i-minus" viewBox="0 0 16 16"><path d="M3 8h10"/></symbol>
+<symbol id="i-x" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"/></symbol>
+<symbol id="i-check" viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></symbol>
+<symbol id="i-chevd" viewBox="0 0 16 16"><path d="M4 6l4 4 4-4"/></symbol>
+<symbol id="i-chevu" viewBox="0 0 16 16"><path d="M4 10l4-4 4 4"/></symbol>
+<symbol id="i-chevr" viewBox="0 0 16 16"><path d="M6 4l4 4-4 4"/></symbol>
+<symbol id="i-chevl" viewBox="0 0 16 16"><path d="M10 4L6 8l4 4"/></symbol>
+<symbol id="i-undo" viewBox="0 0 16 16"><path d="M5 6h5a3 3 0 0 1 0 6H6M7 3.5L4.5 6 7 8.5"/></symbol>
+<symbol id="i-redo" viewBox="0 0 16 16"><path d="M11 6H6a3 3 0 0 0 0 6h4M9 3.5L11.5 6 9 8.5"/></symbol>
+<symbol id="i-refresh" viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.5-3.5M13 2.5v3h-3"/></symbol>
+<symbol id="i-spark" viewBox="0 0 16 16"><path d="M8 2v4M8 10v4M2 8h4M10 8h4"/></symbol>
+<symbol id="i-dice" viewBox="0 0 16 16"><rect x="2.5" y="2.5" width="11" height="11" rx="2"/><path d="M5.8 5.8h.01M10.2 10.2h.01M8 8h.01"/></symbol>
+<symbol id="i-trash" viewBox="0 0 16 16"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8h5.8l.6-8"/></symbol>
+<symbol id="i-lock" viewBox="0 0 16 16"><rect x="3.5" y="7" width="9" height="6.5" rx="1.5"/><path d="M5.5 7V5.5a2.5 2.5 0 0 1 5 0V7"/></symbol>
+<symbol id="i-link" viewBox="0 0 16 16"><path d="M6.5 9.5l3-3M7 4.5l1-1a2.5 2.5 0 0 1 3.5 3.5l-1 1M9 11.5l-1 1A2.5 2.5 0 0 1 4.5 9l1-1"/></symbol>
+<symbol id="i-ext" viewBox="0 0 16 16"><path d="M9 3h4v4M13 3L7.5 8.5M11 9.5V12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h2.5"/></symbol>
+<symbol id="i-grip" viewBox="0 0 16 16"><path d="M6 4h.01M10 4h.01M6 8h.01M10 8h.01M6 12h.01M10 12h.01" stroke-width="2"/></symbol>
+<symbol id="i-down" viewBox="0 0 16 16"><path d="M8 2.5v8M4.5 7.5L8 11l3.5-3.5M3 13.5h10"/></symbol>
+<symbol id="i-up" viewBox="0 0 16 16"><path d="M8 11V3M4.5 6.5L8 3l3.5 3.5M3 13.5h10"/></symbol>
+<symbol id="i-alert" viewBox="0 0 16 16"><path d="M8 2.5L14 13H2zM8 6.5v3M8 11.5h.01"/></symbol>
+<symbol id="i-info" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 7.5V11M8 5h.01"/></symbol>
+<symbol id="i-music" viewBox="0 0 16 16"><path d="M6 11.5v-8l7-1.5v8"/><circle cx="4.2" cy="11.5" r="1.8"/><circle cx="11.2" cy="10" r="1.8"/></symbol>
+<symbol id="i-plug" viewBox="0 0 16 16"><path d="M6 2v3M10 2v3M4.5 5h7v2.5a3.5 3.5 0 0 1-7 0zM8 11v3"/></symbol>
+<symbol id="i-store" viewBox="0 0 16 16"><path d="M2.5 6.5L3.5 3h9l1 3.5M2.5 6.5a1.8 1.8 0 0 0 3.6 0 1.8 1.8 0 0 0 3.8 0 1.8 1.8 0 0 0 3.6 0M3.5 8.5V13h9V8.5"/></symbol>
+<symbol id="i-eye" viewBox="0 0 16 16"><path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/></symbol>
+<symbol id="i-dollar" viewBox="0 0 16 16"><path d="M8 2v12M10.8 5C10.4 3.9 9.4 3.5 8 3.5c-1.7 0-2.8.8-2.8 2s1 1.7 2.8 2.1 2.8.9 2.8 2.2-1.1 2-2.8 2c-1.5 0-2.6-.5-3-1.7"/></symbol>
+<symbol id="i-user" viewBox="0 0 16 16"><circle cx="8" cy="5.5" r="2.5"/><path d="M3 13.5c.5-2.6 2.5-4 5-4s4.5 1.4 5 4"/></symbol>
+<symbol id="i-file" viewBox="0 0 16 16"><path d="M4 2.5h5l3 3V13.5H4zM9 2.5v3h3"/></symbol>
+<symbol id="i-clock" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></symbol>
+<symbol id="i-sort" viewBox="0 0 16 16"><path d="M5 3v10M2.5 10.5L5 13l2.5-2.5M11 13V3M8.5 5.5L11 3l2.5 2.5"/></symbol>
+<symbol id="i-copy" viewBox="0 0 16 16"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 5.5V4A1.5 1.5 0 0 0 9 2.5H4A1.5 1.5 0 0 0 2.5 4v5A1.5 1.5 0 0 0 4 10.5h1.5"/></symbol>
+<symbol id="i-wave" viewBox="0 0 16 16"><path d="M3 6v4M6 3.5v9M9 5.5v5M12 4v8"/></symbol>
+<symbol id="i-split" viewBox="0 0 16 16"><path d="M8 3v4M8 7L4 13M8 7l4 6"/></symbol>
+<symbol id="i-tag" viewBox="0 0 16 16"><path d="M2.5 8.5v-5h5l6 6-5 5z M5.5 6h.01"/></symbol>
+<symbol id="i-kit" viewBox="0 0 16 16"><path d="M8 2L2 5.5 8 9l6-3.5zM2 8.5L8 12l6-3.5M2 11.5L8 15l6-3.5"/></symbol>
+<symbol id="i-shield" viewBox="0 0 16 16"><path d="M8 2l5 2v4c0 3-2 5-5 6-3-1-5-3-5-6V4z"/></symbol>
+<symbol id="i-map" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2.5"/><path d="M8 2v3M8 11v3M2 8h3M11 8h3"/></symbol>
+<symbol id="i-drop" viewBox="0 0 16 16"><path d="M8 2.5v7M5 7l3 3 3-3M3 12.5h10"/></symbol>
+</defs></svg>
+
+<div class="app">
+  <header class="transport">
+    <div class="mark">Studio HQ</div>
+    <div class="deck" aria-label="Player">
+      <button class="play" aria-label="Play State Of Anarchy"><ic n="play"></ic></button>
+      <div class="np"><b>State Of Anarchy</b><small>143 BPM, B minor</small></div>
+      <canvas data-seed="7" data-played=".38" aria-hidden="true"></canvas>
+      <span class="t">1:12 / 3:08</span>
+    </div>
+    <div class="search" role="button" tabindex="0" aria-label="Find a beat, lead or action"><ic n="search"></ic><span>Find a beat, lead or action</span><kbd>⌘K</kbd></div>
+    <div class="session"><span class="rec" aria-hidden="true"></span>Session 1h 12m</div>
+  </header>
+  <nav class="strip" aria-label="Sections">
+    <button data-x>Today</button>
+    <button data-x>Beats <span class="n">79</span></button>
+    <button data-x>Loops <span class="n">412</span></button>
+    <button data-v="sounds">Sounds</button>
+    <button data-v="kits">Kits</button>
+    <button data-v="map">Map</button>
+    <button data-x>Leads <span class="n">156</span></button>
+    <button data-x>Pitches <span class="due" aria-label="2 due">2</span></button>
+    <button data-x>Content</button>
+    <button data-v="sales">Sales</button>
+    <button data-v="store">Store <span class="n">8</span></button>
+    <span class="gap"></span>
+    <button data-v="plugins">Plugins</button>
+    <button data-x>Settings</button>
+    <span class="glide" aria-hidden="true"></span>
+  </nav>
+  <main>
+
+<!-- ================= SOUNDS (SoundLibrary.tsx) ================= -->
+<section class="view" id="sounds">
+  <aside class="tree" aria-label="Library">
+    <div class="tree-h">
+      <div class="seg" id="sSide"><button class="on" data-side="folders">Folders</button><button data-side="projects">Projects</button></div>
+      <label class="sfield" id="projQ" hidden><ic n="search"></ic><input class="in sm" placeholder="Find a project…" aria-label="Find a project"></label>
+    </div>
+    <div class="tlist" id="tree"></div>
+  </aside>
+  <div class="slist">
+    <div class="tools">
+      <h2>Sounds</h2>
+      <label class="sfield" style="flex:1;max-width:360px;min-width:160px"><ic n="search"></ic><input class="in" id="sQ" placeholder="Search name, folder, tag…" aria-label="Search sounds"></label>
+      <button class="chip" id="favOnly" aria-pressed="false"><ic n="star"></ic>Favorites</button>
+      <span class="grow"></span>
+      <button class="ib" id="pkToggle" data-tip="Hide chart" aria-label="Hide chart"><ic n="wave"></ic></button>
+      <button class="btn ghost sm" id="dupBtn"><ic n="copy"></ic>Find duplicates</button>
+      <button class="btn ghost sm" id="rescan"><ic n="refresh"></ic><span>Rescan</span></button>
+    </div>
+    <div class="top">
+      <div class="peakwrap" id="peakSounds"><div class="peak wide" data-peak="sounds"></div></div>
+      <div class="filters">
+        <div class="seg" id="fPart"><button class="on" data-fv="all">All</button><button data-fv="samples">Samples</button><button data-fv="midi">MIDI</button></div>
+        <div class="seg" id="fShape"><button class="on" data-fv="all">All shapes</button><button data-fv="oneshot">One-shots</button><button data-fv="loop">Loops</button></div>
+        <div class="chips" id="fKinds"></div>
+      </div>
+      <div class="notice warn dupbar" id="dupbar"><ic n="copy"></ic><div><b>12 duplicate groups</b> across your library, 38 MB you could reclaim. Duplicates are marked in the Name column; nothing is deleted from here.</div><button class="btn ghost sm" id="dupClose" style="margin-left:auto">Done</button></div>
+    </div>
+    <div class="thead sgrid" id="shead"></div>
+    <div class="rows" id="srows"></div>
+    <div class="hint"><span><kbd>Click</kbd> preview</span><span><kbd>↑</kbd><kbd>↓</kbd> browse</span><span><kbd>F</kbd> favorite</span><span><kbd>L</kbd> loop</span><span>drag a row into your DAW</span>
+      <span style="margin-left:auto;display:flex;gap:var(--s4)"><label class="lbl"><input type="checkbox" class="cbx" id="autoP" checked>Autoplay</label><label class="lbl"><input type="checkbox" class="cbx" id="loopP">Loop</label></span></div>
+  </div>
+  <aside class="rail sinsp" id="sinsp" aria-label="Preview"></aside>
+  <div class="vstate" data-vs="sounds"></div>
+</section>
+
+<!-- ================= KITS (KitMaker.tsx) ================= -->
+<section class="view" id="kits">
+  <div class="tools">
+    <h2>Kit Maker</h2>
+    <button class="ib" data-tip="Undo the last change (⌘Z)" aria-label="Undo" id="kUndo"><ic n="undo"></ic></button>
+    <button class="ib" data-tip="Redo (⇧⌘Z)" aria-label="Redo"><ic n="redo"></ic></button>
+    <button class="btn ghost sm" id="kAuto"><ic n="spark"></ic>Auto-fill</button>
+    <button class="ib" data-tip="Re-roll auto-picks" aria-label="Re-roll auto-picks" id="kRoll"><ic n="dice"></ic></button>
+    <button class="btn ghost sm" id="kClear">Clear</button>
+    <span class="grow"></span>
+    <button class="btn ghost sm" id="kNew"><ic n="plus"></ic>New kit</button>
+    <button class="btn danger sm" id="kDel"><ic n="trash"></ic>Delete</button>
+    <button class="btn primary" id="kExport"><ic n="down"></ic>Export kit</button>
+  </div>
+  <div class="cflow" id="cflow" aria-label="Saved kits">
+    <div class="cf-track" id="cfTrack"></div>
+    <div class="cf-cap" id="cfCap"></div>
+    <div class="cf-nav"><span class="c" id="cfCount"></span><button class="ib" data-tip="Previous kit" aria-label="Previous kit" id="cfPrev"><ic n="chevl"></ic></button><button class="ib" data-tip="Next kit" aria-label="Next kit" id="cfNext"><ic n="chevr"></ic></button></div>
+  </div>
+  <div class="kbody">
+    <div class="slots" id="slots" role="listbox" aria-label="Kit sections"></div>
+    <div class="kmain">
+      <div class="ktools">
+        <div class="seg" id="kMode"><button class="on" data-m="browse">Browse library</button><button data-m="kit">This kit <span class="c" id="kCount">0</span></button></div>
+        <div class="seg" id="kPool" data-tip="EDM packs are kept out of the main pool"><button class="on" data-p="main">Main</button><button data-p="edm">EDM</button><button data-p="both">Both</button></div>
+        <label class="sfield"><ic n="search"></ic><input class="in sm" id="kQ" placeholder="Search 214 Kicks in your library…" aria-label="Search the library"></label>
+        <label class="lbl" data-tip="Hide sounds you already used in your other saved kits"><input type="checkbox" class="cbx" id="kSkip">Skip used</label>
+      </div>
+      <div class="thead row kgrid" id="khead"><span></span><span>Name</span><span class="c-fold">Folder</span><span class="r">Length</span><span></span></div>
+      <div class="rows" id="krows"></div>
+      <div class="kfoot" id="kfoot"></div>
+    </div>
+    <aside class="rail kside" id="kside" aria-label="Kit details"></aside>
+  </div>
+  <div class="vstate" data-vs="kits"></div>
+</section>
+
+<!-- ================= MAP (SonicMap.tsx) ================= -->
+<section class="view" id="map">
+  <div class="stage" id="mapStage">
+    <div class="mapwrap" id="mapwrap"><svg id="msvg" viewBox="0 0 760 760" role="img" aria-label="Sonic map of every beat on the Camelot wheel"></svg><div class="mtip" id="mtip"></div></div>
+  </div>
+  <aside class="rail" id="mapSide">
+    <section><h2 class="t" style="margin-bottom:8px">Sonic map</h2>
+      <p class="help">Every beat sits on the Camelot wheel by its key (outer ring major, inner ring minor), and further out means a faster tempo. Hover a beat to see what mixes with it.</p></section>
+    <section><h4>Show by status</h4><div class="legend" id="legend"></div><p class="help" style="margin-top:10px"><a class="lnk" id="unplaced">9 beats have no key yet</a> so they are not on the map.</p></section>
+    <section id="msel" style="border:0"></section>
+  </aside>
+  <div class="vstate" data-vs="map"></div>
+</section>
+
+<!-- ================= STORE (Store.tsx + SiteCard.tsx) ================= -->
+<section class="view" id="store">
+  <div class="stlist">
+    <div class="tools">
+      <h2>Store</h2>
+      <span class="lede" id="stLede"></span>
+      <span class="grow"></span>
+      <button class="btn ghost" id="stAdd"><ic n="plus"></ic>Add beats</button>
+      <button class="btn ghost" id="stPrev"><ic n="eye"></ic>Preview</button>
+      <button class="btn ghost" id="stOpen"><ic n="ext"></ic>Open site</button>
+      <button class="btn primary" id="stPub"><ic n="up"></ic><span>Publish changes</span></button>
+    </div>
+    <div class="top">
+      <div class="notice warn" id="noToken" style="margin:0 var(--s5) var(--s3)"><ic n="alert"></ic><div>Publishing needs your Netlify token. You can still edit and preview.</div><button class="btn ghost sm" style="margin-left:auto">Open Settings</button></div>
+      <div class="notice err" id="pubErr" hidden style="margin:0 var(--s5) var(--s3)"><ic n="alert"></ic><div><b>Publish failed.</b> Netlify answered 401 (token rejected). Nothing on the live site changed.</div><button class="btn ghost sm" style="margin-left:auto">Try again</button></div>
+      <div class="bulk" id="bulk"><label class="lbl"><input type="checkbox" class="cbx" id="stAll" aria-label="Select all">All</label><b id="bulkN">0 selected</b><span class="dim">Removing does not touch the live site until you publish.</span><button class="btn danger sm" id="stRm" style="margin-left:auto"><ic n="trash"></ic>Remove from site</button></div>
+    </div>
+    <div class="thead stgrid" id="sthead"><span></span><span>#</span><span class="c-grip"></span><span>Title on the site</span><span>Genre</span><span>BeatStars link</span><span>Status</span><span></span></div>
+    <div class="rows" id="strows"></div>
+    <div class="tfoot" id="stfoot"></div>
+  </div>
+  <aside class="rail" id="strail" aria-label="Site"></aside>
+  <div class="vstate" data-vs="store"></div>
+</section>
+
+<!-- ================= SALES (Sales.tsx, Revenue.tsx) ================= -->
+<section class="view" id="sales">
+  <div class="tools">
+    <h2>Sales &amp; Collabs</h2>
+    <div class="seg" id="salesSeg" role="tablist" aria-label="Section"><button class="on" data-sv="sales">Sales</button><button data-sv="revenue">Revenue</button><button data-sv="collabs">Collabs &amp; splits</button><button data-sv="licenses">Licenses</button></div>
+    <span class="grow"></span>
+    <button class="btn ghost" id="exportCsv"><ic n="down"></ic>Export CSV</button>
+    <button class="btn ghost" id="impBtn"><ic n="up"></ic>Import BeatStars sales…</button>
+    <button class="btn primary" id="logBtn"><ic n="plus"></ic>Log sale</button>
+  </div>
+  <div class="sbody">
+    <div class="sv on" id="sv-sales">
+      <div class="salelist">
+        <div class="subbar">
+          <label class="sfield"><ic n="search"></ic><input class="in" id="saQ" placeholder="Search beat, buyer, license…" aria-label="Search sales"></label>
+          <label class="lbl"><input type="checkbox" class="cbx" id="exOnly">Exclusives only</label>
+          <span class="grow"></span><span class="dim" id="saSum"></span>
+        </div>
+        <div class="thead row slgrid"><span>Date</span><span>Beat</span><span>Buyer</span><span>License</span><span class="c-src">Source</span><span class="r">Price</span><span class="r c-net">Net</span><span></span></div>
+        <div class="rows" id="sarows"></div>
+        <div class="tfoot" id="safoot"></div>
+      </div>
+      <aside class="rail">
+        <section style="padding-top:var(--s4)"><div class="peak tall" data-peak="sales"></div></section>
+        <section><h4>This view</h4>
+          <div class="kv"><span>Sales</span><b id="rs1">0</b><em>logged</em></div>
+          <div class="kv"><span>Gross</span><b id="rs2">$0</b><em></em></div>
+          <div class="kv"><span>Net of fees</span><b id="rs3">$0</b><em id="rs3e"></em></div>
+          <div class="kv"><span>Exclusives</span><b id="rs4">0</b><em>locked beats</em></div></section>
+        <section style="border:0"><div class="dropz" id="csvDrop"><span class="gl"><ic n="drop"></ic></span><span><b>Drop a BeatStars .csv anywhere</b></span><small class="dim">or use Import BeatStars sales…</small></div></section>
+      </aside>
+    </div>
+    <div class="sv" id="sv-revenue"><div class="rev" id="revBody"></div></div>
+    <div class="sv" id="sv-collabs">
+      <div class="salelist" style="grid-template-rows:auto auto minmax(0,1fr) auto">
+        <div class="subbar"><label class="sfield"><ic n="search"></ic><input class="in" id="coQ" placeholder="Find a beat…" aria-label="Find a beat"></label>
+          <div class="seg" id="coSeg"><button class="on" data-f="with">With splits</button><button data-f="attention">Needs attention</button><button data-f="none">No splits yet</button><button data-f="all">All</button></div></div>
+        <div class="thead row cgrid"><span>Beat</span><span>Status</span><span></span></div>
+        <div class="rows" id="corows"></div>
+        <div class="tfoot" id="cofoot"></div>
+      </div>
+    </div>
+    <div class="sv" id="sv-licenses"><div class="lics" id="licBody"></div></div>
+  </div>
+  <div class="vstate" data-vs="sales"></div>
+</section>
+
+<!-- ================= PLUGINS (Plugins.tsx) ================= -->
+<section class="view" id="plugins">
+  <div class="tools">
+    <h2>Plugins</h2><span class="grow"></span>
+    <div class="seg" id="plSeg"><button class="on" data-pv="plugins">All plugins</button><button data-pv="problems">Problems <span class="c" id="plProb">6</span></button><button data-pv="disabled">Disabled <span class="c" id="plDis">2</span></button></div>
+    <button class="btn ghost" id="plRescan"><ic n="refresh"></ic>Rescan</button>
+    <button class="btn primary" id="plCheck" data-tip="Looks for plugins that crash FL or show “not found”" data-tip-x><ic n="shield"></ic>Check for problems</button>
+  </div>
+  <div class="top">
+    <div class="pstats"><span><b id="plN">38</b>plugins</span><span><b id="plF">36</b>in plugin folders</span><span class="dim" id="plBusy"></span></div>
+    <div class="notice ok pnote" id="plNote" title="Click to dismiss"><ic n="check"></ic><div id="plNoteT">Scan finished. 26 plugins found, 3.4 GB on disk.</div><ic n="x"></ic></div>
+  </div>
+  <div class="plv on" id="pv-plugins">
+    <div class="plist">
+      <div class="ptools">
+        <label class="sfield"><ic n="search"></ic><input class="in sm" id="plQ" placeholder="Search plugins" aria-label="Search plugins"></label>
+        <select class="in sm" id="plSort" aria-label="Sort"><option value="size">Largest first</option><option value="name">Name</option><option value="vendor">Vendor</option></select>
+        <button class="btn ghost sm" id="plClear">Clear</button>
+        <div class="chips" id="plChips" style="flex-basis:100%"></div>
+      </div>
+      <div class="thead row pgridc"><span></span><span></span><span>Plugin</span><span class="c-fmt">Formats</span><span class="r">Size</span><span></span></div>
+      <div class="rows" id="plrows"></div>
+      <div class="tfoot"><span id="plSel">Shift-click selects a range</span><span class="grow" style="flex:1"></span><button class="btn danger sm" id="plUn" style="display:none"><ic n="trash"></ic><span>Uninstall…</span></button></div>
+    </div>
+    <aside class="rail pdet" id="pldet"></aside>
+  </div>
+  <div class="plv" id="pv-problems"></div>
+  <div class="plv" id="pv-disabled"></div>
+  <div class="vstate" data-vs="plugins"></div>
+</section>
+
+  </main>
+</div>
+
+<!-- ================= DIALOGS ================= -->
+<div class="scrim" id="dAdd" role="dialog" aria-modal="true" aria-label="Add beats to the store"><div class="dlg">
+  <header><h2>Add beats to the store</h2><button class="ib x" data-close aria-label="Close"><ic n="x"></ic></button></header>
+  <div class="bd">
+    <p class="help">Finished beats with audio that are not on the site yet. Adding does not publish; use Publish when you are ready.</p>
+    <label class="sfield"><ic n="search"></ic><input class="in" id="adQ" placeholder="Search by title…" aria-label="Search beats"></label>
+    <div class="alist" id="adList"></div>
+    <div class="notice err only-err"><ic n="alert"></ic><div>Could not add those beats: the database is locked by another Studio HQ window. Nothing was added.</div></div>
+  </div>
+  <footer><span class="sum" id="adSum">Pick one or more beats</span><div class="r"><button class="btn ghost" data-close>Cancel</button><button class="btn primary" id="adGo"><span>Add beats</span></button></div></footer>
+</div></div>
+
+<div class="scrim" id="dLog" role="dialog" aria-modal="true" aria-label="Log a sale"><div class="dlg w2">
+  <header><div><small>Money in</small><h2 id="lgTitle">Log a sale.</h2></div><button class="btn ghost sm x" data-close>Cancel</button></header>
+  <div class="bd" id="lgBody"></div>
+  <footer><span class="sum" id="lgSum"></span><div class="r"><button class="btn primary" id="lgGo"><span>Log sale</span><kbd class="k">⌘↵</kbd></button></div></footer>
+</div></div>
+
+<div class="scrim" id="dImp" role="dialog" aria-modal="true" aria-label="Import BeatStars sales"><div class="dlg w3">
+  <header><h2>Import BeatStars sales</h2><small id="imFile">beatstars-sales-2026.csv</small><button class="ib x" data-close aria-label="Close"><ic n="x"></ic></button></header>
+  <div class="bd" id="imBody"></div>
+  <footer id="imFoot"></footer>
+</div></div>
+
+<div class="scrim" id="dSplit" role="dialog" aria-modal="true" aria-label="Splits"><div class="dlg w3">
+  <header><h2 id="spTitle">Splits · SAYWHAT</h2><button class="btn ghost sm x" data-close>Cancel</button></header>
+  <div class="bd" id="spBody"></div>
+  <footer id="spFoot"></footer>
+</div></div>
+
+<div class="scrim" id="dFix" role="dialog" aria-modal="true" aria-label="Confirm fixes"><div class="dlg w2">
+  <header><h2 id="fxTitle">Clean up for me</h2><small>Nothing is deleted. Every fix can be undone.</small><button class="ib x" data-close aria-label="Close"><ic n="x"></ic></button></header>
+  <div class="bd" id="fxBody"></div>
+  <footer><span class="sum" id="fxSum"></span><div class="r"><button class="btn ghost" data-close>Cancel</button><button class="btn primary" id="fxGo"><ic n="shield"></ic><span>Apply fixes</span></button></div></footer>
+</div></div>
+
+<div class="scrim" id="dUn" role="dialog" aria-modal="true" aria-label="Uninstall plugins"><div class="dlg w2">
+  <header><h2>Uninstall</h2><small>Moves files to the Trash. You can put them back from Finder.</small><button class="ib x" data-close aria-label="Close"><ic n="x"></ic></button></header>
+  <div class="bd" id="unBody"></div>
+  <footer><span class="sum" id="unSum"></span><div class="r"><button class="btn ghost" data-close>Cancel</button><button class="btn danger" id="unGo"><ic n="trash"></ic><span>Move to the Trash</span></button></div></footer>
+</div></div>
+
+<div class="dropov" id="dropov"><div class="dropz over"><span class="gl"><ic n="drop"></ic></span><b style="font-size:16px">Drop the BeatStars .csv to import it</b><small class="dim">Only .csv files. Anything else shows “Drop a .csv sales export from BeatStars.”</small></div></div>
+<div class="toast" id="toast" role="status" aria-live="polite"><span id="toastT"></span> <button id="toastU" hidden>Undo</button></div>
+
+<div class="mock" id="mock" aria-label="Mockup controls">
+  <b>Screen</b><button data-v="sounds" class="on">Sounds</button><button data-v="kits">Kits</button><button data-v="map">Map</button><button data-v="store">Store</button><button data-v="sales">Sales</button><button data-v="plugins">Plugins</button>
+  <i></i><b>Sales view</b><button data-sv2="sales">Sales</button><button data-sv2="revenue">Revenue</button><button data-sv2="collabs">Collabs</button><button data-sv2="licenses">Licenses</button>
+  <i></i><b>Plugins view</b><button data-pv2="plugins">All</button><button data-pv2="problems">Problems</button><button data-pv2="disabled">Disabled</button>
+  <i></i><b>Dialog</b><button data-dlg="add">Add to store</button><button data-dlg="log">Log sale</button><button data-dlg="logx">Log: exclusive</button><button data-dlg="logb">Log: locked beat</button><button data-dlg="loge">Edit sale</button><button data-dlg="im0">Import: map</button><button data-dlg="im1">Import: review</button><button data-dlg="split">Splits</button><button data-dlg="fix">Fix confirm</button><button data-dlg="un">Uninstall</button><button data-dlg="drop">CSV drop</button>
+  <i></i><b>Store flag</b><button data-flag="token">No token</button><button data-flag="fail">Publish fails</button>
+  <i></i><b>State</b><button data-st="normal" class="on">Normal</button><button data-st="empty">Empty</button><button data-st="loading">Loading</button><button data-st="error">Error</button>
+</div>
+<script>
+/* ================= utilities ================= */
+const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
+const ic=n=>`<svg class="i" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+const hydrate=(r=document)=>$$('ic',r).forEach(e=>{e.outerHTML=ic(e.getAttribute('n'))});
+const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const money=n=>'$'+(Number.isInteger(n)?n.toLocaleString('en-US'):n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}));
+const rng=s=>()=>(s=Math.sin(s*9301+49297)*233280,s-Math.floor(s));
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const fmtLen=s=>s<10?s.toFixed(2)+' s':Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');
+const plural=(n,a,b)=>`${n} ${n===1?a:b}`;
+function wave(c,seed,col,played,hl){const d=devicePixelRatio||1,w=c.clientWidth,h=c.clientHeight;if(!w||!h)return;c.width=w*d;c.height=h*d;const x=c.getContext('2d');x.scale(d,d);const r=rng(seed),n=Math.floor(w/3);for(let i=0;i<n;i++){const env=Math.sin(Math.PI*i/n)**.35,a=Math.max(2,(.25+.75*r())*env*h);x.fillStyle=played&&i/n<played?hl:col;x.fillRect(i*3,(h-a)/2,2,a)}}
+function draw(){$$('canvas[data-seed]').forEach(c=>wave(c,+c.dataset.seed||3,c.dataset.col?css(c.dataset.col):css('--fg-3'),+c.dataset.played||0,css('--wip')))}
+let toastT;
+function toast(msg,undo){const t=$('#toast');$('#toastT').textContent=msg;const u=$('#toastU');u.hidden=!undo;u.onclick=()=>{undo&&undo();t.classList.remove('on')};t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),3800)}
+function fitMock(){document.documentElement.style.setProperty('--mockh',$('#mock').offsetHeight+'px');glide()}
+
+/* rolling numbers (Skiper 37, plain CSS) */
+function roll(el,txt){
+  if(!el)return; if(RM){el.textContent=txt;return}
+  const key=txt.replace(/\d/g,'#');
+  if(el.dataset.k!==key){el.dataset.k=key;el.classList.add('roll');el.setAttribute('aria-label',txt);
+    el.innerHTML=[...txt].map(c=>/\d/.test(c)?`<span class="rd" aria-hidden="true" style="--d:0">${[0,1,2,3,4,5,6,7,8,9].map(n=>`<span>${n}</span>`).join('')}</span>`:`<span class="rs" aria-hidden="true">${c}</span>`).join('');}
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{let i=0;[...el.children].forEach((s,k)=>{if(s.classList.contains('rd')){s.firstChild.style.transitionDelay=(k*45)+'ms';s.style.setProperty('--d',txt.replace(/[^\d]/g,'')[i++]||0)}})}));
+}
+
+/* ================= navigation / states / dialogs ================= */
+let cur='sounds',state='normal';
+const onShow={};
+function glide(){const on=$('.strip button.on'),g=$('.glide'),st=$('.strip');if(!on)return;g.style.width=on.offsetWidth-24+'px';g.style.transform=`translateX(${on.offsetLeft+12}px)`;const l=on.offsetLeft,w=on.offsetWidth;if(l<st.scrollLeft)st.scrollLeft=l-16;else if(l+w>st.scrollLeft+st.clientWidth)st.scrollLeft=l+w-st.clientWidth+16}
+function show(v){cur=v;$$('.view').forEach(x=>x.classList.toggle('on',x.id===v));$$('.strip [data-v],#mock [data-v]').forEach(b=>b.classList.toggle('on',b.dataset.v===v));renderState();glide();requestAnimationFrame(()=>{draw();$$('.peak',$('#'+v)).forEach(p=>p._render&&p._render(true));onShow[v]&&onShow[v]()})}
+$$('[data-v]').forEach(b=>b.addEventListener('click',()=>show(b.dataset.v)));
+$$('.strip [data-x]').forEach(b=>b.addEventListener('click',()=>toast('That section is not part of this mockup.')));
+function setState(s){state=s;document.body.dataset.state=s;$$('#mock [data-st]').forEach(b=>b.classList.toggle('on',b.dataset.st===s));renderState();refreshDialogs();requestAnimationFrame(()=>{draw();$$('.peak',$('#'+cur)).forEach(p=>p._render&&p._render(true))})}
+$$('[data-st]').forEach(b=>b.addEventListener('click',()=>setState(b.dataset.st)));
+
+const SUBTITLE={sounds:'Sounds',kits:'Kit Maker',map:'Map',store:'Store',sales:'Sales & Collabs',plugins:'Plugins'};
+const STX={
+ sounds:{empty:{g:'folder',h:'No sounds found yet',p:'Add a sounds folder in Settings, then Rescan. Samples and MIDI files show up here, ready to drag into FL Studio.',a:[['primary','Open Settings'],['ghost','Rescan']],drop:'Drop a folder here to see what it holds'},loading:{h:'Scanning your sound folders',p:'4 folders, 1,842 files read so far.',prog:62},error:{h:'The scan stopped',p:'Studio HQ could not read the folder below. Your existing library is untouched.',code:'EIO: scandir /Volumes/Samples (drive not mounted)',a:[['primary','Try again'],['ghost','Open Settings']]}},
+ kits:{empty:{g:'kit',h:'Nothing in this kit yet',p:'Switch to Browse library and add sounds, or hit Auto-fill to let Studio HQ pick for you.',a:[['primary','Auto-fill'],['ghost','Browse library']]},loading:{h:'Loading your library…',p:'Reading WAV one-shots by type so each section can fill.',prog:0},error:{h:'Could not save the kit',p:'The Save to folder is not writable. Pick another folder and the kit exports from there.',code:'EACCES: permission denied, mkdir ~/Music/Kits',a:[['primary','Choose another folder'],['ghost','Dismiss']]}},
+ map:{empty:{g:'map',h:'No beats have a key yet',p:'The map places every beat by its key and tempo. Analyze keys in Beats and the wheel fills in.',a:[['primary','Show beats needing a key']]},loading:{h:'Placing your beats',p:'Reading keys and tempos for 79 beats.',prog:0},error:{h:'Could not read your beats',p:'The beat list did not load, so there is nothing to place on the wheel. Nothing was changed.',code:'SQLITE_BUSY: database is locked',a:[['primary','Try again']]}},
+ store:{empty:{g:'store',h:'Nothing on the site yet',p:'Add finished beats and they appear on your public beat site. Adding does not publish; you choose when.',a:[['primary','Add beats']]},loading:{h:'Reading site status…',p:'Checking what is live and what changed since you last published.',prog:0},error:{h:'Could not reach the site service',p:'Studio HQ could not read the site status. Your list and edits are safe; try again in a minute.',code:'ENOTFOUND api.netlify.com',a:[['primary','Try again'],['ghost','Open Settings']]}},
+ sales:{empty:{g:'dollar',h:'No sales yet',p:'Log your first lease or exclusive. Revenue, splits and licenses fill in around it.',a:[['primary','Log sale'],['ghost','Import BeatStars sales…']]},loading:{h:'Reading your sales',p:'Adding up leases and exclusives.',prog:0},error:{h:'Could not read your sales',p:'The sales list did not load. Nothing was changed.',code:'SQLITE_BUSY: database is locked',a:[['primary','Try again']]}},
+ plugins:{empty:{g:'plug',h:'No plugins found',p:'No plugins found in the standard plugin folders. Install one, then Rescan.',a:[['primary','Rescan']]},loading:{h:'Looking for plugins…',p:'Reading VST3, VST2 and AU folders.',prog:0},error:{h:'The scan failed',p:'Studio HQ could not read your plugin folders. Nothing was changed.',code:'EPERM: operation not permitted, scandir /Library/Audio/Plug-Ins',a:[['primary','Try again']]}}
+};
+const SALESX={revenue:{h:'No sales logged yet',p:'No sales logged yet. Log one from the Sales tab and this fills in.',g:'dollar',a:[['primary','Log sale']]},collabs:{h:'No beats have splits yet',p:'Open “No splits yet” and add some, or use Add splits from a beat in the Vault.',g:'split',a:[['primary','Add splits']]},licenses:{h:'No licenses yet',p:'The license types you offer. Prices fill in when you log a sale.',g:'tag',a:[['primary','Add license']]}};
+function renderState(){
+  const el=$(`.vstate[data-vs=${cur}]`);if(!el)return;if(state==='normal'){el.innerHTML='';return}
+  let c=STX[cur][state];
+  if(cur==='sales'&&state==='empty'&&salesSub!=='sales')c=SALESX[salesSub];
+  const title=SUBTITLE[cur];
+  const body=state==='loading'?`<div class="sbox"><div class="gl">${ic('refresh')}</div><h3>${c.h}</h3><p>${c.p}</p><div class="prog ${c.prog?'':'ind'}" style="--p:${c.prog||0}%"><i></i></div>${cur==='plugins'||cur==='sounds'?'<div class="skel" style="width:100%">'+'<i></i>'.repeat(6)+'</div>':'<div class="skel" style="width:100%">'+'<i></i>'.repeat(4)+'</div>'}</div>`
+   :`<div class="sbox"><div class="gl">${ic(state==='error'?'alert':c.g)}</div><h3>${c.h}</h3><p>${c.p}</p>${c.code?`<code>${c.code}</code>`:''}${c.drop?`<div class="dropz" style="width:100%;margin-top:6px"><span class="gl">${ic('drop')}</span><span><b>${c.drop}</b></span></div>`:''}<div class="acts">${(c.a||[]).map(([k,l])=>`<button class="btn ${k}" data-sact="${l}">${l}</button>`).join('')}</div></div>`;
+  el.innerHTML=`<div class="tools"><h2>${title}</h2></div><div class="sw2">${body}</div>`;
+  $$('[data-sact]',el).forEach(b=>b.addEventListener('click',()=>{const l=b.dataset.sact;if(l==='Log sale')openDlg('dLog',()=>renderLog('new'));else if(l==='Add beats')openDlg('dAdd',renderAdd);else if(/Try again|Rescan|Dismiss/.test(l)){setState('loading');setTimeout(()=>setState('normal'),1400)}else toast(l+': not part of this mockup.')}));
+}
+/* dialogs: open/close, focus, Esc, scrim click, blur-fade entrance (CSS) */
+let lastFocus;
+function openDlg(id,fn){fn&&fn();$$('.scrim.on').forEach(s=>s.classList.remove('on'));lastFocus=document.activeElement;const d=$('#'+id);d.classList.add('on');hydrate(d);setTimeout(()=>{const f=d.querySelector('input:not([type=checkbox]),select,.x');f&&f.focus({preventScroll:true})},40)}
+function closeDlg(){$$('.scrim.on').forEach(s=>s.classList.remove('on'));lastFocus&&lastFocus.focus&&lastFocus.focus({preventScroll:true});$('#dropov').classList.remove('on')}
+$$('.scrim').forEach(s=>s.addEventListener('mousedown',e=>{if(e.target===s)closeDlg()}));
+$$('[data-close]').forEach(b=>b.addEventListener('click',closeDlg));
+addEventListener('keydown',e=>{
+  if(e.key==='Escape'){closeDlg();return}
+  if($('.scrim.on'))return;
+  if(e.target.matches('input,select,textarea'))return;
+  if(cur==='sounds')soundKeys(e);if(cur==='kits')kitKeys(e);
+});
+
+/* ================= PEAK family (SVG stand-in for the canvas component) ================= */
+const MO=['Dec','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov'];
+const WK=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const sparse=(n,o)=>Array.from({length:n},(_,i)=>o[i]||0);
+const noisy=(n,seed,lo,hi)=>{const r=rng(seed);return Array.from({length:n},()=>Math.round(lo+(hi-lo)*r()**1.6))};
+const PK={
+ sounds:{title:'Samples added',def:'Weekly',m:{n:{label:'Added',fmt:v=>Math.round(v).toLocaleString('en-US'),s:{Weekly:[12,34,18,52,41,9,64],Monthly:noisy(30,11,0,70),Yearly:[320,180,410,260,590,330,210,480,360,720,540,260]}}},unit:{Weekly:'this week',Monthly:'this month',Yearly:'this year'},noun:'samples'},
+ sales:{title:'Revenue',def:'Yearly',m:{n:{label:'Revenue',fmt:v=>money(Math.round(v)),s:{Weekly:[0,250,0,0,60,0,0],Monthly:sparse(30,{0:45,3:35,7:25,9:250,12:60}),Yearly:[60,90,345,120,75,650,90,135,105,580,120,415]}}},unit:{Weekly:'this week',Monthly:'in November',Yearly:'last 12 months'}},
+ store:{title:'Store traffic',def:'Weekly',m:{views:{label:'Views',fmt:v=>Math.round(v).toLocaleString('en-US'),s:{Weekly:[41,63,58,112,96,74,88],Monthly:noisy(30,5,20,130),Yearly:[210,260,330,290,410,520,480,610,540,720,690,430]}},orders:{label:'Orders',fmt:v=>Math.round(v).toLocaleString('en-US'),s:{Weekly:[0,1,0,3,2,1,1],Monthly:noisy(30,9,0,4),Yearly:[2,3,5,4,7,9,6,11,8,14,12,5]}}},unit:{Weekly:'this week',Monthly:'this month',Yearly:'this year'}}
+};
+const lbl=(per)=>per==='Weekly'?WK:per==='Monthly'?Array.from({length:30},(_,i)=>'Nov '+(i+1)):MO.map((m,i)=>m+(i<1?' 25':''));
+function smoothPath(pts){let d=`M${pts[0][0]},${pts[0][1]}`;for(let i=0;i<pts.length-1;i++){const p0=pts[i-1]||pts[i],p1=pts[i],p2=pts[i+1],p3=pts[i+2]||p2,t=.18;d+=` C${p1[0]+(p2[0]-p0[0])*t},${p1[1]+(p2[1]-p0[1])*t} ${p2[0]-(p3[0]-p1[0])*t},${p2[1]-(p3[1]-p1[1])*t} ${p2[0]},${p2[1]}`}return d}
+let peakUid=0;
+function peakInit(el){
+  const key=el.dataset.peak,cfg=PK[key],wide=el.classList.contains('wide'),uid=++peakUid;
+  let per=cfg.def,met=Object.keys(cfg.m)[0],raf=0,hov=-1,view;
+  const metKeys=Object.keys(cfg.m);
+  const periodSeg=`<div class="pk-per" role="group" aria-label="Period">${['Weekly','Monthly','Yearly'].map(p=>`<button data-per="${p}">${p}</button>`).join('')}</div>`;
+  const metSeg=metKeys.length>1?`<div class="pk-mini" role="group" aria-label="Metric">${metKeys.map(m=>`<button data-met="${m}">${cfg.m[m].label}</button>`).join('')}</div>`:'';
+  const plot=`<div class="pk-plot"><svg aria-hidden="true"></svg><div class="pk-tip"></div></div>`;
+  el.innerHTML=wide?`<div class="pk-side"><div class="pk-head"><span class="pk-t">${ic('wave')}${cfg.title}</span>${metSeg}</div><div class="pk-num"><b></b><small></small></div>${periodSeg}</div>${plot}`
+    :`<div class="pk-head"><span class="pk-t">${ic('wave')}${cfg.title}</span>${periodSeg}</div><div class="pk-num"><b></b><small></small></div>${metSeg?`<div style="padding:var(--s2) var(--s4) 0">${metSeg}</div>`:''}${plot}`;
+  const num=$('.pk-num b',el),sub=$('.pk-num small',el),svg=$('.pk-plot svg',el),tip=$('.pk-tip',el),plotEl=$('.pk-plot',el);
+  const data=()=>cfg.m[met].s[per],fmt=v=>cfg.m[met].fmt(v);
+  const noun=()=>(cfg.m[met].label.toLowerCase());
+  function setNum(v,l){num.textContent=fmt(v);sub.textContent=l}
+  function render(anim){
+    $$('[data-per]',el).forEach(b=>b.classList.toggle('on',b.dataset.per===per));$$('[data-met]',el).forEach(b=>b.classList.toggle('on',b.dataset.met===met));
+    const W=plotEl.clientWidth,H=plotEl.clientHeight;if(!W||!H)return;
+    const d=data(),L=lbl(per),n=d.length,padX=wide?10:16,top=wide?14:26,bot=wide?20:26;
+    const mx=Math.max(...d,1)*1.12,xs=i=>padX+i*(W-2*padX)/(n-1),ys=v=>top+(H-top-bot)*(1-v/mx);
+    const pts=d.map((v,i)=>[xs(i),ys(v)]),path=smoothPath(pts),pi=d.indexOf(Math.max(...d));
+    const ticks=wide?[0,Math.floor(n/2),n-1]:[0,Math.floor(n/4),Math.floor(n/2),Math.floor(3*n/4),n-1];
+    svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+    svg.innerHTML=`<defs><filter id="pb${uid}" x="-10%" y="-40%" width="120%" height="180%"><feGaussianBlur stdDeviation="${wide?4:6}"/></filter></defs>
+     ${[.25,.5,.75].map(f=>`<line x1="0" x2="${W}" y1="${top+(H-top-bot)*f}" y2="${top+(H-top-bot)*f}" stroke="rgba(255,244,230,.06)" stroke-dasharray="2 5"/>`).join('')}
+     ${ticks.map(i=>`<text x="${xs(i)}" y="${H-5}" fill="#8a847b" font-size="11" text-anchor="${i===0?'start':i===n-1?'end':'middle'}" font-family="Inter Tight">${L[i]}</text>`).join('')}
+     <path class="g" d="${path}" fill="none" style="stroke:var(--primary)" stroke-width="${wide?5:7}" opacity=".5" filter="url(#pb${uid})" stroke-linecap="round"/>
+     <path class="l" d="${path}" fill="none" style="stroke:var(--primary)" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"/>
+     <line class="hl" y1="${top-6}" y2="${H-bot}" stroke="rgba(255,244,230,.28)" stroke-width="1" opacity="0"/>
+     <g class="dt" transform="translate(${xs(pi)},${ys(d[pi])})"><circle r="11" style="fill:var(--primary)" opacity=".18"/><circle r="4.5" style="fill:var(--primary)" stroke="#0b0b0a" stroke-width="2"/></g>`;
+    const l=$('.l',svg),g=$('.g',svg),dt=$('.dt',svg),len=l.getTotalLength(),total=d.reduce((a,b)=>a+b,0);
+    const pr=el.getBoundingClientRect(),pl=plotEl.getBoundingClientRect();
+    el.style.setProperty('--gx',((pl.left-pr.left+xs(pi))/pr.width*100)+'%');el.style.setProperty('--gy',((pl.top-pr.top+ys(d[pi]))/pr.height*100)+'%');
+    const unit=cfg.unit[per],lab=(cfg.m[met].label==='Revenue'||cfg.m[met].label==='Added')?unit:`${noun()} ${unit}`;
+    cancelAnimationFrame(raf);
+    if(anim&&!RM){
+      [l,g].forEach(p=>{p.style.strokeDasharray=len;p.animate([{strokeDashoffset:len},{strokeDashoffset:0}],{duration:1200,easing:'cubic-bezier(.23,1,.32,1)',fill:'both'})});
+      dt.animate([{opacity:0,transform:`translate(${xs(pi)}px,${ys(d[pi])}px) scale(.2)`},{opacity:1,transform:`translate(${xs(pi)}px,${ys(d[pi])}px) scale(1)`}],{duration:420,delay:1200*(xs(pi)/W)*.9,easing:'cubic-bezier(.23,1,.32,1)',fill:'both'});dt.removeAttribute('transform');
+      const t0=performance.now();const tick=t=>{const k=Math.max(0,Math.min(1,(t-t0)/1100)),e=1-Math.pow(1-k,3);setNum(total*e,lab);if(k<1)raf=requestAnimationFrame(tick)};raf=requestAnimationFrame(tick);
+    }else setNum(total,lab);
+    view={d,L,xs,ys,top,bot,H,W,total,lab,pi};
+  }
+  plotEl.addEventListener('mousemove',e=>{if(!view)return;const r=plotEl.getBoundingClientRect(),x=e.clientX-r.left;let i=Math.round((x-(wide?10:16))/((view.W-2*(wide?10:16))/(view.d.length-1)));i=Math.max(0,Math.min(view.d.length-1,i));if(i===hov)return;hov=i;
+    cancelAnimationFrame(raf);const hl=$('.hl',svg),dt=$('.dt',svg);hl.setAttribute('x1',view.xs(i));hl.setAttribute('x2',view.xs(i));hl.setAttribute('opacity',1);dt.getAnimations&&dt.getAnimations().forEach(a=>a.cancel());dt.style.transform=`translate(${view.xs(i)}px,${view.ys(view.d[i])}px)`;dt.style.opacity=1;
+    tip.innerHTML=`<b>${fmt(view.d[i])}</b><span>${view.L[i]}</span>`;tip.style.left=Math.max(36,Math.min(view.W-36,view.xs(i)))+'px';tip.style.top=view.ys(view.d[i])+'px';tip.style.opacity=1;
+    setNum(view.d[i],view.L[i]);const pr=el.getBoundingClientRect();el.style.setProperty('--gx',(r.left-pr.left+view.xs(i))/pr.width*100+'%');el.style.setProperty('--gy',(r.top-pr.top+view.ys(view.d[i]))/pr.height*100+'%')});
+  plotEl.addEventListener('mouseleave',()=>{if(!view)return;hov=-1;$('.hl',svg).setAttribute('opacity',0);const dt=$('.dt',svg);dt.style.transform=`translate(${view.xs(view.pi)}px,${view.ys(view.d[view.pi])}px)`;tip.style.opacity=0;setNum(view.total,view.lab);const pr=el.getBoundingClientRect(),r=plotEl.getBoundingClientRect();el.style.setProperty('--gx',(r.left-pr.left+view.xs(view.pi))/pr.width*100+'%');el.style.setProperty('--gy',(r.top-pr.top+view.ys(view.d[view.pi]))/pr.height*100+'%')});
+  el.addEventListener('click',e=>{const b=e.target.closest('[data-per],[data-met]');if(!b)return;if(b.dataset.per)per=b.dataset.per;if(b.dataset.met)met=b.dataset.met;hov=-1;render(true)});
+  el._render=render;new ResizeObserver(()=>{if(el.offsetParent)render(false)}).observe(plotEl);
+  render(false);
+}
+
+/* ================= SOUNDS ================= */
+const KINDS=[['kick','Kick','Drums/Kicks'],['snare','Snare','Drums/Snares'],['clap','Clap','Drums/Claps'],['hat','Hat','Drums/Hats'],['808','808','808s'],['perc','Perc','Drums/Percs'],['fx','FX','FX'],['vox','Vox','Vox'],['loop','Loop','Loops']];
+const ADJ=['Punchy','Dusty','Tight','Heavy','Dark','Wide','Short','Warm','Crisp','Gritty'],KEYS=['A min','C min','D min','F min','G min','B♭ min','E min','A♯ min','F♯ min'];
+const TAGS=['dry','layered','distorted','sub','analog','vintage','tape','clean','long','pitched'];
+let S=[];(function(){const r=rng(41);let id=1;KINDS.forEach(([k,lab,fold])=>{for(let i=0;i<5;i++){const loop=k==='loop',len=loop?+(4+r()*10).toFixed(1):+(.12+r()*(k==='808'?1.9:k==='vox'?3:.8)).toFixed(2);S.push({id:id++,name:`${lab}_${ADJ[Math.floor(r()*10)]}_${String(1+Math.floor(r()*24)).padStart(2,'0')}.wav`,kind:k,lab,folder:fold,tags:[TAGS[Math.floor(r()*10)],...(r()>.6?[TAGS[Math.floor(r()*10)]]:[])].filter((v,i,a)=>a.indexOf(v)===i),len,bpm:loop||k==='vox'?Math.round(120+r()*40):null,key:(k==='808'||loop||k==='vox')?KEYS[Math.floor(r()*9)]:null,kb:Math.round(len*88+30+r()*60),fav:r()>.82,midi:false,dup:r()>.88})}});
+  [['Melody_Dm_140.mid','MIDI/Melodies',24,140,'D min',1],['Chords_Fm_130.mid','MIDI/Chords',16,130,'F min',2],['808_Slide_Pattern.mid','MIDI/808s',9,142,'',3],['Hat_Roll_3.mid','MIDI/Hats',32,140,'',4]].forEach(([n,f,notes,bpm,key,len])=>S.push({id:id++,name:n,kind:'midi',lab:'MIDI',folder:f,tags:[],len:len*2,bpm,key:key||null,kb:2,fav:false,midi:true,notes,dup:false}))})();
+const sSt={side:'folders',folder:'',proj:null,part:'all',shape:'all',kinds:new Set(),fav:false,q:'',sort:'n',dir:1,sel:S[0].id,play:false,t:0,peak:true,dup:false,scan:false};
+const TREE=[['All sounds','',1842,0],['Drums','Drums',812,1],['Kicks','Drums/Kicks',214,2],['Snares','Drums/Snares',176,2],['Claps','Drums/Claps',98,2],['Hats','Drums/Hats',244,2],['Percs','Drums/Percs',80,2],['808s & Bass','808s',186,1],['Loops','Loops',322,1],['Vox','Vox',118,1],['FX','FX',204,1],['MIDI','MIDI',200,1]];
+const PROJ=[['rouge',14,0],['Retroville',22,3],['glo gang',9,0],['huhhh',17,1],['State Of Anarchy',31,0],['SAYWHAT',12,0],['TITAN',26,2]];
+const MISSING={Retroville:['“Lead Pluck” → Pluck_Glass_04.wav','“Snare 2” → Snare_Dusty_11.wav','“FX Riser” → Riser_Long_02.wav'],huhhh:['“808 Main” → 808_Heavy_07.wav'],TITAN:['“Kick” → Kick_Sub_Drill.wav','“Vox Chop” → Vox_Chop_14.wav']};
+const kindColor={kick:'--sold',snare:'--wip',clap:'--wip',hat:'--sent',808:'--idea',perc:'--done',fx:'--fg-2',vox:'--idea',loop:'--done',midi:'--sent'};
+function sRows(){let r=S.filter(s=>(!sSt.folder||s.folder.startsWith(sSt.folder))&&(sSt.part==='all'||(sSt.part==='midi')===s.midi)&&(sSt.shape==='all'||(sSt.shape==='loop')===(s.kind==='loop'||s.len>3))&&(!sSt.kinds.size||sSt.kinds.has(s.kind))&&(!sSt.fav||s.fav)&&(!sSt.q||(s.name+s.folder+s.tags.join(' ')).toLowerCase().includes(sSt.q.toLowerCase()))&&(!sSt.dup||s.dup));
+  if(sSt.proj)r=r.filter((s,i)=>(s.id+sSt.proj.length)%3!==0);
+  const k=sSt.sort,d=sSt.dir;const v={n:s=>s.name.toLowerCase(),u:s=>s.lab,l:s=>s.len,b:s=>s.bpm??-1,k:s=>s.key??'',s:s=>s.kb};r=[...r].sort((a,b)=>(v[k](a)>v[k](b)?1:v[k](a)<v[k](b)?-1:0)*d);return r}
+function sTree(){const t=$('#tree');
+  if(sSt.side==='folders'){t.innerHTML=TREE.map(([n,f,c,l])=>`<button class="node l${l+1>3?3:l+1===1?1:l+1} ${sSt.folder===f?'on':''}" data-f="${f}" style="${l===0?'':''}">${ic(l===0?'music':'folder')}<span>${n}</span><span class="n">${c.toLocaleString('en-US')}</span></button>`).join('').replace(/node l1/g,'node').replace(/node l2/g,'node l2').replace(/node l3/g,'node l3')+`<button class="node orph" data-f="__o">${ic('alert')}<span>Outside library folders</span><span class="n">24</span></button>`;
+    $$('.node',t).forEach(b=>b.addEventListener('click',()=>{sSt.folder=b.dataset.f==='__o'?'__none':b.dataset.f;sTree();sTable()}));}
+  else{t.innerHTML=PROJ.map(([n,c,m])=>`<button class="proj ${sSt.proj===n?'on':''}" data-p="${n}"><b>${n}</b><small>${c} samples${m?` · <span class="miss">${m} missing</span>`:''}</small></button>`).join('')||`<p class="help" style="padding:var(--s3)">No FL projects read yet. They are picked up from your project folders on each scan.</p>`;
+    $$('.proj',t).forEach(b=>b.addEventListener('click',()=>{sSt.proj=sSt.proj===b.dataset.p?null:b.dataset.p;sTree();sTable()}))}
+  const pb=$('#projbar');if(pb)pb.remove();
+  if(sSt.side==='projects'&&sSt.proj){const m=MISSING[sSt.proj]||[];$('.top',$('#sounds')).insertAdjacentHTML('afterbegin',`<div id="projbar" style="margin:0 var(--s5) var(--s3)" class="notice ${m.length?'warn':''}">${ic('folder')}<div><b>${sSt.proj}</b> · FL project${m.length?`<div class="dim" style="margin-top:4px">${m.length} sample${m.length>1?'s':''} the project uses ${m.length>1?'are':'is'} missing from disk:<br>${m.map(x=>esc(x)).join('<br>')}</div>`:'<div class="dim">Every sample this project uses is on disk.</div>'}</div><span style="margin-left:auto;display:flex;gap:6px"><button class="btn ghost sm" data-tos="fl">Open in FL</button><button class="btn ghost sm" data-tos="finder">Show in Finder</button></span></div>`);$$('[data-tos]').forEach(b=>b.onclick=()=>toast(b.dataset.tos==='fl'?'Opening '+sSt.proj+' in FL Studio…':'Revealed in Finder'))}}
+function sHead(){const h=$('#shead');const cols=[['','',''],['','',''],['Name','n',''],['Type','u',''],['Tags','','c-tags'],['Length','l','r'],['BPM','b','r'],['Key','k',''],['Size','s','r c-size']];
+  h.innerHTML=cols.map(([l,k,c])=>k?`<button class="${c} ${sSt.sort===k?'sorted':''}" data-k="${k}" aria-sort="${sSt.sort===k?(sSt.dir>0?'ascending':'descending'):'none'}">${l}${sSt.sort===k?ic(sSt.dir>0?'chevu':'chevd'):''}</button>`:`<span class="${c}">${l}</span>`).join('');
+  $$('button',h).forEach(b=>b.addEventListener('click',()=>{if(sSt.sort===b.dataset.k)sSt.dir*=-1;else{sSt.sort=b.dataset.k;sSt.dir=1}sHead();sTable()}))}
+function sTable(){const rows=sRows(),box=$('#srows');
+  if(!rows.length){box.innerHTML=`<div style="padding:var(--s5)"><div class="empty"><b>${S.some(x=>1)&&(sSt.q||sSt.kinds.size||sSt.fav)?'No sounds match.':'No sounds found yet.'}</b>${sSt.q||sSt.kinds.size||sSt.fav?'Clear a filter or change the search.':'Add a folder in Settings, then Rescan.'}</div></div>`}
+  else box.innerHTML=rows.map(s=>`<div class="sr ${s.id===sSt.sel?'sel':''}" data-id="${s.id}" draggable="true" tabindex="0" aria-label="${esc(s.name)}"><div class="row sgrid">
+    <button class="ib sm fav ${s.fav?'on':''}" data-fav aria-label="favorite" aria-pressed="${s.fav}">${ic('star')}</button>
+    <span class="p" aria-hidden="true">${ic(s.id===sSt.sel&&sSt.play?'pause':'play')}</span>
+    <span class="nm"><b>${esc(s.name)}</b><small><i class="kdot" style="--c:var(${kindColor[s.kind]})"></i>${s.folder}${s.dup?' · duplicate':''}</small></span>
+    <span class="d">${s.midi?'MIDI':s.kind==='loop'||s.len>3?'Loop':'One-shot'}</span>
+    <span class="tg c-tags">${s.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</span>
+    <span class="d r">${s.midi?s.notes+' notes':fmtLen(s.len)}</span><span class="d r">${s.bpm??'–'}</span><span class="d">${s.key??'–'}</span><span class="d r c-size">${s.kb>1000?(s.kb/1000).toFixed(1)+' MB':s.kb+' KB'}</span></div>
+    <div class="xp"><div><canvas data-seed="${s.id*7}" aria-hidden="true"></canvas><span class="tag">${s.lab}</span><button class="btn ghost sm" data-reveal>Reveal</button></div></div></div>`).join('');
+  $('#sFoot')&&0;$$('.sr',box).forEach(r=>{const s=S.find(x=>x.id===+r.dataset.id);
+    r.addEventListener('click',e=>{if(e.target.closest('[data-fav]')){s.fav=!s.fav;sTable();sInsp();return}if(e.target.closest('[data-reveal]')){toast('Revealed in Finder');return}sSel(s.id,true)});
+    r.addEventListener('keydown',e=>{if(e.key==='Enter')sSel(s.id,true)});
+    r.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',s.name);toast('Dragging '+s.name+' into your DAW…')});
+    r.addEventListener('mouseenter',()=>{const c=$('canvas',r);if(c&&!c._d){c._d=1;wave(c,+c.dataset.seed,css(kindColor[s.kind]),0,css('--wip'))}})});
+  $('#sSum').innerHTML=`<span><b>${rows.length}</b> shown</span><span><b>1,842</b> in library</span><span><b>12.4 GB</b></span><span>${sSt.folder&&sSt.folder!=='__none'?'in '+sSt.folder:'every folder'}</span>`}
+function sSel(id,play){sSt.sel=id;sSt.t=0;sSt.play=play&&$('#autoP').checked;$$('.sr').forEach(r=>{const on=+r.dataset.id===id;r.classList.toggle('sel',on);$('.p',r).innerHTML=ic(on&&sSt.play?'pause':'play')});sInsp();loopPlay()}
+let sRaf=0;function loopPlay(){cancelAnimationFrame(sRaf);if(!sSt.play)return;const s=S.find(x=>x.id===sSt.sel),dur=Math.max(.8,Math.min(s.len,8)),t0=performance.now()-sSt.t*1000;const tick=t=>{sSt.t=(t-t0)/1000;let k=sSt.t/dur;if(k>=1){if($('#loopP').checked){sSt.t=0;loopPlay();return}sSt.play=false;sSt.t=0;sInsp();$$('.sr.sel .p').forEach(p=>p.innerHTML=ic('play'));return}const ph=$('#sinsp .ph'),tm=$('#sinsp .tm');if(ph)ph.style.left=(16+k*(ph.parentElement.clientWidth-32))+'px';if(tm)tm.textContent=fmtLen(sSt.t)+' / '+fmtLen(s.len);sRaf=requestAnimationFrame(tick)};sRaf=requestAnimationFrame(tick)}
+function sInsp(){const s=S.find(x=>x.id===sSt.sel),el=$('#sinsp');if(!s){el.innerHTML=`<section style="border:0"><div class="empty"><b>Nothing selected</b>Click a sound to preview it.</div></section>`;return}
+  el.innerHTML=`<div class="pv"><canvas data-seed="${s.id*7}" data-col="${kindColor[s.kind]}" data-played="0" aria-hidden="true"></canvas><span class="ph" style="left:16px"></span></div>
+  <div class="pvc"><button class="play" id="sPlay" aria-label="${sSt.play?'Pause':'Play'}">${ic(sSt.play?'pause':'play')}</button><div class="np" style="flex:1"><b>${esc(s.name)}</b><small>${s.midi?'MIDI · '+s.notes+' notes':s.lab+' · '+(s.len>3||s.kind==='loop'?'loop':'one-shot')}</small></div><span class="dim tm" style="font-size:12px">${fmtLen(0)} / ${fmtLen(s.len)}</span></div>
+  <section><div class="kv"><span>Folder</span><b style="font-weight:500">${s.folder}</b><em></em></div><div class="kv"><span>Length</span><b style="font-weight:500">${s.midi?s.notes+' notes':fmtLen(s.len)}</b><em></em></div><div class="kv"><span>BPM</span><b style="font-weight:500">${s.bpm??'–'}</b><em>${s.bpm?'detected':''}</em></div><div class="kv"><span>Key</span><b style="font-weight:500">${s.key??'–'}</b><em></em></div><div class="kv"><span>Size</span><b style="font-weight:500">${s.kb>1000?(s.kb/1000).toFixed(1)+' MB':s.kb+' KB'}</b><em></em></div></section>
+  <section><h4>Tags</h4><div class="chips">${s.tags.map(t=>`<span class="tag">${t}<button data-rt="${t}" aria-label="Remove tag ${t}">${ic('x')}</button></span>`).join('')}</div><input class="in sm" id="tagIn" style="margin-top:8px" placeholder="add tag, press Enter" aria-label="Add tag"></section>
+  <section><div style="display:flex;gap:var(--s2)"><button class="btn ghost" id="sFav" style="flex:1;justify-content:center"><span class="fav ${s.fav?'on':''}" style="display:inline-flex">${ic('star')}</span>${s.fav?'Favorited':'Favorite'}</button><button class="btn ghost" id="sRev" style="flex:1;justify-content:center">${ic('folder')}Reveal</button></div><div class="draghandle" style="margin-top:var(--s3)" draggable="true" id="sDrag">${ic('grip')}<span><b style="color:var(--foreground)">Drag a row into FL Studio</b><br><small>or drag this handle onto a channel</small></span></div></section>`;
+  const c=$('.pv canvas',el);if(s.midi)pianoRoll(c,s);else wave(c,s.id*7,css(kindColor[s.kind]),0,css('--wip'));
+  $('#sPlay').onclick=()=>{sSt.play=!sSt.play;$$('.sr.sel .p').forEach(p=>p.innerHTML=ic(sSt.play?'pause':'play'));sInsp();loopPlay()};
+  $('#sFav').onclick=()=>{s.fav=!s.fav;sTable();sInsp()};$('#sRev').onclick=()=>toast('Revealed in Finder');
+  $('#sDrag').ondragstart=e=>{e.dataTransfer.setData('text/plain',s.name);toast('Dragging '+s.name+' into your DAW…')};
+  $('#tagIn').onkeydown=e=>{if(e.key==='Enter'&&e.target.value.trim()){s.tags.push(e.target.value.trim());sTable();sInsp();$('#tagIn').focus()}};
+  $$('[data-rt]',el).forEach(b=>b.onclick=()=>{s.tags=s.tags.filter(t=>t!==b.dataset.rt);sTable();sInsp()})}
+function pianoRoll(c,s){const d=devicePixelRatio||1,w=c.clientWidth,h=c.clientHeight;c.width=w*d;c.height=h*d;const x=c.getContext('2d');x.scale(d,d);const r=rng(s.id*3);x.fillStyle=css('--sent');for(let i=0;i<s.notes;i++){const nx=(i/s.notes)*w*.96+4,ny=8+Math.floor(r()*9)*(h-22)/9;x.fillRect(nx,ny,Math.max(6,w/s.notes*.8),(h-22)/10)}}
+function soundKeys(e){const rows=sRows();const i=rows.findIndex(s=>s.id===sSt.sel);if(e.key==='ArrowDown'){e.preventDefault();rows[i+1]&&sSel(rows[i+1].id,true)}else if(e.key==='ArrowUp'){e.preventDefault();rows[i-1]&&sSel(rows[i-1].id,true)}else if(e.key.toLowerCase()==='f'){const s=S.find(x=>x.id===sSt.sel);s.fav=!s.fav;sTable();sInsp()}else if(e.key.toLowerCase()==='l'){$('#loopP').checked=!$('#loopP').checked;toast($('#loopP').checked?'Loop on':'Loop off')}}
+function sounds(){
+  $('#fKinds').innerHTML=KINDS.map(([k,l])=>`<button class="chip" data-k="${k}" aria-pressed="false">${l}</button>`).join('');
+  $$('#fKinds .chip').forEach(b=>b.onclick=()=>{const k=b.dataset.k;sSt.kinds.has(k)?sSt.kinds.delete(k):sSt.kinds.add(k);b.classList.toggle('on',sSt.kinds.has(k));b.setAttribute('aria-pressed',sSt.kinds.has(k));sTable()});
+  $$('#sSide button').forEach(b=>b.onclick=()=>{sSt.side=b.dataset.side;sSt.proj=null;$$('#sSide button').forEach(x=>x.classList.toggle('on',x===b));$('#projQ').hidden=sSt.side!=='projects';sTree();sTable()});
+  [['#fPart','part'],['#fShape','shape']].forEach(([id,k])=>$$(id+' button').forEach(b=>b.onclick=()=>{sSt[k]=b.dataset.fv;$$(id+' button').forEach(x=>x.classList.toggle('on',x===b));sTable()}));
+  $('#sQ').oninput=e=>{sSt.q=e.target.value;sTable()};
+  $('#favOnly').onclick=e=>{sSt.fav=!sSt.fav;e.currentTarget.classList.toggle('on',sSt.fav);e.currentTarget.setAttribute('aria-pressed',sSt.fav);sTable()};
+  $('#pkToggle').onclick=e=>{sSt.peak=!sSt.peak;$('#peakSounds').classList.toggle('hid',!sSt.peak);e.currentTarget.dataset.tip=sSt.peak?'Hide chart':'Show chart';if(sSt.peak)requestAnimationFrame(()=>$('.peak',$('#peakSounds'))._render(true))};
+  $('#dupBtn').onclick=()=>{sSt.dup=!sSt.dup;$('#dupbar').classList.toggle('on',sSt.dup);sTable()};$('#dupClose').onclick=()=>{sSt.dup=false;$('#dupbar').classList.remove('on');sTable()};
+  $('#rescan').onclick=()=>{if(sSt.scan)return;sSt.scan=true;const b=$('#rescan');b.classList.add('off');b.querySelector('span').textContent='Scanning…';setTimeout(()=>{sSt.scan=false;b.classList.remove('off');b.querySelector('span').textContent='Rescan';toast('Scan finished: 1,842 sounds, 3 new since last time')},1500)};
+  const sf=document.createElement('div');sf.className='tfoot';sf.id='sSum';$('.slist').insertBefore(sf,$('.hint'));
+  sTree();sHead();sTable();sInsp();
+}
+onShow.sounds=()=>{sTable();};
+</script>
+<script>
+/* ================= shared flat cover art ================= */
+const ART=['--idea','--wip','--done','--sent','--sold'];
+function art(seed,label,cls='art',sz=136){const r=rng(seed*13+5),c=css(ART[seed%5]),ink='#0b0b0a';let g='';
+  const kind=seed%3;
+  if(kind===0)for(let i=0;i<7;i++)g+=`<circle cx="${sz*.7}" cy="${sz*.32}" r="${10+i*12}" fill="none" stroke="${ink}" stroke-opacity="${.55-i*.06}" stroke-width="2"/>`;
+  else if(kind===1)for(let i=0;i<9;i++)g+=`<rect x="${6+i*(sz/9.5)}" y="${sz*.12}" width="${sz/20}" height="${sz*(.14+r()*.4)}" fill="${ink}" fill-opacity=".7"/>`;
+  else for(let i=0;i<6;i++)g+=`<path d="M0 ${sz*.12+i*13} L${sz} ${sz*.02+i*13}" stroke="${ink}" stroke-opacity=".5" stroke-width="2"/>`;
+  const words=String(label||'').toUpperCase().split(' '),l1=[],l2=[];words.forEach((w,i)=>(l1.join(' ').length+w.length<10&&!l2.length?l1:l2).push(w));
+  return `<svg class="${cls}" viewBox="0 0 ${sz} ${sz}" preserveAspectRatio="xMidYMid slice" role="img" aria-label="${esc(label)}"><rect width="${sz}" height="${sz}" fill="${c}"/>${g}<text x="9" y="${sz-30}" font-family="Archivo" font-stretch="125%" font-weight="800" font-size="${sz*.1}" fill="${ink}">${esc(l1.join(' '))}</text><text x="9" y="${sz-12}" font-family="Archivo" font-stretch="125%" font-weight="800" font-size="${sz*.1}" fill="${ink}">${esc(l2.join(' '))}</text></svg>`}
+
+/* ================= KITS ================= */
+const SLOTS=[['kicks','Kicks','Kick',20],['snares','Snares','Snare',20],['claps','Claps','Clap',15],['hats','Hi Hats','Hi Hat',25],['opens','Open Hats','Open Hat',10],['808s','808s','808',25],['percs','Percs','Perc',15],['fx','FX','FX',10],['vox','Vox','Vox',10],['loops','Loops','Loop',0]];
+let KITS=[{n:'Drill Essentials',t:'2 min ago',c:{kicks:20,snares:18,claps:15,hats:25,opens:8,'808s':22,percs:12,fx:6,vox:4,loops:0}},{n:'Dark Trap Vol 2',t:'yesterday',c:{kicks:16,snares:14,claps:10,hats:20,opens:6,'808s':18,percs:8,fx:4,vox:0,loops:0}},{n:'808 Mafia',t:'3 days ago',c:{kicks:4,snares:0,claps:0,hats:0,opens:0,'808s':25,percs:0,fx:0,vox:0,loops:0}},{n:'Melodic Loops',t:'last week',c:{kicks:0,snares:0,claps:0,hats:0,opens:0,'808s':0,percs:0,fx:0,vox:0,loops:30}},{n:'Afro Perc Pack',t:'Oct 21',c:{kicks:10,snares:8,claps:6,hats:12,opens:5,'808s':8,percs:15,fx:3,vox:2,loops:0}}];
+const kSt={act:0,slot:'kicks',mode:'browse',pool:'main',q:'',skip:false,tag:'',hist:[],fut:[],added:new Set(),play:null};
+const kTot=k=>Object.values(k.c).reduce((a,b)=>a+b,0);
+function kSnap(){kSt.hist.push(JSON.stringify(KITS[kSt.act].c));kSt.fut=[]}
+function kCands(slot){const s=SLOTS.find(x=>x[0]===slot),r=rng(slot.length*17+3);return Array.from({length:30},(_,i)=>({id:slot+i,n:`${s[2]}_${ADJ[Math.floor(r()*10)]}_${String(i+1).padStart(2,'0')}.wav`,f:(['Drums/'+s[1],'Packs/Trap Vault','Packs/EDM Core','Splice/Imports'])[Math.floor(r()*4)],len:+(.1+r()*(slot==='808s'?1.8:.9)).toFixed(2),edm:r()>.78,also:r()>.8?KITS[(i+1)%KITS.length].n:null}))}
+function cfLayout(){const els=$$('.cv',$('#cfTrack'));els.forEach((c,i)=>{const o=i-kSt.act,a=Math.abs(o),sg=Math.sign(o);c.style.transform=o===0?'translateX(0) translateZ(60px)':`translateX(${o*84+sg*70}px) translateZ(${-a*70}px) rotateY(${-sg*Math.min(58,38+a*6)}deg)`;c.style.opacity=a>4?0:1;c.style.zIndex=20-a;c.style.filter=o===0?'none':`brightness(${Math.max(.45,.85-a*.12)})`;c.classList.toggle('act',o===0);c.tabIndex=o===0?0:-1;c.setAttribute('aria-current',o===0)});
+  const k=KITS[kSt.act];$('#cfCap').innerHTML=k?`<small>Saved ${k.t}</small><b>${esc(k.n)}</b><small>${kTot(k)} sounds</small>`:'';$('#cfCount').textContent=`${kSt.act+1} of ${KITS.length}`}
+function cfBuild(){const t=$('#cfTrack');t.innerHTML=KITS.map((k,i)=>`<div class="cv" data-i="${i}" role="button">${art(i+1,k.n)}</div>`).join('')+`<div class="cv new" data-i="${KITS.length}" role="button" aria-label="New kit"><div class="art">${ic('plus')}</div></div>`;
+  $$('.cv',t).forEach(c=>c.onclick=()=>{const i=+c.dataset.i;if(i===KITS.length)newKit();else if(i!==kSt.act){kSt.act=i;kSt.hist=[];kSt.fut=[];kAll()}});cfLayout()}
+function newKit(){KITS.push({n:'My Drum Kit',t:'just now',c:Object.fromEntries(SLOTS.map(s=>[s[0],0]))});kSt.act=KITS.length-1;kSt.hist=[];kSt.fut=[];cfBuild();kAll();toast('New kit started. Name it on the right.')}
+(function(){const fl=()=>$('#cflow');document.addEventListener('mousemove',e=>{const f=fl();if(!f||!f.offsetParent||RM)return;const r=f.getBoundingClientRect();if(e.clientY<r.top||e.clientY>r.bottom){f.style.setProperty('--rx','0deg');f.style.setProperty('--ry','0deg');return}const cx=r.left+r.width/2,cy=r.top+r.height*.46;f.style.setProperty('--ry',Math.max(-18,Math.min(18,(e.clientX-cx)/r.width*50))+'deg');f.style.setProperty('--rx',Math.max(-14,Math.min(14,-(e.clientY-cy)/r.height*40))+'deg')})})();
+function kSlots(){const k=KITS[kSt.act];$('#slots').innerHTML=SLOTS.map(([id,lab,,tg])=>{const n=k.c[id],pct=tg?Math.min(100,n/tg*100):(n?100:0);return `<div class="slot ${kSt.slot===id?'on':''} ${tg&&n>=tg?'done':''}" role="option" tabindex="0" aria-selected="${kSt.slot===id}" data-s="${id}"><b>${lab}</b><em>${n}${tg?' / '+tg:''}</em><div class="prog" style="--p:${pct}%"><i></i></div></div>`}).join('')+`<p class="help dim" style="padding:var(--s3) 10px 0;font-size:12px">Targets are what Auto-fill aims for. Change them any time.</p>`;
+  $$('.slot',$('#slots')).forEach(s=>{s.onclick=()=>{kSt.slot=s.dataset.s;kSt.mode='browse';kAll()};s.onkeydown=e=>{if(e.key==='Enter')s.click()}})}
+function kList(){const k=KITS[kSt.act],sl=SLOTS.find(x=>x[0]===kSt.slot);$$('#kMode button').forEach(b=>b.classList.toggle('on',b.dataset.m===kSt.mode));$('#kCount').textContent=kTot(k);$('#kQ').placeholder=`Search 214 ${sl[1]} in your library…`;
+  const box=$('#krows'),foot=$('#kfoot');
+  if(kSt.mode==='kit'){const tot=kTot(k);$('#khead').style.display='none';
+    box.innerHTML=tot?SLOTS.filter(s=>k.c[s[0]]).map(([id,lab,single])=>`<div class="kgroup">${lab}<span class="dim" style="font-weight:400">${k.c[id]}</span></div>`+Array.from({length:Math.min(k.c[id],4)},(_,i)=>`<div class="row krow kgrid"><span class="p" data-pl="${id}${i}">${ic('play')}</span><b style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${single} ${ADJ[(i*3+id.length)%10]} ${String(i+1).padStart(2,'0')}.wav</b><span class="d c-fold">Drums/${lab}</span><span class="d r">0.4 s</span><button class="ib sm" data-rm="${id}" aria-label="Remove">${ic('x')}</button></div>`).join('')+(k.c[id]>4?`<div class="row krow kgrid" style="color:var(--fg-3)"><span></span><span>and ${k.c[id]-4} more</span><span class="c-fold"></span><span></span><span></span></div>`:'')).join(''):`<div style="padding:var(--s5)"><div class="empty"><b>Nothing in this kit yet.</b>Switch to Browse library and add sounds, or hit Auto-fill.</div></div>`;
+    foot.textContent=`${tot} sounds in this kit · about ${(tot*0.021).toFixed(1)} MB`;
+    $$('[data-rm]',box).forEach(b=>b.onclick=()=>{kSnap();k.c[b.dataset.rm]=Math.max(0,k.c[b.dataset.rm]-1);kAll()})}
+  else{$('#khead').style.display='';let c=kCands(kSt.slot).filter(x=>(kSt.pool==='both'||(kSt.pool==='edm')===x.edm)&&(!kSt.q||x.n.toLowerCase().includes(kSt.q.toLowerCase()))&&(!kSt.skip||!x.also));
+    box.innerHTML=state==='loading'?'':c.length?c.map(x=>`<div class="row krow kgrid ${kSt.added.has(x.id)?'added':''} ${kSt.play===x.id?'pl':''}"><span class="p" data-pl="${x.id}" role="button" aria-label="Preview ${x.n}">${ic(kSt.play===x.id?'pause':'play')}</span><span style="min-width:0;display:flex;gap:6px;align-items:center"><b style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${x.n}</b>${x.edm?'<span class="tag edm">EDM</span>':''}${x.also?`<span class="tag warn" title="Already used in ${esc(x.also)}">also in ${esc(x.also)}</span>`:''}</span><span class="d c-fold">${x.f}</span><span class="d r">${x.len.toFixed(2)}s</span><button class="ib sm" data-add="${x.id}" aria-label="${kSt.added.has(x.id)?'Remove':'Add'} ${x.n}">${ic(kSt.added.has(x.id)?'check':'plus')}</button></div>`).join(''):`<div style="padding:var(--s5)"><div class="empty"><b>No WAV sounds of this type in your library yet.</b>${kSt.q?'Nothing matches that search.':'Drop some WAVs in a folder Studio HQ watches, then Rescan.'}</div></div>`;
+    foot.textContent=c.length>=30?'Showing the first 30 of 214. Search to narrow it down.':`${c.length} shown`;
+    $$('[data-add]',box).forEach(b=>b.onclick=()=>{kSnap();const id=b.dataset.add;if(kSt.added.has(id)){kSt.added.delete(id);k.c[kSt.slot]=Math.max(0,k.c[kSt.slot]-1)}else{kSt.added.add(id);k.c[kSt.slot]++}kAll()})}
+  $$('[data-pl]',box).forEach(p=>p.onclick=()=>{const id=p.dataset.pl;kSt.play=kSt.play===id?null:id;kList();clearTimeout(kList._t);if(kSt.play)kList._t=setTimeout(()=>{kSt.play=null;kList()},1400)})}
+function kSide(){const k=KITS[kSt.act],tot=kTot(k),tgt=SLOTS.reduce((a,s)=>a+s[3],0),tag=kSt.tag.trim();
+  $('#kside').innerHTML=`<section><h2 class="t" style="margin-bottom:4px">${esc(k.n||'My Drum Kit')}</h2><div class="dim" style="font-size:12.5px">${tot} of ${tgt} target sounds · <span id="kSaved">saved ${k.t}</span></div>
+   <div class="prog" style="--p:${Math.min(100,tot/tgt*100)}%;margin-top:10px"><i></i></div></section>
+  <section class="fieldrow"><div class="fld"><label for="kName">Kit name</label><input class="in" id="kName" value="${esc(k.n)}" placeholder="My Drum Kit"></div>
+   <div class="fld"><label for="kTag">Your tag</label><input class="in" id="kTag" value="${esc(kSt.tag)}" placeholder="yourname">${tag?`<span class="dim" style="font-size:12px">Files are named “${esc(tag)} Kick 01.wav”.</span>`:`<span class="warnline">${ic('alert')}No tag: files will be named “Kick 01.wav”.</span>`}</div>
+   <div class="fld"><label>Save to</label><div style="display:flex;gap:var(--s2)"><input class="in" readonly value="~/Music/Studio HQ Kits" aria-label="Save to folder"><button class="btn ghost" id="kChoose" style="flex:none">Choose…</button></div></div></section>
+  <section><h4>Add by dropping</h4><div class="dropz" id="kDrop"><span class="gl">${ic('drop')}</span><span><b>Drop WAVs here</b></span><small class="dim">They land in ${SLOTS.find(x=>x[0]===kSt.slot)[1]}; the type is read from the file name.</small></div></section>
+  <section style="border:0"><div class="kv" style="grid-template-columns:96px 1fr"><span>Sounds</span><b>${tot}</b></div><div class="kv" style="grid-template-columns:96px 1fr"><span>Size</span><b>about ${(tot*0.021).toFixed(1)} MB</b></div><div class="kv" style="grid-template-columns:96px 1fr"><span>Format</span><b>WAV, as in your library</b></div></section>`;
+  $('#kName').oninput=e=>{k.n=e.target.value;cfBuild()};$('#kTag').onchange=e=>{kSt.tag=e.target.value;kSide()};$('#kChoose').onclick=()=>toast('Pick a folder to save the kit to');
+  const dz=$('#kDrop');['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('over')}));dz.addEventListener('dragleave',()=>dz.classList.remove('over'));dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');kSnap();const n=e.dataTransfer.files.length||3;k.c[kSt.slot]+=n;kAll();toast(`Added ${n} sound${n>1?'s':''} to ${SLOTS.find(x=>x[0]===kSt.slot)[1]}`)});
+  dz.onclick=()=>{kSnap();k.c[kSt.slot]+=3;kAll();toast('Added 3 sounds to '+SLOTS.find(x=>x[0]===kSt.slot)[1])}}
+function kAll(){cfLayout();kSlots();kList();kSide();$('#kUndo').classList.toggle('off',!kSt.hist.length)}
+function kitKeys(e){if(e.key==='ArrowRight'&&kSt.act<KITS.length-1){kSt.act++;kAll()}else if(e.key==='ArrowLeft'&&kSt.act>0){kSt.act--;kAll()}else if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'){e.preventDefault();kUndo()}}
+function kUndo(){if(!kSt.hist.length)return;kSt.fut.push(JSON.stringify(KITS[kSt.act].c));KITS[kSt.act].c=JSON.parse(kSt.hist.pop());kAll()}
+function kits(){cfBuild();
+  $$('#kMode button').forEach(b=>b.onclick=()=>{kSt.mode=b.dataset.m;kList()});
+  $$('#kPool button').forEach(b=>b.onclick=()=>{kSt.pool=b.dataset.p;$$('#kPool button').forEach(x=>x.classList.toggle('on',x===b));kList()});
+  $('#kQ').oninput=e=>{kSt.q=e.target.value;kList()};$('#kSkip').onchange=e=>{kSt.skip=e.target.checked;kList()};
+  $('#cfPrev').onclick=()=>{if(kSt.act>0){kSt.act--;kAll()}};$('#cfNext').onclick=()=>{if(kSt.act<KITS.length-1){kSt.act++;kAll()}};
+  $('#kUndo').onclick=kUndo;$('#kUndo').nextElementSibling.onclick=()=>{if(!kSt.fut.length)return;kSt.hist.push(JSON.stringify(KITS[kSt.act].c));KITS[kSt.act].c=JSON.parse(kSt.fut.pop());kAll()};
+  $('#kAuto').onclick=()=>{kSnap();const k=KITS[kSt.act];SLOTS.forEach(s=>{k.c[s[0]]=s[3]});kAll();toast(`Added ${kTot(k)} sounds. Undo with ⌘Z or the Undo button.`,kUndo)};
+  $('#kRoll').onclick=()=>{kSnap();const k=KITS[kSt.act];SLOTS.forEach(s=>{if(s[3])k.c[s[0]]=Math.max(1,s[3]-Math.floor(Math.random()*3))});kAll();toast('Re-rolled the auto-picks.',kUndo)};
+  $('#kClear').onclick=()=>{kSnap();const k=KITS[kSt.act];SLOTS.forEach(s=>k.c[s[0]]=0);kAll();toast('Cleared the kit. Undo with ⌘Z.',kUndo)};
+  $('#kNew').onclick=newKit;
+  $('#kDel').onclick=()=>{if(KITS.length<2){toast('Keep at least one kit.');return}const gone=KITS.splice(kSt.act,1)[0],at=kSt.act;kSt.act=Math.max(0,kSt.act-1);cfBuild();kAll();toast(`Deleted “${gone.n}”.`,()=>{KITS.splice(at,0,gone);kSt.act=at;cfBuild();kAll()})};
+  $('#kExport').onclick=()=>{const b=$('#kExport');b.classList.add('off');setTimeout(()=>{b.classList.remove('off');toast(`Exported ${kTot(KITS[kSt.act])} sounds to ~/Music/Studio HQ Kits/${KITS[kSt.act].n}`)},900)};
+  kAll();
+}
+onShow.kits=()=>{cfLayout()};
+
+/* ================= MAP ================= */
+const ST_RING={idea:'#a08cff',wip:'#ffb547',finished:'#4fd89a',pitched:'#5fb6ff',sold:'#ff5533'};
+const CAM_B=['B','F♯','D♭','A♭','E♭','B♭','F','C','G','D','A','E'],CAM_A=['G♯m','D♯m','B♭m','Fm','Cm','Gm','Dm','Am','Em','Bm','F♯m','C♯m'];
+const NAMES=['State Of Anarchy','Spider','SAYWHAT','FALLING','TITAN','LEMONS','BLASTOFF','SINEWAVE','IHAVEABOMB','COMPUTAAA','War','rouge','Retroville','huhhh','glo gang','glo','Masteria','Lemonade','Hurt Me','she model'];
+const MB=(function(){const r=rng(77),st=['finished','finished','finished','wip','idea','pitched','finished','sold'];return Array.from({length:68},(_,i)=>{const n=1+Math.floor(r()*12),a=r()>.5;return{id:i+1,t:NAMES[i]||`Untitled ${i-18}`,n,a,bpm:Math.round(76+r()*98),st:st[Math.floor(r()*st.length)],j:r(),k:r()}})})();
+const keyHue=n=>`hsl(${(n-1)*30} 62% 64%)`,camName=b=>`${b.n}${b.a?'A':'B'}`;
+const mSt={hover:null,sel:null,hide:new Set(),ring:null};
+const C=380,R=350,BAND={B:[.6,.96],A:[.3,.56]};
+const ang=n=>(-90+(n-1)*30)*Math.PI/180,pt=(a,r)=>[C+Math.cos(a)*r,C+Math.sin(a)*r];
+function sector(n,r0,r1){const a0=ang(n)-Math.PI/12,a1=ang(n)+Math.PI/12,p=(a,r)=>pt(a,r).map(v=>v.toFixed(1)).join(' ');return `M${p(a0,r0)} L${p(a0,r1)} A${r1} ${r1} 0 0 1 ${p(a1,r1)} L${p(a1,r0)} A${r0} ${r0} 0 0 0 ${p(a0,r0)}Z`}
+function mDots(){return MB.map(b=>{const [i0,o0]=b.a?BAND.A:BAND.B,rr=R*(i0+.03+(o0-i0-.06)*Math.min(1,Math.max(0,(b.bpm-76)/98))),a=ang(b.n)+(b.j-.5)*.38,[x,y]=pt(a,rr);return{b,x,y,r:5+b.k*3.5}})}
+let MD=[];
+const mates=b=>MD.filter(d=>d.b.id!==b.id&&((d.b.n===b.n)||((d.b.a===b.a)&&(Math.abs(d.b.n-b.n)===1||Math.abs(d.b.n-b.n)===11))));
+function mapBuild(){const sv=$('#msvg');MD=mDots();let h='';
+  for(let n=1;n<=12;n++){const [lb,la]=[pt(ang(n),R*BAND.B[1]-16),pt(ang(n),R*BAND.A[1]-14)];
+    h+=`<g style="--c:${keyHue(n)}"><path class="sec" d="${sector(n,BAND.B[0]*R,BAND.B[1]*R)}"/><path class="sec" d="${sector(n,BAND.A[0]*R,BAND.A[1]*R)}"/><text class="lab" x="${lb[0]}" y="${lb[1]}" text-anchor="middle">${n}B <tspan>${CAM_B[n-1]}</tspan></text><text class="lab" x="${la[0]}" y="${la[1]}" text-anchor="middle">${n}A <tspan>${CAM_A[n-1]}</tspan></text></g>`}
+  h+=`<circle class="hub" cx="${C}" cy="${C}" r="${BAND.A[0]*R-10}"/><g id="mlines"></g>`;
+  h+=MD.map(d=>`<circle class="dot" data-id="${d.b.id}" cx="${d.x.toFixed(1)}" cy="${d.y.toFixed(1)}" r="${d.r.toFixed(1)}" fill="${keyHue(d.b.n)}" fill-opacity=".95" stroke="${ST_RING[d.b.st]}" stroke-width="1.8" tabindex="0" role="button" aria-label="${esc(d.b.t)}, ${camName(d.b)}, ${d.b.bpm} BPM"/>`).join('');
+  h+=`<circle class="focusglow" id="mfg" r="96" cx="${C}" cy="${C}" opacity="0"/><circle class="focusring" id="mfr" r="62" cx="${C}" cy="${C}" opacity="0"/><text class="ctr big" id="mc1" x="${C}" y="${C-20}"></text><text class="ctr" id="mc2" x="${C}" y="${C+6}"></text><text class="ctr d" id="mc3" x="${C}" y="${C+28}"></text>`;
+  sv.innerHTML=h;
+  const dots=$$('.dot',sv);
+  const foc=()=>MD.find(d=>d.b.id===(mSt.hover??mSt.sel));
+  sv.addEventListener('mousemove',e=>{const p=sv.createSVGPoint();p.x=e.clientX;p.y=e.clientY;const q=p.matrixTransform(sv.getScreenCTM().inverse());mSt.ring=[q.x,q.y];mapPaint()});
+  sv.addEventListener('mouseleave',()=>{mSt.ring=null;mSt.hover=null;mapPaint()});
+  sv.addEventListener('click',e=>{if(e.target.classList.contains('dot')){mSt.sel=+e.target.dataset.id;mapSide();mapPaint()}else{mSt.sel=null;mapSide();mapPaint()}});
+  sv.addEventListener('dblclick',e=>{if(e.target.classList.contains('dot')){const b=MB.find(x=>x.id===+e.target.dataset.id);toast('Playing '+b.t)}});
+  sv.addEventListener('mouseover',e=>{if(e.target.classList.contains('dot')){mSt.hover=+e.target.dataset.id;mapPaint()}});
+  sv.addEventListener('mouseout',e=>{if(e.target.classList.contains('dot')){mSt.hover=null;mapPaint()}});
+  sv.addEventListener('focusin',e=>{if(e.target.classList.contains('dot')){mSt.hover=+e.target.dataset.id;mapPaint()}});sv.addEventListener('focusout',()=>{mSt.hover=null;mapPaint()});
+  sv.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.classList.contains('dot')){mSt.sel=+e.target.dataset.id;mapSide();mapPaint()}});
+  mapPaint();
+}
+function mapPaint(){const sv=$('#msvg');if(!sv)return;const dots=$$('.dot',sv),fd=MD.find(d=>d.b.id===(mSt.hover??mSt.sel)),mt=fd?mates(fd.b):[],mi=new Set(mt.map(m=>m.b.id)),rg=mSt.ring;
+  $('#mlines').innerHTML=fd?mt.map(m=>`<line x1="${fd.x}" y1="${fd.y}" x2="${m.x}" y2="${m.y}" stroke="${keyHue(m.b.n)}" stroke-opacity=".6" stroke-width="1.6"/>`).join(''):'';
+  dots.forEach(el=>{const d=MD.find(x=>x.b.id===+el.dataset.id),hid=mSt.hide.has(d.b.st);let near=false;if(rg&&!fd)near=Math.hypot(d.x-rg[0],d.y-rg[1])<62;
+    const dim=hid||(fd&&d.b.id!==fd.b.id&&!mi.has(d.b.id))||(rg&&!fd&&!near);
+    el.setAttribute('r',(d.b.id===fd?.b.id?d.r+3.5:near?d.r*1.35:d.r).toFixed(1));el.setAttribute('fill-opacity',hid?.05:dim?.2:.95);el.setAttribute('stroke-opacity',hid?.05:dim?.25:1);el.setAttribute('stroke-width',d.b.id===mSt.sel?3.2:1.8);el.style.pointerEvents=hid?'none':''});
+  const fr=$('#mfr'),fg=$('#mfg');if(rg&&!RM||rg){fr.setAttribute('cx',rg[0]);fr.setAttribute('cy',rg[1]);fg.setAttribute('cx',rg[0]);fg.setAttribute('cy',rg[1]);fr.setAttribute('opacity',fd?.35:1);fg.setAttribute('opacity',1)}else{fr.setAttribute('opacity',0);fg.setAttribute('opacity',0)}
+  const shown=MD.filter(d=>!mSt.hide.has(d.b.st)).length;
+  $('#mc1').textContent=fd?fd.b.t.slice(0,22):'SONIC MAP';$('#mc2').textContent=fd?`${fd.b.bpm} BPM · ${fd.b.n}${fd.b.a?'A':'B'} · ${fd.b.a?CAM_A[fd.b.n-1]:CAM_B[fd.b.n-1]}`:`${shown} beats placed`;$('#mc3').textContent=fd?(mt.length?`${mt.length} play well with it`:'nothing else mixes with it yet'):'further out = faster';
+  const tip=$('#mtip'),hv=MD.find(d=>d.b.id===mSt.hover);
+  if(hv){const w=$('#mapwrap'),k=w.clientWidth/760;tip.innerHTML=`<b>${esc(hv.b.t)}</b><small>${hv.b.bpm} BPM · ${camName(hv.b)} · ${hv.b.a?CAM_A[hv.b.n-1]:CAM_B[hv.b.n-1]}</small><span class="pill" style="--c:${ST_RING[hv.b.st]};width:max-content;margin-top:3px">${hv.b.st}</span><span class="f">${mates(hv.b).length} mix with it · click to pin · double-click to play</span>`;
+    let lx=hv.x*k+14,ly=hv.y*k-20;if(lx+210>w.clientWidth)lx=hv.x*k-224;if(ly<4)ly=hv.y*k+16;tip.style.left=lx+'px';tip.style.top=ly+'px';tip.classList.add('on')}else tip.classList.remove('on');
+}
+function mapSide(){const b=MB.find(x=>x.id===mSt.sel),el=$('#msel');
+  $('#legend').innerHTML=Object.keys(ST_RING).map(s=>`<button class="lg ${mSt.hide.has(s)?'off':''}" style="--c:${ST_RING[s]}" data-s="${s}" aria-pressed="${!mSt.hide.has(s)}"><i></i>${s}<span>${MB.filter(x=>x.st===s).length}</span></button>`).join('');
+  $$('.lg',$('#legend')).forEach(l=>l.onclick=()=>{mSt.hide.has(l.dataset.s)?mSt.hide.delete(l.dataset.s):mSt.hide.add(l.dataset.s);mapSide();mapPaint()});
+  if(!b){el.innerHTML=`<p class="help dim">Click a beat to pin it. Double-click to play.</p>`;return}
+  const mt=mates(b);el.innerHTML=`<div class="msel"><div class="mart">${art(b.id,b.t,'art',300).replace('class="art"','style="width:100%;height:100%;display:block"')}</div><div><b style="font-size:15px">${esc(b.t)}</b><div class="dim">${b.bpm} BPM · ${camName(b)} · <span class="pill" style="--c:${ST_RING[b.st]}">${b.st}</span></div></div><div style="display:flex;gap:var(--s2)"><button class="btn primary" id="mPlay" style="flex:1;justify-content:center">${ic('play')}Play</button><button class="btn ghost" id="mOpen" style="flex:1;justify-content:center">Open</button></div>
+   <div class="sech" style="margin:0">Plays well with (${mt.length})</div><div class="mates">${mt.slice(0,10).map(m=>`<div class="mate" data-id="${m.b.id}" role="button" tabindex="0"><span class="vl" style="color:${keyHue(m.b.n)}">${camName(m.b)}</span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(m.b.t)}</span><span class="dim">${m.b.bpm}</span></div>`).join('')||'<span class="dim">Nothing else mixes with it yet.</span>'}</div></div>`;
+  $('#mPlay').onclick=()=>toast('Playing '+b.t);$('#mOpen').onclick=()=>toast('Opening '+b.t+' in Beats');
+  $$('.mate',el).forEach(m=>{m.onclick=()=>{mSt.sel=+m.dataset.id;mapSide();mapPaint()};m.ondblclick=()=>toast('Playing '+MB.find(x=>x.id===+m.dataset.id).t)})}
+function map(){mapBuild();mapSide();$('#unplaced').onclick=()=>toast('Showing beats that need a key in Beats.')}
+onShow.map=()=>mapPaint();
+
+/* ================= STORE ================= */
+const GEN=['Trap','Afro','Drill','R&B','Melodic','Hyperpop','Boom Bap','Pluggnb'];
+let SITE=[['State Of Anarchy','Trap','https://beatstars.com/beat/state-of-anarchy','live'],['Spider','Drill','','missing'],['SAYWHAT','Melodic','','changed'],['FALLING','R&B','https://beatstars.com/beat/falling','live'],['TITAN','Trap','https://beatstars.com/beat/titan','sold'],['LEMONS','Afro','','live'],['BLASTOFF','Hyperpop','https://beatstars.com/beat/blastoff','live'],['SINEWAVE','Pluggnb','','live']].map((r,i)=>({id:i+1,title:r[0],genre:r[1],link:r[2],st:r[3]}));
+const ADDABLE=['War','COMPUTAAA','IHAVEABOMB','Masteria','Lemonade','Hurt Me','she model','Retroville'];
+const stS={sel:new Set(),pending:true,token:true,fail:false,busy:'',tab:'site',cur:null,filter:'all',cardOn:true};
+const STL={live:['Live','--done'],changed:['Changed','--wip'],missing:['File missing','--bad'],sold:['Sold exclusively','--sold']};
+function stLede(){const n=SITE.length;$('#stLede').innerHTML=`${n} beat${n===1?'':'s'} on the site${stS.pending?` <span class="dotp" aria-hidden="true"></span><span>changes not published</span>`:''}`;
+  const pb=$('#stPub');pb.querySelector('span').textContent=stS.busy||(stS.pending?'Publish changes':'Republish');pb.classList.toggle('off',!!stS.busy||!stS.token);pb.dataset.tip=stS.token?'':'Add your Netlify token in Settings first';
+  $('#noToken').hidden=stS.token;$('#stPrev').classList.toggle('off',!!stS.busy||!SITE.length)}
+function stTable(){const needs=stS.filter==='nolink',list=needs?SITE.filter(e=>!e.link):SITE,box=$('#strows');
+  box.innerHTML=list.length?list.map((e,i)=>`<div class="row stgrid strow ${stS.cur===e.id?'sel':''}" data-id="${e.id}" draggable="${!needs}">
+   <input type="checkbox" class="cbx" ${stS.sel.has(e.id)?'checked':''} aria-label="Select ${esc(e.title)}"><span class="d">${SITE.indexOf(e)+1}</span><span class="grip c-grip" aria-hidden="true">${ic('grip')}</span>
+   <input class="cin" value="${esc(e.title)}" aria-label="Title on the site" data-f="title"><input class="cin" value="${esc(e.genre)}" placeholder="Trap, Afro…" aria-label="Genre" data-f="genre"><input class="cin" value="${esc(e.link)}" placeholder="Blank = your store link" aria-label="BeatStars link" data-f="link">
+   <span><span class="pill" style="--c:var(${STL[e.st][1]})">${STL[e.st][0]}</span>${!e.link?'<em class="no">· No link</em>':''}</span>
+   <span class="mv"><button class="ib sm" data-mv="-1" aria-label="Move ${esc(e.title)} up" ${SITE.indexOf(e)<=0||needs?'disabled style="opacity:.3;pointer-events:none"':''}>${ic('chevu')}</button><button class="ib sm" data-mv="1" aria-label="Move ${esc(e.title)} down" ${SITE.indexOf(e)>=SITE.length-1||needs?'disabled style="opacity:.3;pointer-events:none"':''}>${ic('chevd')}</button></span></div>`).join(''):`<div style="padding:var(--s5)"><div class="empty"><b>${SITE.length?'Every beat has its own link.':'Nothing on the site yet.'}</b>${SITE.length?'Nothing to fix here.':'Use + Add beats.'}</div></div>`;
+  $$('.strow',box).forEach(r=>{const id=+r.dataset.id,e=SITE.find(x=>x.id===id);
+    r.addEventListener('click',ev=>{if(ev.target.closest('input[type=checkbox]')){ev.target.checked?stS.sel.add(id):stS.sel.delete(id);stBulk();return}if(ev.target.closest('[data-mv]')){const d=+ev.target.closest('[data-mv]').dataset.mv,i=SITE.indexOf(e);[SITE[i],SITE[i+d]]=[SITE[i+d],SITE[i]];stS.pending=true;stTable();stLede();return}if(ev.target.closest('input'))return;stS.cur=id;stS.tab='beat';$$('.strow',box).forEach(x=>x.classList.toggle('sel',+x.dataset.id===id));stRail()});
+    $$('.cin',r).forEach(inp=>{inp.addEventListener('focus',()=>{stS.cur=id});inp.addEventListener('change',()=>{e[inp.dataset.f]=inp.value.trim();stS.pending=true;if(e.st==='live')e.st='changed';stLede();stTable();stRail()})});
+    r.addEventListener('dragstart',ev=>{ev.dataTransfer.effectAllowed='move';ev.dataTransfer.setData('text/plain',id);r.classList.add('drag')});r.addEventListener('dragend',()=>r.classList.remove('drag'));
+    r.addEventListener('dragover',ev=>{ev.preventDefault();r.classList.add('dover')});r.addEventListener('dragleave',()=>r.classList.remove('dover'));
+    r.addEventListener('drop',ev=>{ev.preventDefault();const from=SITE.findIndex(x=>x.id===+ev.dataTransfer.getData('text/plain')),to=SITE.indexOf(e);if(from<0||from===to)return;SITE.splice(to,0,SITE.splice(from,1)[0]);stS.pending=true;stTable();stLede()})});
+  $('#stfoot').innerHTML=`<span><b>${SITE.length}</b> on the site</span><span><b>${SITE.filter(e=>e.st==='live').length}</b> live</span><span><b>${SITE.filter(e=>!e.link).length}</b> without their own link (they use your store link)</span><span>Drag a row, or use the arrows, to reorder</span>`;
+  stBulk()}
+function stBulk(){const n=stS.sel.size;$('#bulk').classList.toggle('on',n>0);$('#bulkN').textContent=n+' selected';const a=$('#stAll');a.checked=n&&n===SITE.length;a.indeterminate=n>0&&n<SITE.length;$$('.strow',$('#strows')).forEach(r=>{const cb=$('.cbx',r);cb.checked=stS.sel.has(+r.dataset.id)})}
+function stRail(){const el=$('#strail'),nl=SITE.filter(e=>!e.link).length;
+  const head=`<section class="stick"><div class="sitecard"><div class="top"><span class="dotp" style="background:${stS.pending?'var(--wip)':'var(--done)'}"></span>${stS.pending?'Changes not published':'Live and up to date'}</div><div class="url">studiohq-beats.netlify.app</div><div class="dim" style="font-size:12px">Last published 2 days ago · ${SITE.length} beats</div></div></section>
+  <section style="padding-bottom:0;border:0"><div class="seg" id="stTabs" style="width:100%"><button class="on" data-t="site" style="flex:1;justify-content:center">Overview</button><button data-t="beat" style="flex:1;justify-content:center">Selected beat</button></div></section>`;
+  let body='';
+  if(stS.tab==='site')body=`<section style="border:0"><div class="peak tall" data-peak="store"></div></section>
+   <section style="border:0;padding-top:0"><h4>On the site <span class="dim" style="font-weight:400">${SITE.length} beats</span></h4><div class="car" id="car">${SITE.map(e=>`<div class="pc">${art(e.id,e.title,'art',132)}<div><b>${esc(e.title)}</b><small>${esc(e.genre)||'No genre'}</small></div></div>`).join('')}</div><div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px"><div class="sp-dots" id="spd">${SITE.map((_,i)=>`<i class="${i===0?'on':''}"></i>`).join('')}</div><div><button class="ib sm" id="carP" aria-label="Previous">${ic('chevl')}</button><button class="ib sm" id="carN" aria-label="Next">${ic('chevr')}</button></div></div></section>`;
+  else{const e=SITE.find(x=>x.id===stS.cur);
+    body=!e?`<section style="border:0"><div class="empty"><b>Pick a beat</b>Click a row to edit how it appears on the site.</div></section>`:`<section style="border:0" class="fieldrow"><div><h2 class="t" style="font-size:18px">${esc(e.title)}</h2><div class="dim" style="margin-top:4px">${stS.cardOn?'On your site':'Not on your site yet'}</div></div>
+     ${stS.pending&&stS.cardOn?'<div class="notice warn">'+ic('alert')+"<div>You have changes that aren't on the site yet.</div></div>":''}
+     ${!stS.token?'<div class="notice warn">'+ic('alert')+'<div>Add your Netlify token in Settings to publish the site.</div></div>':''}
+     <div class="fld"><label>Title on the site</label><input class="in" value="${esc(e.title)}" id="scT"></div><div class="fld"><label>Genre</label><input class="in" value="${esc(e.genre)}" placeholder="Trap, Afro…" id="scG"></div><div class="fld"><label>BeatStars link</label><input class="in" value="${esc(e.link)}" placeholder="Blank = your store link (Settings)" id="scL"></div>
+     <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--s2)">${stS.cardOn?`<button class="btn primary ${!stS.token?'off':''}" id="scPub" style="justify-content:center;grid-column:1/-1">${ic('up')}Publish…</button><button class="btn ghost" id="scRm" style="justify-content:center">Remove from site</button><button class="btn ghost" id="scOpen" style="justify-content:center">${ic('ext')}Open site</button>`:`<button class="btn primary" id="scSend" style="justify-content:center;grid-column:1/-1">Send to site</button>`}</div></section>`}
+  el.innerHTML=head+body;
+  $$('#stTabs button',el).forEach(b=>{b.classList.toggle('on',b.dataset.t===stS.tab);b.onclick=()=>{stS.tab=b.dataset.t;stRail()}});
+  const pk=$('.peak',el);if(pk){peakInit(pk);requestAnimationFrame(()=>pk._render(true))}
+  const car=$('#car',el);if(car){const upd=()=>{const i=Math.round(car.scrollLeft/142);$$('#spd i').forEach((d,k)=>d.classList.toggle('on',k===i))};car.onscroll=upd;$('#carN').onclick=()=>car.scrollBy({left:142,behavior:RM?'auto':'smooth'});$('#carP').onclick=()=>car.scrollBy({left:-142,behavior:RM?'auto':'smooth'})}
+  if($('#scT')){const e=SITE.find(x=>x.id===stS.cur);[['#scT','title'],['#scG','genre'],['#scL','link']].forEach(([s,f])=>$(s).onchange=ev=>{e[f]=ev.target.value.trim();stS.pending=true;if(e.st==='live')e.st='changed';stTable();stLede();stRail()});
+    $('#scPub')&&($('#scPub').onclick=()=>stPublish());$('#scRm')&&($('#scRm').onclick=()=>{stS.cardOn=false;stRail();toast('Removed from the site. Publish to update the live site.')});$('#scSend')&&($('#scSend').onclick=()=>{stS.cardOn=true;stRail();toast('Sent to the site. Publish when you are ready.')});$('#scOpen')&&($('#scOpen').onclick=()=>toast('Opening studiohq-beats.netlify.app…'))}
+  hydrate(el)}
+function stPublish(){if(stS.busy||!stS.token)return;stS.busy='Publishing…';stLede();$('#pubErr').hidden=true;setTimeout(()=>{stS.busy='';if(stS.fail){stS.fail=false;$('#pubErr').hidden=false;stLede();toast('Publish failed. Nothing on the live site changed.');return}stS.pending=false;SITE.forEach(e=>{if(e.st==='changed')e.st='live'});stLede();stTable();stRail();toast('Site updated: 8 beats are live.')},1400)}
+function store(){
+  stLede();stTable();stRail();
+  $('#stPub').onclick=stPublish;
+  $('#stPrev').onclick=()=>{stS.busy='Building…';stLede();setTimeout(()=>{stS.busy='';stLede();toast('Preview built. Opening it in your browser…')},1200)};
+  $('#stOpen').onclick=()=>toast('Opening studiohq-beats.netlify.app…');
+  $('#stAdd').onclick=()=>openDlg('dAdd',renderAdd);
+  $('#stAll').onchange=e=>{e.target.checked?SITE.forEach(x=>stS.sel.add(x.id)):stS.sel.clear();stBulk()};
+  $('#stRm').onclick=()=>{const gone=SITE.filter(e=>stS.sel.has(e.id));SITE=SITE.filter(e=>!stS.sel.has(e.id));stS.sel.clear();stS.pending=true;stTable();stLede();stRail();toast('Removed. Publish to update the live site.',()=>{SITE.push(...gone);stTable();stLede();stRail()})};
+  const f=document.createElement('div');f.className='seg';f.id='stFilter';f.innerHTML='<button class="on" data-f="all">All</button><button data-f="nolink">No link <span class="c" id="nlc"></span></button>';$('.tools',$('#store')).insertBefore(f,$('#stLede'));
+  $$('button',f).forEach(b=>b.onclick=()=>{stS.filter=b.dataset.f;$$('button',f).forEach(x=>x.classList.toggle('on',x===b));stTable()});$('#nlc').textContent=SITE.filter(e=>!e.link).length;
+}
+onShow.store=()=>{stRail()};
+</script>
+<script>
+/* ================= SALES ================= */
+const LIC=[{id:1,name:'Basic Lease',price:25,excl:false,files:'MP3',perks:'Up to 5,000 streams\nNon-profit use\nCredit the producer',c:'--sent'},{id:2,name:'Premium Lease',price:60,excl:false,files:'MP3 + WAV',perks:'Up to 100,000 streams\n1 music video\nMonetized platforms',c:'--done'},{id:3,name:'Unlimited Lease',price:120,excl:false,files:'MP3 + WAV + Stems',perks:'Unlimited streams\nUnlimited videos\nLive performance',c:'--wip'},{id:4,name:'Exclusive',price:400,excl:true,files:'WAV + Stems + contract',perks:'Full ownership transfer\nBeat removed from the store\nNo credit needed',c:'--sold'}];
+let SALES=[['Nov 13','SAYWHAT','moneyman','money@mail.com','Premium Lease',0,'beatstars',60,6],['Nov 10','TITAN','hunxho','hx@mail.com','Exclusive',1,'cashapp',250,0],['Nov 8','Spider','lilbaby','','Basic Lease',0,'beatstars',25,2.5],['Nov 4','FALLING','bc_shooter','','Basic Lease',0,'direct',35,0],['Nov 1','LEMONS','kidd_ross','kr@mail.com','Basic Lease',0,'beatstars',45,4.5],['Oct 28','BLASTOFF','yung_ace','ya@mail.com','Exclusive',1,'beatstars',400,40],['Oct 19','SINEWAVE','moneyman','money@mail.com','Premium Lease',0,'beatstars',60,6],['Oct 11','War','tre.wav','','Unlimited Lease',0,'paypal',120,3.9],['Sep 30','IHAVEABOMB','lilbaby','','Basic Lease',0,'beatstars',25,2.5],['Sep 22','COMPUTAAA','kidd_ross','kr@mail.com','Premium Lease',0,'beatstars',60,6],['Sep 14','Spider','nova_k','','Basic Lease',0,'cashapp',25,0],['Aug 29','State Of Anarchy','moneyman','money@mail.com','Premium Lease',0,'beatstars',60,6],['Aug 12','LEMONS','hunxho','hx@mail.com','Basic Lease',0,'beatstars',25,2.5],['Jul 30','TITAN','bc_shooter','','Premium Lease',0,'direct',60,0]].map((r,i)=>({id:i+1,d:r[0],beat:r[1],buyer:r[2],email:r[3],lic:r[4],excl:!!r[5],src:r[6],price:r[7],fee:r[8]}));
+const SRC={beatstars:['BeatStars','--sold'],cashapp:['Cash App','--done'],paypal:['PayPal','--sent'],direct:['Direct','--fg-2']};
+const saSt={q:'',ex:false};
+const net=s=>s.price-s.fee;
+function saTable(){const q=saSt.q.toLowerCase(),rows=SALES.filter(s=>(!saSt.ex||s.excl)&&(!q||[s.beat,s.buyer,s.lic,SRC[s.src][0]].join(' ').toLowerCase().includes(q)));
+  $('#sarows').innerHTML=rows.length?rows.map(s=>`<div class="row slgrid"><span class="d">${s.d}</span><span><a class="beatlnk" role="button" tabindex="0" data-b="${esc(s.beat)}"><b>${esc(s.beat)}</b></a></span><span title="${esc(s.email)}">${esc(s.buyer)}</span><span>${s.excl?`<span class="lockl">${ic('lock')}${esc(s.lic)}</span>`:esc(s.lic)}</span><span class="c-src"><span class="srcdot" style="--c:var(${SRC[s.src][1]})"><i></i>${SRC[s.src][0]}</span></span><span class="r mono">${money(s.price)}</span><span class="r mono dim c-net">${money(net(s))}</span><span class="sact"><button class="ib sm" data-e="${s.id}" aria-label="Edit sale" data-tip="Edit">${ic('file')}</button><button class="ib sm" data-d="${s.id}" aria-label="Delete sale" data-tip="Delete" data-tip-x>${ic('trash')}</button></span></div>`).join(''):`<div style="padding:var(--s5)"><div class="empty"><b>${SALES.length?'No sales match.':'No sales yet.'}</b>${SALES.length?'Clear the search or the Exclusives filter.':'Log your first lease or exclusive.'}</div></div>`;
+  const t=rows.reduce((a,s)=>a+s.price,0),f=rows.reduce((a,s)=>a+s.fee,0);
+  $('#saSum').textContent=`${plural(rows.length,'sale','sales')} · ${money(t)} gross${f>0?' · '+money(t-f)+' net':''}`;
+  $('#safoot').innerHTML=`<span><b>${rows.length}</b> sales</span><span><b>${money(t)}</b> gross</span><span><b>${money(t-f)}</b> net</span><span><b>${rows.filter(s=>s.excl).length}</b> exclusives</span><span>Drop a BeatStars .csv anywhere to import</span>`;
+  $('#rs1').textContent=rows.length;roll($('#rs2'),money(t));roll($('#rs3'),money(t-f));$('#rs3e').textContent=f?money(f)+' fees':'no fees';$('#rs4').textContent=rows.filter(s=>s.excl).length;
+  $$('[data-b]').forEach(a=>a.onclick=()=>toast('Opening “'+a.dataset.b+'” in Beats'));
+  $$('[data-e]').forEach(b=>b.onclick=()=>openDlg('dLog',()=>renderLog('edit',SALES.find(s=>s.id===+b.dataset.e))));
+  $$('[data-d]').forEach(b=>b.onclick=()=>{const i=SALES.findIndex(s=>s.id===+b.dataset.d),g=SALES.splice(i,1)[0];saTable();toast('Sale deleted.',()=>{SALES.splice(i,0,g);saTable()})})}
+let salesSub='sales';
+function salesView(v){salesSub=v;$$('#salesSeg button').forEach(b=>b.classList.toggle('on',b.dataset.sv===v));$$('.sv').forEach(s=>s.classList.toggle('on',s.id==='sv-'+v));$('#exportCsv').style.display=v==='sales'?'':'none';$$('#mock [data-sv2]').forEach(b=>b.classList.toggle('on',b.dataset.sv2===v));renderState();
+  if(v==='revenue')revBuild();if(v==='licenses')licBuild();if(v==='collabs')coTable();if(v==='sales'){saTable();const pk=$('.peak',$('#sv-sales'));pk&&pk._render(true)}}
+const REV=(function(){const m=['Sep 25','Oct 25','Nov 25','Dec','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov'],l=[30,45,60,60,90,45,120,75,150,90,135,105,180,120,165],x=[0,0,0,0,0,300,0,0,500,0,0,0,400,0,250],c=[1,2,2,2,3,2,3,2,4,2,3,3,4,3,5];return m.map((k,i)=>({k,l:l[i],x:x[i],c:c[i]}))})();
+const rvSt={range:'12m',net:false,table:false};
+function revData(){let r=rvSt.range==='12m'?REV.slice(3):rvSt.range==='ytd'?REV.slice(4):REV;const f=v=>rvSt.net?Math.round(v*.9):v;return r.map(m=>({...m,l:f(m.l),x:f(m.x)}))}
+function revBuild(){const d=revData(),tot=d.reduce((a,m)=>a+m.l+m.x,0),cnt=d.reduce((a,m)=>a+m.c,0),exc=d.filter(m=>m.x).length+ (d.filter(m=>m.x>400).length),fees=Math.round(d.reduce((a,m)=>a+m.l+m.x,0)*.09);
+  const el=$('#revBody');
+  const top=[['SAYWHAT',3,360],['TITAN',3,310],['Spider',2,50]].map(x=>x),mx=Math.max(...[540,410,380]);
+  const bl=(rows,unit)=>`<div class="bl">${rows.map(([t,c,v])=>`<div class="bl-row" title="${t}: ${money(v)}"><span class="t">${t}</span><span class="v">${money(v)} · ${unit(c)}</span><span class="bar"><i style="--w:${v/Math.max(...rows.map(r=>r[2]))*100}%"></i></span></div>`).join('')}</div>`;
+  el.innerHTML=`<div class="rtool"><div class="seg" id="rvRange">${[['12m','Last 12 months'],['ytd','This year'],['all','All time']].map(([k,l])=>`<button data-r="${k}" class="${rvSt.range===k?'on':''}">${l}</button>`).join('')}</div><div class="seg" id="rvNet"><button data-n="0" class="${!rvSt.net?'on':''}">Gross</button><button data-n="1" class="${rvSt.net?'on':''}">Net of fees</button></div></div>
+  <div class="rstats"><div class="blk hot"><div class="stat"><b id="rv1"></b><span>this month</span></div></div><div class="blk"><div class="stat"><b id="rv2"></b><span>sales</span></div></div><div class="blk"><div class="stat"><b id="rv3"></b><span>average sale</span></div></div><div class="blk"><div class="stat"><b id="rv4"></b><span>exclusives</span></div></div><div class="blk"><div class="stat"><b id="rv5"></b><span>fees paid</span></div></div></div>
+  <div class="panel"><h3>Revenue by month<span class="leg"><span><i class="sw" style="--c:var(--sent)"></i>Leases</span><span><i class="sw" style="--c:var(--sold)"></i>Exclusives</span><button class="btn ghost sm" id="rvTbl">${rvSt.table?'Show chart':'Show table'}</button></span></h3>
+   ${rvSt.table?`<table class="rtable"><thead><tr><th>Month</th><th class="r">Leases</th><th class="r">Exclusives</th><th class="r">Total</th><th class="r">Sales</th></tr></thead><tbody>${d.map(m=>`<tr><td>${m.k}</td><td class="r">${money(m.l)}</td><td class="r">${money(m.x)}</td><td class="r"><b>${money(m.l+m.x)}</b></td><td class="r">${m.c}</td></tr>`).join('')}</tbody></table>`:'<div class="chart" id="rvChart"></div>'}</div>
+  <div class="r3"><div class="panel"><h3>Top beats</h3>${bl([['SAYWHAT',2,540],['TITAN',2,310],['BLASTOFF',1,400],['Spider',2,50]].sort((a,b)=>b[2]-a[2]),c=>plural(c,'sale','sales'))}</div><div class="panel"><h3>Top buyers</h3>${bl([['moneyman',3,180],['hunxho',2,275],['kidd_ross',2,105],['lilbaby',2,50]].sort((a,b)=>b[2]-a[2]),c=>c>1?c+' purchases · repeat':'1 purchase')}</div><div class="panel"><h3>By source</h3>${bl([['BeatStars',8,745],['Cash App',2,275],['Direct',2,95],['PayPal',1,120]].sort((a,b)=>b[2]-a[2]),(c)=>c+' sales')}</div></div>`;
+  roll($('#rv1',el),money(d[d.length-1].l+d[d.length-1].x));roll($('#rv2',el),String(cnt));roll($('#rv3',el),money(Math.round(tot/cnt*100)/100));roll($('#rv4',el),String(exc));roll($('#rv5',el),money(fees));
+  $$('#rvRange button',el).forEach(b=>b.onclick=()=>{rvSt.range=b.dataset.r;revBuild()});$$('#rvNet button',el).forEach(b=>b.onclick=()=>{rvSt.net=b.dataset.n==='1';revBuild()});$('#rvTbl',el).onclick=()=>{rvSt.table=!rvSt.table;revBuild()};
+  if(!rvSt.table)revChart(d)}
+function revChart(d){const box=$('#rvChart'),W=box.clientWidth||700,H=250,pl=44,pb=24,mx=Math.max(...d.map(m=>m.l+m.x),1)*1.1,bw=(W-pl)/d.length,y=v=>H-pb-(H-pb-8)*v/mx;
+  const tk=[0,.25,.5,.75,1].map(f=>f*mx);
+  box.innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Revenue by month, leases and exclusives stacked">${tk.map(v=>`<line x1="${pl}" x2="${W}" y1="${y(v)}" y2="${y(v)}" stroke="rgba(255,244,230,.07)"/><text x="${pl-8}" y="${y(v)+4}" text-anchor="end" font-size="11" fill="#8a847b" font-family="Inter Tight">${money(Math.round(v))}</text>`).join('')}
+  ${d.map((m,i)=>{const x=pl+i*bw+bw*.2,w=bw*.6;return `<g class="bar" data-i="${i}" style="--i:${i}"><rect x="${pl+i*bw}" y="0" width="${bw}" height="${H-pb}" fill="transparent"/><rect x="${x}" y="${y(m.l)}" width="${w}" height="${H-pb-y(m.l)}" style="fill:var(--sent)" rx="2"/><rect x="${x}" y="${y(m.l+m.x)}" width="${w}" height="${y(m.l)-y(m.l+m.x)}" style="fill:var(--sold)" rx="2"/><text x="${x+w/2}" y="${H-7}" text-anchor="middle" font-size="11" fill="#8a847b" font-family="Inter Tight">${m.k.split(' ')[0]}</text></g>`}).join('')}</svg><div class="rd" id="rvRd"></div>`;
+  const rd=$('#rvRd');$$('.bar',box).forEach(g=>{g.onmouseenter=()=>{$$('.bar',box).forEach(x=>x.classList.toggle('h',x===g));const m=d[+g.dataset.i];rd.innerHTML=`<b>${m.k}</b><div><span><i class="sw" style="--c:var(--sent)"></i>Leases</span><span>${money(m.l)}</span></div><div><span><i class="sw" style="--c:var(--sold)"></i>Exclusives</span><span>${money(m.x)}</span></div><div><span>${plural(m.c,'sale','sales')}</span><b>${money(m.l+m.x)}</b></div>`;rd.style.left=pl+ +g.dataset.i*bw+bw/2+'px';rd.style.top=y(m.l+m.x)+'px';rd.style.opacity=1};g.onmouseleave=()=>{$$('.bar',box).forEach(x=>x.classList.remove('h'));rd.style.opacity=0}})}
+/* collabs */
+const GROUPS=[['SAYWHAT',1,2,100,100,null],['TITAN',1,3,100,100,'Nov 3'],['Spider',2,2,80,100,null],['FALLING',1,0,0,0,null],['LEMONS',1,0,0,0,null],['BLASTOFF',1,2,100,100,'Oct 30'],['COMPUTAAA',1,0,0,0,null],['War',3,2,100,90,null],['IHAVEABOMB',1,0,0,0,null]].map((g,i)=>({id:i+1,t:g[0],count:g[1],parties:g[2],pub:g[3],mas:g[4],sheet:g[5]}));
+const coSt={f:'with',q:''};
+const coStatus=g=>{if(!g.parties)return{k:'none',l:'No splits'};const ok=Math.abs(g.pub-100)<.01&&Math.abs(g.mas-100)<.01;if(!ok)return{k:'bad',l:`Incomplete · ${g.pub}% / ${g.mas}%`};return g.sheet?{k:'sheet',l:'Sheet made '+g.sheet}:{k:'ok',l:'Complete · no sheet yet'}};
+function coTable(){const rows=GROUPS.filter(g=>{const s=coStatus(g).k;if(coSt.q&&!g.t.toLowerCase().includes(coSt.q.toLowerCase()))return false;return coSt.f==='all'?true:coSt.f==='none'?s==='none':coSt.f==='with'?s!=='none':s==='bad'||s==='ok'});
+  $('#corows').innerHTML=rows.length?rows.map(g=>{const s=coStatus(g);return `<div class="row cgrid"><span style="display:flex;align-items:center;gap:8px;min-width:0"><b style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(g.t)}</b>${g.count>1?`<em class="vb">${g.count} versions</em>`:''}</span><span class="spst ${s.k}">${s.l}</span><span style="display:flex;gap:6px;justify-content:flex-end"><button class="btn ghost sm" data-sp="${g.id}">${g.parties?'Edit splits':'Add splits'}</button>${s.k==='ok'||s.k==='sheet'?`<button class="btn primary sm" data-pdf="${g.id}">${s.k==='sheet'?'Re-create PDF':'Create PDF'}</button>`:''}</span></div>`}).join(''):`<div style="padding:var(--s5)"><div class="empty"><b>${coSt.f==='with'?'No beats have splits yet.':'Nothing here.'}</b>${coSt.f==='with'?'Open “No splits yet” and add some, or use Add splits from a beat in the Vault.':''}</div></div>`;
+  $('#cofoot').innerHTML=`<span><b>${GROUPS.filter(g=>g.parties).length}</b> beats with splits</span><span><b>${GROUPS.filter(g=>['bad','ok'].includes(coStatus(g).k)).length}</b> need attention</span><span><b>${GROUPS.filter(g=>g.sheet).length}</b> sheets made</span>`;
+  $$('[data-sp]').forEach(b=>b.onclick=()=>openDlg('dSplit',()=>renderSplit(GROUPS.find(g=>g.id===+b.dataset.sp))));$$('[data-pdf]').forEach(b=>b.onclick=()=>{const g=GROUPS.find(x=>x.id===+b.dataset.pdf);g.sheet='Nov 14';coTable();toast(`Split sheet saved: ${g.t}-split-sheet.pdf`)})}
+/* licenses (card stack) */
+function licBuild(){const el=$('#licBody');
+  el.innerHTML=`<aside><p class="help">The license types you offer. Prices are suggestions and fill in when you log a sale; you can always override them. Past sales keep the name they were sold under.</p><p class="help">“Files” and “What it includes” are shown on your public beat site.</p><button class="btn ghost" id="licAdd" style="width:max-content">${ic('plus')}Add license</button></aside>
+  <div class="lstack">${LIC.map((l,i)=>`<article class="lc" style="--i:${i};--c:var(${l.c})" data-id="${l.id}"><div class="lh"><i></i><b>${esc(l.name)}</b><span class="tag ${l.excl?'bad':''}">${l.excl?'Exclusive':'Lease'}</span><b>${money(l.price)}</b><button class="ib sm" data-rm="${l.id}" aria-label="Remove ${esc(l.name)}" data-tip="Remove">${ic('x')}</button></div>
+   <div class="lb"><div class="fld"><label>Name</label><input class="in" value="${esc(l.name)}" data-f="name" aria-label="Name"></div><div class="fld"><label>Default price ($)</label><input class="in" value="${l.price}" inputmode="decimal" data-f="price" aria-label="Default price"></div>
+   <label class="xl"><input type="checkbox" class="tgl" ${l.excl?'checked':''} data-f="excl">Exclusive: locks the beat when sold</label><span class="saved" id="sv${l.id}">Saved</span>
+   <div class="fld full"><label>Files</label><input class="in" value="${esc(l.files)}" placeholder="Files, e.g. MP3 + WAV" data-f="files" aria-label="Files for ${esc(l.name)}"></div>
+   <div class="fld full"><label>What it includes</label><textarea class="in" rows="3" placeholder="What it includes, one per line" data-f="perks" aria-label="What ${esc(l.name)} includes">${esc(l.perks)}</textarea></div></div></article>`).join('')}</div>`;
+  $$('.lc',el).forEach(c=>{const l=LIC.find(x=>x.id===+c.dataset.id);$$('[data-f]',c).forEach(i=>i.onchange=()=>{const f=i.dataset.f;l[f]=f==='excl'?i.checked:f==='price'?parseFloat(i.value)||0:i.value;const s=$('#sv'+l.id);s.classList.add('on');setTimeout(()=>s.classList.remove('on'),1200);$('.lh b',c).textContent=l.name;$$('.lh b',c)[1].textContent=money(l.price);$('.lh .tag',c).textContent=l.excl?'Exclusive':'Lease';$('.lh .tag',c).className='tag '+(l.excl?'bad':'')})});
+  $$('[data-rm]',el).forEach(b=>b.onclick=()=>{const i=LIC.findIndex(x=>x.id===+b.dataset.rm),g=LIC.splice(i,1)[0];licBuild();toast(`Removed “${g.name}”. Past sales keep its name.`,()=>{LIC.splice(i,0,g);licBuild()})});
+  $('#licAdd',el).onclick=()=>{LIC.push({id:Date.now(),name:'New license',price:50,excl:false,files:'',perks:'',c:'--idea'});licBuild();const s=$('#licBody');s.scrollTop=s.scrollHeight;const n=$$('.lc input[data-f=name]',s).pop();n&&n.focus()}}
+
+/* ================= DIALOG: Add to store ================= */
+const adSel=new Set();let adAvail=[...ADDABLE];
+function renderAdd(){adSel.clear();adAvail=ADDABLE.filter(b=>!SITE.some(e=>e.title===b));$('#adQ').value='';adList();
+  $('#adQ').oninput=adList;$('#adGo').onclick=()=>{if(!adSel.size)return;const b=$('#adGo');b.classList.add('off');b.querySelector('span').textContent='Adding…';setTimeout(()=>{b.classList.remove('off');if(state==='error'){return}[...adSel].forEach(t=>SITE.push({id:Date.now()+Math.random(),title:t,genre:'',link:'',st:'changed'}));const n=adSel.size;closeDlg();stS.pending=true;stTable();stLede();stRail();toast(`Added ${n} beat${n>1?'s':''}. Publish when you are ready.`)},900)}}
+function adList(){const q=$('#adQ').value.toLowerCase(),rows=state==='empty'?[]:adAvail.filter(b=>b.toLowerCase().includes(q));
+  $('#adList').innerHTML=rows.length?rows.map(b=>`<label class="arow"><input type="checkbox" class="cbx" ${adSel.has(b)?'checked':''} data-b="${esc(b)}"><span style="font-weight:600">${esc(b)}</span><span class="dim" style="font-size:12px">Finished · audio ready</span></label>`).join(''):`<div style="padding:var(--s4)" class="dim">${q?'No finished beats match.':'Every finished beat is already on the site.'}</div>`;
+  $$('#adList .cbx').forEach(c=>c.onchange=()=>{c.checked?adSel.add(c.dataset.b):adSel.delete(c.dataset.b);adUpd()});adUpd()}
+function adUpd(){const n=adSel.size;$('#adSum').textContent=n?`${n} selected`:'Pick one or more beats';$('#adGo span').textContent=state==='loading'?'Adding…':`Add ${n||''} beat${n===1?'':'s'}`.replace('  ',' ');$('#adGo').classList.toggle('off',!n||state==='loading')}
+
+/* ================= DIALOG: Log sale ================= */
+const BEATS=['State Of Anarchy','Spider','SAYWHAT','FALLING','TITAN','LEMONS','BLASTOFF','SINEWAVE','IHAVEABOMB','COMPUTAAA','War'];
+let lg={};
+function renderLog(mode,edit){lg={mode,edit,beat:mode==='new'?null:mode==='logb'?'TITAN':mode==='logx'?'COMPUTAAA':edit?edit.beat:'SAYWHAT',q:'',lic:mode==='logx'?4:2,custom:false,cname:'',cex:false,buyer:edit?edit.buyer:'',email:edit?edit.email:'',price:edit?String(edit.price):mode==='logx'?'400':'60',fee:edit?String(edit.fee):'0',src:edit?edit.src:'beatstars',date:'2026-11-14',notes:''};if(mode==='logb')lg.lic=2;lgDraw()}
+function lgDraw(){const e=lg.edit,L=LIC.find(l=>l.id===lg.lic),excl=e?e.excl:lg.custom?lg.cex:L?.excl,lname=e?e.lic:lg.custom?lg.cname:L?.name||'';
+  const lock=lg.beat==='TITAN'&&!e,blocked=!!lock&&(excl||true),p=parseFloat(lg.price),f=parseFloat(lg.fee)||0,valid=!!lg.beat&&!!lg.buyer.trim()&&p>=0&&!isNaN(p)&&f>=0&&f<=p&&!!lg.date&&!!lname.trim()&&!blocked;
+  $('#lgTitle').textContent=e?'Edit sale.':'Log a sale.';
+  const res=BEATS.filter(b=>b.toLowerCase().includes(lg.q.toLowerCase())).slice(0,7);
+  $('#lgBody').innerHTML=`<div class="fld"><label>Beat</label>${lg.beat?`<div class="chosen"><span><b>${lg.beat}</b><small>${lg.beat==='SAYWHAT'?'109 BPM F min · finished':'finished'}</small></span>${!e?'<button class="btn ghost sm" id="lgChange">Change</button>':''}</div>`:`<input class="in" id="lgQ" value="${esc(lg.q)}" placeholder="Search your beats…" aria-label="Search your beats"><div class="picks" style="margin-top:6px">${res.map(b=>`<div class="pk" data-b="${b}" role="button" tabindex="0"><span style="font-weight:600">${b}</span><span class="dim">finished</span><span class="sdot"></span></div>`).join('')||'<div class="pk dim">No beats match.</div>'}</div>`}</div>
+  ${blocked?`<div class="notice err">${ic('lock')}<div>“TITAN” was sold exclusively to hunxho on Nov 10. It can’t be sold again${!excl?' unless this sale happened before that date':''}.</div></div>`:lg.beat==='SAYWHAT'&&!e?`<div class="help">Already sold 1×: Premium Lease to moneyman</div>`:''}
+  <div class="two"><div class="fld"><label for="lgB">Buyer</label><input class="in" id="lgB" list="buyers" value="${esc(lg.buyer)}"><datalist id="buyers"><option value="moneyman"><option value="hunxho"><option value="lilbaby"><option value="bc_shooter"></datalist></div><div class="fld"><label for="lgE">Buyer email (optional)</label><input class="in" id="lgE" value="${esc(lg.email)}"></div></div>
+  <div class="two"><div class="fld"><span class="fl">License</span>${e?`<input class="in" readonly value="${esc(e.lic)}">`:`<div class="radio" role="radiogroup" aria-label="License">${LIC.map(l=>`<button role="radio" aria-checked="${!lg.custom&&lg.lic===l.id}" class="${!lg.custom&&lg.lic===l.id?'on':''}" data-l="${l.id}">${esc(l.name)}${l.excl?' · excl.':''}</button>`).join('')}<button role="radio" class="${lg.custom?'on':''}" data-l="custom">Custom…</button></div>`}</div>
+   <div class="fld"><span class="fl">Source</span><div class="radio" role="radiogroup" aria-label="Source">${Object.entries(SRC).map(([k,v])=>`<button role="radio" class="${lg.src===k?'on':''}" data-s="${k}">${v[0]}</button>`).join('')}</div></div></div>
+  ${!e&&lg.custom?`<div class="two"><div class="fld"><label>Custom license name</label><input class="in" id="lgCN" value="${esc(lg.cname)}"></div><label class="lbl" style="margin-top:22px"><input type="checkbox" class="cbx" id="lgCX" ${lg.cex?'checked':''}>This is an exclusive</label></div>`:''}
+  <div class="three"><div class="fld"><label>Price ($)</label><input class="in" id="lgP" inputmode="decimal" value="${esc(lg.price)}"></div><div class="fld"><label>Fees ($)</label><input class="in" id="lgF" inputmode="decimal" value="${esc(lg.fee)}"></div><div class="fld"><label>Date</label><input class="in" id="lgD" type="date" value="${lg.date}"></div></div>
+  ${!isNaN(p)?`<div class="keep"><span>You keep</span><b>${money(Math.max(0,p-f))}</b></div>`:''}
+  <div class="fld"><label>Notes</label><input class="in" id="lgN" value="${esc(lg.notes)}" placeholder="Order #, terms, anything to remember"></div>
+  ${excl&&!e&&!blocked?`<div class="notice warn">${ic('lock')}<div>Exclusive: this marks “${lg.beat||'the beat'}” as <b>sold</b> and blocks any future sale.</div></div>`:''}
+  <div class="notice err only-err">${ic('alert')}<div>Could not save the sale: the database is locked. Nothing was logged.</div></div>`;
+  const go=$('#lgGo');go.classList.toggle('off',!valid||state==='loading');go.querySelector('span').textContent=state==='loading'?'Saving…':e?'Save':excl?'Log exclusive · lock beat':'Log sale';$('#lgSum').textContent=valid?'':(blocked?'This beat is locked.':'Pick a beat, add a buyer and a price.');
+  const b=$('#lgBody'),rd=()=>{lg.buyer=$('#lgB').value;lg.email=$('#lgE').value;lg.price=$('#lgP').value;lg.fee=$('#lgF').value;lg.date=$('#lgD').value;lg.notes=$('#lgN').value;if($('#lgCN'))lg.cname=$('#lgCN').value};
+  $('#lgChange')&&($('#lgChange').onclick=()=>{lg.beat=null;lgDraw();$('#lgQ').focus()});$('#lgQ')&&($('#lgQ').oninput=ev=>{lg.q=ev.target.value;lgDraw();const q=$('#lgQ');q.focus();q.setSelectionRange(99,99)});
+  $$('.pk',b).forEach(x=>x.onclick=()=>{if(x.dataset.b){lg.beat=x.dataset.b;lgDraw()}});
+  $$('[data-l]',b).forEach(x=>x.onclick=()=>{rd();if(x.dataset.l==='custom'){lg.custom=true}else{lg.custom=false;lg.lic=+x.dataset.l;const l=LIC.find(y=>y.id===lg.lic);if(l)lg.price=String(l.price)}lgDraw()});
+  $$('[data-s]',b).forEach(x=>x.onclick=()=>{rd();lg.src=x.dataset.s;lgDraw()});
+  ['#lgB','#lgE','#lgP','#lgF','#lgD','#lgN','#lgCN'].forEach(s=>{const i=$(s,b);if(i)i.oninput=()=>{const id=i.id,pos=i.selectionStart;rd();if(id==='lgB'){const c={moneyman:'money@mail.com',hunxho:'hx@mail.com'}[lg.buyer];if(c&&!lg.email)lg.email=c}if(['lgP','lgF','lgB','lgD','lgCN'].includes(id)){lgDraw();const n=$('#'+id);if(n&&n.type!=='date'){n.focus();try{n.setSelectionRange(pos,pos)}catch(_){}}}}});
+  $('#lgCX')&&($('#lgCX').onchange=ev=>{rd();lg.cex=ev.target.checked;lgDraw()});
+  go.onclick=()=>{if(!valid||state==='loading')return;if(state==='error'){lgDraw();return}closeDlg();if(e){Object.assign(e,{buyer:lg.buyer,price:p,fee:f,src:lg.src});saTable();toast('Sale updated');return}SALES.unshift({id:Date.now(),d:'Nov 14',beat:lg.beat,buyer:lg.buyer,email:lg.email,lic:lname,excl:!!excl,src:lg.src,price:p,fee:f});saTable();toast(excl?`“${lg.beat}” is now SOLD and locked`:`Logged ${money(p)} for “${lg.beat}”`)}}
+addEventListener('keydown',e=>{if($('#dLog.on')&&e.key==='Enter'&&(e.metaKey||e.ctrlKey))$('#lgGo').click()});
+
+/* ================= DIALOG: Import BeatStars ================= */
+const IMF={orderId:['Order id',1],date:['Date',1],title:['Beat title',1],gross:['Amount paid',1],license:['License',0],buyer:['Buyer name',0],email:['Buyer email',0],fee:['Fee',0],net:['Amount you receive',0]};
+const HDR=['Order ID','Created','Track','License Type','Buyer','Email','Total','Fees'];
+let IM={stage:'review',rows:[['BS-10482','SAYWHAT','moneyman',60,'new','SAYWHAT'],['BS-10475','TITAN','hunxho',250,'new','TITAN'],['BS-10431','Spider','lilbaby',25,'duplicate',''],['BS-10419','Sinewave (Prod. Kay)','moneyman',60,'unmatched',''],['BS-10401','Falling V2','kidd_ross',25,'unmatched',''],['BS-10388','LEMONS','kidd_ross',45,'new','LEMONS'],['BS-10377','Free Beat Promo','guest',0,'skipped','']],map:{orderId:0,date:1,title:2,gross:6,license:3,buyer:4,email:5,fee:7}};
+function renderImport(stage){IM.stage=stage;if(stage==='review'&&IM.rows.every(r=>r[4]!=='unmatched')){}imDraw()}
+function imDraw(){const s=IM.stage,tot={new:0,duplicate:0,unmatched:0,skipped:0,g:0};IM.rows.forEach(r=>{tot[r[4]]++;if(r[4]==='new')tot.g+=r[3]});
+  const step=n=>`<div class="imstep"><span class="${n>=1?'on':''}"><em>1</em>Read file</span><i class="ln"></i><span class="${n===2?'on':''}"><em>2</em>Match columns</span><i class="ln"></i><span class="${n===3?'on':''}"><em>3</em>Review</span><i class="ln"></i><span><em>4</em>Import</span></div>`;
+  const b=$('#imBody'),f=$('#imFoot');
+  if(state==='loading'){b.innerHTML=step(1)+`<div class="empty only-load" style="display:block"><b>Reading the file…</b>beatstars-sales-2026.csv, 7 rows.</div><div class="prog ind"><i></i></div>`;f.innerHTML=`<span class="sum">Nothing is saved until Import.</span><div class="r"><button class="btn ghost" data-close>Cancel</button></div>`}
+  else if(s==='map'){b.innerHTML=step(2)+(state==='error'?`<div class="notice err">${ic('alert')}<div>Could not read the file: the third row has an unclosed quote.</div></div>`:'')+`<p class="help">Studio HQ could not tell which column is which. Pick them once and it remembers for next time.</p><div class="two">${Object.entries(IMF).map(([k,[l,req]])=>`<div class="fld"><label for="im-${k}">${l}${req?' (required)':''}</label><select class="in" id="im-${k}" data-k="${k}"><option value="">— none —</option>${HDR.map((h,i)=>`<option value="${i}" ${IM.map[k]===i?'selected':''}>${h}</option>`).join('')}</select></div>`).join('')}</div>`;
+    f.innerHTML=`<span class="sum" id="imMapSum"></span><div class="r"><button class="btn ghost" data-close>Cancel</button><button class="btn primary" id="imCont">Continue</button></div>`;
+    const chk=()=>{const ok=Object.entries(IMF).filter(([,v])=>v[1]).every(([k])=>IM.map[k]!=null);$('#imCont').classList.toggle('off',!ok);$('#imMapSum').textContent=ok?'All required columns matched.':'Match the four required columns to continue.'};chk();
+    $$('select',b).forEach(sel=>sel.onchange=()=>{if(sel.value==='')delete IM.map[sel.dataset.k];else IM.map[sel.dataset.k]=+sel.value;chk()});$('#imCont').onclick=()=>{IM.stage='review';imDraw()}}
+  else{b.innerHTML=step(3)+(state==='error'?`<div class="notice err">${ic('alert')}<div>Could not write the sales: the database is locked. Nothing was saved.</div></div>`:'')+`<div class="imbox"><div class="imgrid imrow h"><span>Status</span><span>Order</span><span>Beat title in file</span><span>Buyer</span><span class="r">Amount</span><span>Match</span></div>${IM.rows.map((r,i)=>`<div class="imgrid imrow"><span class="im-s ${r[4][0]}">${{new:'New',duplicate:'Already imported',unmatched:'Unmatched',skipped:'Skipped'}[r[4]]}${r[4]==='skipped'?' · price is $0':''}</span><span class="dim">${r[0]}</span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(r[1])}">${esc(r[1])}</span><span>${esc(r[2])}</span><span class="r mono">${money(r[3])}</span><span>${r[4]==='unmatched'?`<span style="display:flex;gap:6px"><select class="in sm" data-i="${i}" aria-label="Match ${esc(r[1])} to a beat"><option value="">Pick a beat…</option>${BEATS.map(x=>`<option>${x}</option>`).join('')}</select><button class="btn ghost sm" data-skip="${i}">Skip</button></span>`:r[4]==='new'?`<span class="dim">${esc(r[5])}</span>`:''}</span></div>`).join('')}</div>
+   <p class="help">${tot.new} new · ${money(tot.g)} · ${tot.duplicate} already imported · ${tot.unmatched} unmatched · ${tot.skipped} skipped</p>`;
+    f.innerHTML=`<span class="sum">${tot.unmatched>0?'Match or skip every unmatched row to continue.':'Nothing is saved until Import.'}</span><div class="r"><button class="btn ghost" id="imCols">Change columns</button><button class="btn ghost" data-close>Cancel</button><button class="btn primary ${tot.unmatched>0||tot.new===0?'off':''}" id="imGo">Import ${tot.new} sale${tot.new===1?'':'s'}</button></div>`;
+    $$('select[data-i]',b).forEach(sel=>sel.onchange=()=>{if(sel.value){const r=IM.rows[+sel.dataset.i];r[4]='new';r[5]=sel.value;imDraw()}});$$('[data-skip]',b).forEach(x=>x.onclick=()=>{IM.rows[+x.dataset.skip][4]='skipped';imDraw()});
+    $('#imCols').onclick=()=>{IM.stage='map';imDraw()};$('#imGo').onclick=()=>{if(tot.unmatched>0||!tot.new||state==='error')return;closeDlg();toast(`Imported ${tot.new} sale${tot.new===1?'':'s'} from BeatStars.`)}}
+  $$('[data-close]',f).forEach(x=>x.onclick=closeDlg);hydrate($('#dImp'))}
+
+/* ================= DIALOG: Splits ================= */
+const ROLES=['producer','writer','artist','topliner','engineer'];let SP=[];
+function renderSplit(g){$('#spTitle').textContent='Splits · '+g.t;SP=g.parties===2&&g.pub===100?[{n:'Kay',r:'producer',e:'kay@studio.test',pro:'ASCAP',ipi:'00481726394',p:60,m:60},{n:'Nova',r:'topliner',e:'nova@mail.test',pro:'BMI',ipi:'',p:40,m:40}]:g.parties?[{n:'Kay',r:'producer',e:'kay@studio.test',pro:'ASCAP',ipi:'00481726394',p:g.pub===80?50:60,m:g.mas===90?50:60},{n:'Nova',r:'topliner',e:'',pro:'',ipi:'',p:30,m:40}]:[{n:'Kay',r:'producer',e:'',pro:'',ipi:'',p:100,m:100}];spDraw()}
+const r2=n=>Math.round(n*100)/100;
+function spDraw(){const pub=SP.reduce((a,r)=>a+r.p,0),mas=SP.reduce((a,r)=>a+r.m,0),okp=Math.abs(pub-100)<.01,okm=Math.abs(mas-100)<.01,named=SP.filter(r=>r.n.trim()),can=named.length>=2&&okp&&okm;
+  const tot=(v,ok)=>`<span class="${ok?'okc':'badc'}">${r2(v)}%${ok?'':` (${v<100?r2(100-v)+' left':r2(v-100)+' over'})`}</span>`;
+  const cols=['--sent','--done','--wip','--idea','--sold'];
+  $('#spBody').innerHTML=`<p class="help">Applies to every version of this beat. Publishing is the composition; master is the recording. Master follows publishing until you change it.</p>
+  <datalist id="collabs"><option value="Nova"><option value="moneyman"></datalist>
+  <div class="spg h"><span>Name</span><span>Role</span><span>Email</span><span>PRO</span><span>IPI</span><span class="r">Pub %</span><span class="r">Master %</span><span></span></div>
+  ${SP.map((r,i)=>`<div class="spg" data-i="${i}"><input class="in" list="collabs" value="${esc(r.n)}" placeholder="Name" data-f="n"><select class="in" data-f="r">${ROLES.map(x=>`<option ${x===r.r?'selected':''}>${x}</option>`).join('')}</select><input class="in" value="${esc(r.e)}" placeholder="email" data-f="e"><input class="in" value="${esc(r.pro)}" placeholder="ASCAP…" data-f="pro"><input class="in" value="${esc(r.ipi)}" placeholder="IPI" data-f="ipi"><input class="in r" inputmode="decimal" value="${r.p||''}" placeholder="0" data-f="p"><input class="in r" inputmode="decimal" value="${r.m||''}" placeholder="0" data-f="m"><button class="ib sm" data-rm="${i}" aria-label="remove">${ic('x')}</button></div>`).join('')}
+  <div class="spg sptot"><span style="grid-column:1/6">Total</span><span class="r">${tot(pub,okp)}</span><span class="r">${tot(mas,okm)}</span><span></span></div>
+  <div><div class="dim" style="font-size:12px;margin-bottom:4px">Publishing share</div><div class="splitbar">${SP.map((r,i)=>`<i style="--c:var(${cols[i%5]});width:${Math.min(100,r.p)}%"></i>`).join('')}</div></div>
+  <div style="display:flex;gap:var(--s2);flex-wrap:wrap"><button class="btn ghost sm" id="spAdd">${ic('plus')}Add person</button>${SP.some(r=>r.n.toLowerCase()==='kay')?'':'<button class="btn ghost sm" id="spMe">Add me</button>'}<button class="btn ghost sm" id="spEven">Split evenly</button></div>
+  ${state==='error'?`<div class="notice err">${ic('alert')}<div>Could not save the splits: the database is locked.</div></div>`:''}
+  ${can?'':`<div class="help">To create the PDF: two or more named people, and both columns at exactly 100%.</div>`}`;
+  $('#spFoot').innerHTML=`<span class="sum"></span><div class="r"><button class="btn ghost" id="spSave">Save</button><button class="btn primary ${can&&state!=='loading'?'':'off'}" id="spPdf">${state==='loading'?'Saving…':'Save &amp; create split sheet PDF'}</button></div>`;
+  const b=$('#spBody');$$('.spg[data-i]',b).forEach(row=>{const i=+row.dataset.i;$$('[data-f]',row).forEach(x=>{const f=x.dataset.f;const h=()=>{const v=x.value;if(f==='p'){const n=parseFloat(v)||0;if(SP[i].m===SP[i].p)SP[i].m=n;SP[i].p=n}else if(f==='m')SP[i].m=parseFloat(v)||0;else SP[i][f]=v;if(f==='p'||f==='m'){const pos=x.selectionStart;spDraw();const y=$$('.spg[data-i]',$('#spBody'))[i].querySelector(`[data-f=${f}]`);y.focus();y.setSelectionRange(pos,pos)}};x.addEventListener(f==='r'?'change':'input',h)})});
+  $$('[data-rm]',b).forEach(x=>x.onclick=()=>{SP.splice(+x.dataset.rm,1);spDraw()});$('#spAdd').onclick=()=>{SP.push({n:'',r:'producer',e:'',pro:'',ipi:'',p:0,m:0});spDraw();$$('.spg[data-i] [data-f=n]',$('#spBody')).pop().focus()};$('#spMe')&&($('#spMe').onclick=()=>{SP.push({n:'Kay',r:'producer',e:'',pro:'',ipi:'',p:0,m:0});spDraw()});
+  $('#spEven').onclick=()=>{const n=SP.length,base=Math.floor(10000/n)/100;SP.forEach((r,i)=>{const v=i===n-1?r2(100-base*(n-1)):base;r.p=v;r.m=v});spDraw()};
+  $('#spSave').onclick=()=>{closeDlg();toast('Splits saved')};$('#spPdf').onclick=()=>{if(!can)return;closeDlg();toast('Split sheet saved: split-sheet.pdf')};hydrate($('#dSplit'))}
+
+/* ================= PLUGINS ================= */
+const VEND=['Xfer','Native Instruments','Spectrasonics','FabFilter','Valhalla DSP','Arturia','Soundtoys','Waves','iZotope','Output','Vital Audio','u-he','Kilohearts','Sonnox','Plugin Alliance','Cableguys'];
+const PN=['Serum','Kontakt 7','Omnisphere','Pro-Q 3','Pro-L 2','VintageVerb','Pigments','Decapitator','SSL E-Channel','Ozone 11','Portal','Vital','Diva','Hive 2','Phase Plant','Oxford Inflator','Trash 2','Kickstart 2','Massive X','Sylenth1','ShaperBox 3','Echoboy','Fruity Kaleidoscope','Arcade','Nexus 4','Spire'];
+const PL=(function(){const r=rng(19);return PN.map((n,i)=>{const fm=['VST3','AU','VST2','AAX'].filter((_,k)=>k===0||r()>.55);return{id:i+1,n,v:VEND[Math.floor(r()*VEND.length)],ver:`${1+Math.floor(r()*4)}.${Math.floor(r()*9)}.${Math.floor(r()*9)}`,fm,mb:Math.round(8+r()**2.2*2600),prob:[2,9,14].includes(i),uns:[4,11,17,20].includes(i),dup:[1,6,13].includes(i)}})})();
+const FPROB=[{k:'stale',title:'FL lists plugins that are not installed',sub:'Stale entries make FL show “not found” on project load.',sev:'bad',fix:1,safe:1,items:['Sylenth1 (VST2)','Old Massive','Reaktor 6 Legacy','Spire 1.1 demo']},{k:'dupe',title:'Installed twice',sub:'The same plugin in two formats FL scans separately.',sev:'warn',fix:1,safe:1,items:['Kontakt 7 (VST3 and VST2)','Pigments (VST3 and AU)','Hive 2 (VST3 and VST2)']},{k:'crash',title:'Crashed on the last scan',sub:'Studio HQ cannot fix these. Reinstall or update from the vendor.',sev:'bad',fix:0,safe:0,items:['Omnisphere (exit code 139)','Phase Plant (exit code 11)']}];
+const plSt={tab:'plugins',q:'',sort:'size',filter:'all',sel:new Set(),open:new Set(),cur:null,anchor:null,busy:'',dismissed:false,gopen:new Set(['crash']),unchecked:new Set(),dis:[['Old Massive','Turned off by “FL lists plugins that are not installed”, Nov 9'],['Spire 1.1 demo','Turned off by a fix, Nov 9']]};
+const sz=mb=>mb>=1000?(mb/1000).toFixed(1)+' GB':mb+' MB';
+const plSets={problems:p=>p.prob,unscanned:p=>p.uns,dupes:p=>p.dup,big:(p,i,all)=>[...all].sort((a,b)=>b.mb-a.mb).slice(0,25).includes(p),all:()=>true};
+const PLF=[['all','All','Every plugin'],['problems','Has a problem','Plugins with something flagged'],['unscanned','Not in FL’s list','Installed, but FL has not scanned them'],['dupes','Duplicates','Installed twice'],['big','Largest 25','The 25 biggest on disk']];
+function plRows(){let r=PL.filter((p,i,a)=>plSets[plSt.filter](p,i,a)&&(!plSt.q||(p.n+p.v).toLowerCase().includes(plSt.q.toLowerCase())));const s={size:(a,b)=>b.mb-a.mb,name:(a,b)=>a.n.localeCompare(b.n),vendor:(a,b)=>a.v.localeCompare(b.v)}[plSt.sort];return r.sort(s)}
+function plAll(){plChips();plList();plDet();plTabs()}
+function plChips(){$('#plChips').innerHTML=PLF.map(([k,l,h])=>`<button class="chip ${plSt.filter===k?'on':''}" data-k="${k}" data-tip="${h}">${l}<em>${PL.filter((p,i,a)=>plSets[k](p,i,a)).length}</em></button>`).join('');$$('#plChips .chip').forEach(c=>c.onclick=()=>{plSt.filter=c.dataset.k;plAll()});
+  $('#plN').textContent=PL.length;$('#plF').textContent=PL.length-2}
+function plList(){const rows=plRows(),box=$('#plrows');
+  box.innerHTML=rows.length?rows.map(p=>`<div class="pr ${plSt.cur===p.id?'sel':''} ${plSt.open.has(p.id)?'open':''}" data-id="${p.id}"><div class="row pgridc"><input type="checkbox" class="cbx" ${plSt.sel.has(p.id)?'checked':''} aria-label="Select ${esc(p.n)}"><span class="sdot ${p.prob?'bad':p.dup||p.uns?'warn':''}" title="${p.prob?'Something was flagged':'No problems found'}"></span><span class="nm"><b>${esc(p.n)}</b><small>${p.v}</small></span><span class="fmt c-fmt">${p.fm.map(f=>`<span class="tag">${f}</span>`).join('')}</span><span class="d r">${sz(p.mb)}</span><button class="ib sm chev" data-x aria-label="Show details for ${esc(p.n)}" aria-expanded="${plSt.open.has(p.id)}">${ic('chevd')}</button></div>
+   <div class="xp"><div><div class="mini"><div><span>Formats</span>${p.fm.map(f=>f+' '+sz(Math.round(p.mb/p.fm.length))).join(', ')}</div><div><span>Version</span>${p.ver}</div><div><span>In FL’s list</span>${p.uns?'No':'Yes'}</div></div></div></div></div>`).join(''):`<div style="padding:var(--s5)"><div class="empty"><b>Nothing matches.</b>Clear the search or pick another filter.</div></div>`;
+  $$('.pr',box).forEach(r=>{const id=+r.dataset.id;r.addEventListener('click',e=>{if(e.target.closest('.cbx')){const rs=plRows().map(p=>p.id);if(e.shiftKey&&plSt.anchor!=null){const a=rs.indexOf(plSt.anchor),b=rs.indexOf(id);rs.slice(Math.min(a,b),Math.max(a,b)+1).forEach(x=>plSt.sel.add(x))}else{e.target.checked?plSt.sel.add(id):plSt.sel.delete(id)}plSt.anchor=id;plList();return}if(e.target.closest('[data-x]')){plSt.open.has(id)?plSt.open.delete(id):plSt.open.add(id);r.classList.toggle('open');$('[data-x]',r).setAttribute('aria-expanded',r.classList.contains('open'));return}plSt.cur=id;$$('.pr',box).forEach(x=>x.classList.toggle('sel',+x.dataset.id===id));plDet()})});
+  const n=plSt.sel.size;$('#plSel').textContent=n?`${n} selected · ${sz(PL.filter(p=>plSt.sel.has(p.id)).reduce((a,p)=>a+p.mb,0))}`:'Shift-click selects a range';$('#plUn').style.display=n?'':'none';$('#plUn span').textContent=n>1?`Uninstall ${n}…`:'Uninstall…'}
+const LOCS=['Plugin folders','Application Support','Presets and libraries','Caches'];
+function plFiles(p){const r=rng(p.id*3);return p.fm.map(f=>({loc:LOCS[0],n:`${p.n}.${f==='AU'?'component':f.toLowerCase()}`,d:'/Library/Audio/Plug-Ins/'+f,c:'exact',mb:Math.round(p.mb/p.fm.length)})).concat([{loc:LOCS[1],n:p.v,d:'~/Library/Application Support',c:'exact',mb:Math.round(p.mb*.3)},{loc:LOCS[2],n:p.n+' Library',d:'/Users/Shared',c:'maybe',mb:Math.round(p.mb*.5)},{loc:LOCS[3],n:p.n+'.cache',d:'~/Library/Caches',c:'maybe',mb:3}])}
+function plDet(){const el=$('#pldet'),p=PL.find(x=>x.id===plSt.cur);
+  if(!p){el.innerHTML=`<section style="border:0"><div class="empty"><b>Pick a plugin</b>Pick a plugin to see every file it has on this Mac. Tick the boxes to select several and remove them together.</div></section>`;return}
+  const files=plFiles(p),g=LOCS.map(l=>[l,files.filter(f=>f.loc===l)]).filter(x=>x[1].length);
+  el.innerHTML=`<section><h2 class="t" style="font-size:18px">${esc(p.n)}</h2><div class="dim">${p.v} · v${p.ver}</div><div class="chips" style="margin-top:8px">${p.fm.map(f=>`<span class="tag">${f}</span>`).join('')}<span class="tag">${sz(p.mb)}</span></div></section>
+  ${p.prob?`<section><div class="notice err">${ic('alert')}<div>Crashed on the last scan. Reinstall or update it from ${p.v}.</div></div></section>`:p.dup?`<section><div class="notice warn">${ic('alert')}<div>Installed twice in different formats.</div></div></section>`:''}
+  <section style="border:0"><p class="help">${plural(files.length,'item','items')} · ${sz(files.reduce((a,f)=>a+f.mb,0))} in total. You choose what goes when you uninstall.</p>${g.map(([l,fs])=>`<div class="pgroup"><h4>${l}</h4>${fs.map(f=>`<div class="pfile" title="${esc(f.d+'/'+f.n)}"><span class="pp"><b>${esc(f.n)}</b><small>${esc(f.d)}</small></span><span class="tag ${f.c==='exact'?'ok':'warn'}">${f.c==='exact'?'Exact match':'Maybe yours'}</span><span class="dim">${sz(f.mb)}</span><button class="btn ghost sm" data-show data-tip="Show in Finder">Show</button></div>`).join('')}</div>`).join('')}
+  <button class="btn danger" id="plOneUn" style="margin-top:var(--s4)">${ic('trash')}Uninstall…</button></section>`;
+  $$('[data-show]',el).forEach(b=>b.onclick=()=>toast('Revealed in Finder'));$('#plOneUn').onclick=()=>{plSt.sel=new Set([p.id]);openDlg('dUn',renderUn)}}
+function plTabs(){const t=plSt.tab;$$('#plSeg button').forEach(b=>b.classList.toggle('on',b.dataset.pv===t));$$('.plv').forEach(v=>v.classList.toggle('on',v.id==='pv-'+t));$$('#mock [data-pv2]').forEach(b=>b.classList.toggle('on',b.dataset.pv2===t));
+  $('#plProb').textContent=FPROB.reduce((a,g)=>a+g.items.length,0);$('#plDis').textContent=plSt.dis.length;$('#plCheck').classList.toggle('off',!!plSt.busy);$('#plRescan').classList.toggle('off',!!plSt.busy);$('#plBusy').textContent=plSt.busy;
+  $('#plNote').hidden=plSt.dismissed;
+  if(t==='problems')plProb();if(t==='disabled')plDisabled()}
+function plProb(){const el=$('#pv-problems'),safe=FPROB.filter(g=>g.safe&&g.fix),safeN=safe.reduce((a,g)=>a+g.items.length-g.items.filter((_,i)=>plSt.unchecked.has(g.k+i)).length,0);
+  el.innerHTML=(safe.length?`<div class="cleanup"><div><b>Clean up for me</b><span class="help">${plural(safeN,'thing','things')} can be fixed safely and undone: ${safe.map(g=>g.title.toLowerCase()).join(' · ')}.</span></div><button class="btn primary" id="plClean">${ic('shield')}Review and clean up</button></div>`:'<div class="empty"><b>No problems on record.</b>Run Check for problems to look again.</div>')+
+  FPROB.map(g=>{const open=plSt.gopen.has(g.k)||!g.fix,keep=g.items.filter((_,i)=>!plSt.unchecked.has(g.k+i));return `<div class="pg ${open?'open':''}" data-k="${g.k}"><header><span class="sdot ${g.sev==='bad'?'bad':'warn'}"></span><span><b>${g.title}</b><small>${g.sub}</small></span>${g.safe?'<span class="tag ok">safe to undo</span>':'<span></span>'}<span style="display:flex;gap:6px">${g.fix?`<button class="btn ghost sm" data-tg>${open?'Hide list':'Choose which'}</button><button class="btn primary sm ${keep.length?'':'off'}" data-fix>Fix ${keep.length}</button>`:''}</span></header><div class="items"><div>${g.items.map((it,i)=>`<label class="it"><input type="checkbox" class="cbx" ${plSt.unchecked.has(g.k+i)?'':'checked'} ${g.fix?'':'disabled checked'} data-u="${g.k+i}"><b>${esc(it)}</b><span>${g.fix?'will be turned off, not deleted':'needs a manual fix'}</span></label>`).join('')}</div></div></div>`}).join('');
+  $('#plClean')&&($('#plClean').onclick=()=>openDlg('dFix',()=>renderFix(safe,'Clean up for me')));
+  $$('.pg',el).forEach(c=>{const g=FPROB.find(x=>x.k===c.dataset.k);$('[data-tg]',c)&&($('[data-tg]',c).onclick=()=>{plSt.gopen.has(g.k)?plSt.gopen.delete(g.k):plSt.gopen.add(g.k);plProb()});$('[data-fix]',c)&&($('[data-fix]',c).onclick=()=>openDlg('dFix',()=>renderFix([g],g.title)));$$('[data-u]',c).forEach(i=>i.onchange=()=>{i.checked?plSt.unchecked.delete(i.dataset.u):plSt.unchecked.add(i.dataset.u);plProb()})})}
+function plDisabled(){const el=$('#pv-disabled');el.innerHTML=plSt.dis.length?`<div style="display:flex;align-items:center;gap:var(--s3)"><span class="dim">${plural(plSt.dis.length,'plugin','plugins')} turned off</span><span style="flex:1"></span><button class="btn ghost sm" id="rsAll">Restore all</button></div>${plSt.dis.map((d,i)=>`<div class="drow"><span><b>${d[0]}</b><div class="dim" style="font-size:12px">${d[1]}</div></span><span class="tag">exactly where it was</span><button class="btn ghost sm" data-r="${i}">Restore</button></div>`).join('')}`:`<div class="empty" style="padding:50px 28px"><b>Nothing is disabled.</b>When a fix turns a plugin off it waits here, and Restore puts it back exactly where it was.</div>`;
+  $$('[data-r]',el).forEach(b=>b.onclick=()=>{const d=plSt.dis.splice(+b.dataset.r,1)[0];plTabs();toast(`Restored ${d[0]}.`)});$('#rsAll')&&($('#rsAll').onclick=()=>{plSt.dis=[];plTabs();toast('Restored everything exactly where it was.')})}
+function plBusy(msg,done,then){plSt.busy=msg;plTabs();setTimeout(()=>{plSt.busy='';plSt.dismissed=false;$('#plNoteT').textContent=done;$('#plNote').className='notice ok pnote';plTabs();then&&then()},1500)}
+function renderFix(secs,h){$('#fxTitle').textContent=h;$('#fxBody').innerHTML=secs.map((g,si)=>`<div class="pg open" data-si="${si}"><header style="grid-template-columns:18px minmax(0,1fr) auto"><input type="checkbox" class="cbx" checked data-sec="${si}" aria-label="Apply ${esc(g.title)}"><span><b>${g.title}</b><small>${g.items.length} item${g.items.length>1?'s':''}: turned off, never deleted</small></span><span class="tag ok">safe to undo</span></header><div class="items"><div>${g.items.map(i=>`<div class="it" style="grid-template-columns:minmax(0,1fr)"><span>${esc(i)}</span></div>`).join('')}</div></div></div>`).join('')+`<div class="notice">${ic('info')}<div>Fixed plugins wait in the Disabled tab. Restore puts each one back exactly where it was.</div></div>`;
+  const upd=()=>{const on=$$('[data-sec]:checked',$('#fxBody')).length;$('#fxSum').textContent=`${on} of ${secs.length} fix${secs.length>1?'es':''} will be applied`;$('#fxGo').classList.toggle('off',!on)};upd();$$('[data-sec]').forEach(c=>c.onchange=upd);
+  $('#fxGo').onclick=()=>{if(state==='error'){toast('The fixes did not run.');return}const b=$('#fxGo');b.classList.add('off');b.querySelector('span').textContent='Applying fixes…';setTimeout(()=>{b.classList.remove('off');b.querySelector('span').textContent='Apply fixes';closeDlg();toast('Fixes applied. Undo any of them from the Disabled tab.')},1100)}}
+function renderUn(){const sel=PL.filter(p=>plSt.sel.has(p.id));const marks=new Map();sel.forEach(p=>plFiles(p).forEach(f=>marks.set(p.id+f.n,f.c==='exact')));
+  const draw=()=>{let tot=0,n=0;$('#unBody').innerHTML=sel.map(p=>{const fs=plFiles(p);return `<div class="pg ${sel.length===1?'open':''}"><header style="grid-template-columns:minmax(0,1fr) auto auto"><span><b>${esc(p.n)}</b><small>${p.v}</small></span><span class="dim">${plural(fs.filter(f=>marks.get(p.id+f.n)).length,'item','items')}</span><button class="btn ghost sm" data-o>Details</button></header><div class="items"><div>${fs.map(f=>{const on=marks.get(p.id+f.n);if(on){tot+=f.mb;n++}return `<label class="it" style="grid-template-columns:18px minmax(0,1fr) auto auto"><input type="checkbox" class="cbx" ${on?'checked':''} data-m="${p.id+f.n}"><span><b>${esc(f.n)}</b><br><span class="dim">${esc(f.d)}</span></span><span class="tag ${f.c==='exact'?'ok':'warn'}">${f.c==='exact'?'Exact match':'Maybe yours'}</span><span>${sz(f.mb)}</span></label>`}).join('')}</div></div></div>`}).join('');
+    $('#unSum').textContent=`${plural(n,'item','items')} · ${sz(tot)} to the Trash`;$('#unGo').classList.toggle('off',!n);$$('#unBody [data-m]').forEach(c=>c.onchange=()=>{marks.set(c.dataset.m,c.checked);const keep=$$('#unBody .pg').map(x=>x.classList.contains('open'));draw();$$('#unBody .pg').forEach((x,i)=>x.classList.toggle('open',keep[i]))});$$('#unBody [data-o]').forEach(b=>b.onclick=()=>b.closest('.pg').classList.toggle('open'));hydrate($('#unBody'))};draw();
+  $('#unGo').onclick=()=>{if(state==='error'){toast('Something went wrong, nothing was deleted.');return}const n=[...marks.values()].filter(Boolean).length,mb=sel.reduce((a,p)=>a+p.mb,0);closeDlg();toast(`Moved ${plural(n,'item','items')} from ${plural(sel.length,'plugin','plugins')} to the Trash (${sz(mb)}). You can put them back from the Trash in Finder.`);plSt.sel.clear();plList()}}
+function plugins(){plAll();
+  $$('#plSeg button').forEach(b=>b.onclick=()=>{plSt.tab=b.dataset.pv;plTabs()});
+  $('#plQ').oninput=e=>{plSt.q=e.target.value;plList()};$('#plSort').onchange=e=>{plSt.sort=e.target.value;plList()};$('#plClear').onclick=()=>{plSt.sel.clear();plSt.q='';$('#plQ').value='';plList()};
+  $('#plRescan').onclick=()=>plBusy('Looking for plugins…',`Scan finished. ${PL.length} plugins found.`);
+  $('#plCheck').onclick=()=>plBusy('Checking every plugin. This can take a minute…','Check finished. 9 things found, 7 of them safe to fix.',()=>{plSt.tab='problems';plTabs()});
+  $('#plNote').onclick=()=>{plSt.dismissed=true;$('#plNote').hidden=true};
+  $('#plUn').onclick=()=>openDlg('dUn',renderUn);
+}
+onShow.plugins=()=>plTabs();
+
+/* ================= mock controls + init ================= */
+function refreshDialogs(){if($('#dAdd.on'))adList();if($('#dLog.on'))lgDraw();if($('#dImp.on'))imDraw();if($('#dSplit.on'))spDraw()}
+$$('[data-sv2]').forEach(b=>b.onclick=()=>{show('sales');salesView(b.dataset.sv2)});
+$$('[data-pv2]').forEach(b=>b.onclick=()=>{show('plugins');plSt.tab=b.dataset.pv2;plTabs()});
+$$('#salesSeg button').forEach(b=>b.onclick=()=>salesView(b.dataset.sv));
+$$('[data-flag]').forEach(b=>b.onclick=()=>{show('store');if(b.dataset.flag==='token'){stS.token=!stS.token;b.classList.toggle('on',!stS.token);stLede();stRail()}else{stS.fail=true;b.classList.add('on');toast('The next Publish will fail.')}});
+const DL={add:()=>openDlg('dAdd',renderAdd),log:()=>openDlg('dLog',()=>renderLog('new')),logx:()=>openDlg('dLog',()=>renderLog('logx')),logb:()=>openDlg('dLog',()=>renderLog('logb')),loge:()=>openDlg('dLog',()=>renderLog('edit',SALES[0])),im0:()=>openDlg('dImp',()=>renderImport('map')),im1:()=>openDlg('dImp',()=>renderImport('review')),split:()=>openDlg('dSplit',()=>renderSplit(GROUPS[0])),fix:()=>{show('plugins');plSt.tab='problems';plTabs();openDlg('dFix',()=>renderFix(FPROB.filter(g=>g.safe),'Clean up for me'))},un:()=>{show('plugins');plSt.sel=new Set([1,2]);plList();openDlg('dUn',renderUn)},drop:()=>{show('sales');salesView('sales');$('#dropov').classList.add('on')}};
+$$('[data-dlg]').forEach(b=>b.onclick=()=>{const k=b.dataset.dlg;if(['add'].includes(k))show('store');else if(k.startsWith('log')||k.startsWith('im'))show('sales');DL[k]()});
+$('#logBtn').onclick=DL.log;$('#impBtn').onclick=DL.im0;$('#exportCsv').onclick=()=>toast('Exported sales-2026-11-14.csv');
+$('#dropov').onclick=closeDlg;
+/* drag a real .csv over the window */
+let dc=0;addEventListener('dragenter',e=>{if(cur==='sales'&&e.dataTransfer&&[...e.dataTransfer.types].includes('Files')){dc++;$('#dropov').classList.add('on')}});addEventListener('dragleave',()=>{dc=Math.max(0,dc-1);if(!dc)$('#dropov').classList.remove('on')});addEventListener('dragover',e=>{if(cur==='sales')e.preventDefault()});
+addEventListener('drop',e=>{if(cur!=='sales'||!e.dataTransfer.files.length)return;e.preventDefault();dc=0;$('#dropov').classList.remove('on');const f=e.dataTransfer.files[0];if(/\.csv$/i.test(f.name)){$('#imFile').textContent=f.name;openDlg('dImp',()=>renderImport('review'))}else toast('Drop a .csv sales export from BeatStars.')});
+
+hydrate();
+$$('.peak').forEach(peakInit);
+sounds();kits();map();store();
+$('#logBtn');salesView('sales');plugins();
+$('.deck canvas').dataset.col='';
+addEventListener('resize',()=>{fitMock();draw();if(rvSt&&$('#sv-revenue.on'))revBuild()});
+document.fonts.ready.then(()=>{fitMock();show('sounds')});
+new ResizeObserver(fitMock).observe($('#mock'));
+</script>
+</body>
+</html>

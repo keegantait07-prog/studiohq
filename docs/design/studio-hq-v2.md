@@ -1,5 +1,7 @@
 # Studio HQ V2 proposal
 
+> **Status, 6 November 2026:** rolled back at the owner's request. The app is back to the 5 November look and six original themes, with only the Phase 0 fixes kept (branch `classic-look`). The later themes, Stage, 3.0 and Content Pack are kept on branch `v3-archive`.
+
 **Date:** 6 November 2026
 **Replaces:** `docs/design/v2-proposal.md`, which is left in place. That draft never ran the app, and three of its calls are reversed here (section 9).
 **Naming:** `package.json` is already `2.0.0`, and the What's New flag is `2.0`. This release should ship as **3.0**. "V2" below means the redesign.

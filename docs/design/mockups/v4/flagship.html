@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en" data-w="deck">
+<head>
+<meta charset="utf-8">
+<title>Studio HQ v4 · A · Deck</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@112..125,500..800&family=Inter+Tight:wght@400;500;600;700&family=Unbounded:wght@500;700;800&family=Inter:wght@400;500;600;700&family=Barlow+Condensed:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* Direction A: DECK. The app is an instrument.
+   Shell: transport bar on top (the player IS the header), one flat section strip, no sidebar.
+   21st refs: Tallyfold 1247 (beat moving along a line), Analytics Bento 40334 (solid colour blocks),
+   Records Table 23604 (sticky col, footer row), Outline Inspector 45217 (label/value rows),
+   Waveform 18483 (bracket frame), Segmented Control 43122 (gliding indicator).
+   Tokens: semantic layer copied from 21st themes; each world swaps only this block. */
+:root{
+  --dur-1:.08s; --dur-2:.18s; --dur-3:.32s; --ease-out:cubic-bezier(.23,1,.32,1); --ease-io:cubic-bezier(.65,.05,.36,1);
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px;
+}
+[data-w=deck]{
+  --background:#0b0b0a; --card:#121210; --raised:#1a1917; --well:#070706; --muted:#22211e; --border:rgba(255,244,230,.08); --border-2:rgba(255,244,230,.16);
+  --foreground:#f3efe8; --fg-2:#aaa49a; --fg-3:#78736b; --primary:#ff5533; --on-primary:#0b0b0a; --ring:#ff5533;
+  --idea:#a08cff; --wip:#ffb547; --done:#4fd89a; --sent:#5fb6ff; --sold:#ff5533;
+  --r-ctl:8px; --r-card:10px; --r-chip:4px;
+  --font-display:"Archivo",sans-serif; --font:"Inter Tight",sans-serif; --display-case:uppercase; --display-track:.01em;
+  --title-fill:linear-gradient(#f3efe8,#f3efe8);
+}
+[data-w=deck] body{background-image:radial-gradient(rgba(255,244,230,.035) 1px,transparent 1.2px);background-size:5px 5px}
+[data-w=deck] .mark,[data-w=deck] .lead h1,[data-w=deck] .blk b{font-stretch:125%}
+[data-w=defied]{
+  --background:#000; --card:#0c0c0d; --raised:#151517; --well:#050506; --muted:#1d1d20; --border:rgba(255,255,255,.09); --border-2:rgba(255,255,255,.16);
+  --foreground:#f4f4f5; --fg-2:#a7a7ad; --fg-3:#6c6c73; --primary:#fff; --on-primary:#000; --ring:#fff;
+  --idea:#9d8cff; --wip:#ffc24b; --done:#3ee6a0; --sent:#5cb8ff; --sold:#ff6b57;
+  --r-ctl:999px; --r-card:14px; --r-chip:6px;
+  --font-display:'Unbounded',sans-serif; --font:'Inter',sans-serif; --display-case:uppercase; --display-track:.02em;
+  --title-fill:linear-gradient(180deg,#fff 0%,#d9d9de 38%,#7b7b84 52%,#e9e9ee 70%,#8d8d95 100%);
+}
+[data-w=concrete]{
+  --background:#c8c6c0; --card:#d6d4ce; --raised:#e2e0da; --well:#b9b7b1; --muted:#bebcb6; --border:rgba(0,0,0,.14); --border-2:rgba(0,0,0,.28);
+  --foreground:#141414; --fg-2:#3d3d3b; --fg-3:#62615d; --primary:#141414; --on-primary:#f0eee8; --ring:#ff5a1f;
+  --idea:#6d5bd0; --wip:#d98b00; --done:#13804f; --sent:#1f63b8; --sold:#ff5a1f;
+  --r-ctl:0; --r-card:0; --r-chip:0;
+  --font-display:'Barlow Condensed',sans-serif; --font:'Barlow Condensed',sans-serif; --display-case:uppercase; --display-track:0;
+  --title-fill:linear-gradient(#141414,#141414);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--background);color:var(--foreground);font:400 13.5px/1.45 var(--font);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+[data-w=concrete] body{font-size:15px;background-image:radial-gradient(rgba(0,0,0,.08) 1px,transparent 1.2px),radial-gradient(rgba(255,255,255,.25) 1px,transparent 1.2px);background-size:7px 7px,11px 11px;background-position:0 0,3px 5px}
+:is(button,input){font:inherit;color:inherit;background:none;border:0}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
+h1,h2,h3{text-wrap:balance}
+.app{display:grid;grid-template-rows:64px 44px 1fr;height:100vh}
+
+/* transport */
+.transport{display:grid;grid-template-columns:auto minmax(380px,1fr) 300px auto;gap:var(--s5);align-items:center;padding:0 var(--s5);border-bottom:1px solid var(--border)}
+.mark{font:800 15px var(--font-display);text-transform:var(--display-case);letter-spacing:var(--display-track);background:var(--title-fill);-webkit-background-clip:text;color:transparent;white-space:nowrap}
+.deck{position:relative;display:grid;grid-template-columns:auto 170px 1fr auto;align-items:center;gap:var(--s3);height:44px;padding:0 var(--s3) 0 6px;background:var(--well);border:1px solid var(--border)}
+[data-w=defied] .deck{border-radius:999px}
+.deck::before,.deck::after{content:"";position:absolute;width:8px;height:8px;border:1.5px solid var(--fg-3)}
+.deck::before{left:-1px;top:-1px;border-right:0;border-bottom:0}.deck::after{right:-1px;bottom:-1px;border-left:0;border-top:0}
+[data-w=defied] .deck::before,[data-w=defied] .deck::after{display:none}
+.play{width:34px;height:34px;border-radius:var(--r-ctl);background:var(--primary);color:var(--on-primary);display:grid;place-items:center;transition:transform var(--dur-1) var(--ease-out)}
+[data-w=concrete] .play{background:var(--sold);color:#fff}
+.play:active{transform:scale(.94)}
+.np b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.np small{color:var(--fg-3);font-size:11.5px}
+.deck canvas{width:100%;height:26px}
+.deck .t{color:var(--fg-2);font-size:12px}
+.search{display:flex;align-items:center;gap:var(--s2);height:36px;padding:0 var(--s3);border:1px solid var(--border);border-radius:var(--r-ctl);color:var(--fg-3)}
+.search kbd{margin-left:auto;font:500 11px var(--font);padding:1px 6px;border:1px solid var(--border-2);border-radius:5px;color:var(--fg-2)}
+.session{display:flex;gap:var(--s2);align-items:center;color:var(--fg-2);font-size:12.5px;white-space:nowrap}
+.rec{width:7px;height:7px;border-radius:50%;background:var(--sold);animation:pulse 2s infinite}
+@keyframes pulse{50%{opacity:.35}}
+
+/* section strip with gliding indicator (21st 43122) */
+.strip{position:relative;display:flex;align-items:stretch;padding:0 var(--s4);border-bottom:1px solid var(--border)}
+.strip button{position:relative;z-index:1;padding:0 var(--s3);color:var(--fg-2);font-weight:500;display:flex;gap:6px;align-items:center;transition:color var(--dur-2) ease}
+[data-w=concrete] .strip button{font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.strip button:hover,.strip button.on{color:var(--foreground)}
+.strip .n{font-size:11px;color:var(--fg-3)}
+.strip .due{background:var(--sold);color:#000;border-radius:9px;padding:0 6px;font-weight:700;font-size:10.5px}
+.strip .gap{flex:1}
+.glide{position:absolute;bottom:-1px;height:2px;background:var(--foreground);transition:transform var(--dur-3) var(--ease-io),width var(--dur-3) var(--ease-io)}
+[data-w=concrete] .glide{height:4px;background:var(--sold)}
+
+main{min-height:0;display:grid}
+.view{display:none;min-height:0}.view.on{display:grid;animation:in var(--dur-3) var(--ease-out) both}
+@keyframes in{from{opacity:0;transform:translateY(6px)}}
+
+/* HOME */
+#home{grid-template-columns:1fr 340px}
+.hm{padding:var(--s5) var(--s6);overflow:auto;display:flex;flex-direction:column;gap:var(--s5)}
+.lead{display:grid;grid-template-columns:1fr auto;align-items:end;gap:var(--s5)}
+.lead h1{font:700 30px/1.08 var(--font-display);text-transform:var(--display-case);letter-spacing:var(--display-track);max-width:22ch;background:var(--title-fill);-webkit-background-clip:text;color:transparent}
+[data-w=concrete] .lead h1{font-size:44px;font-weight:800;line-height:.95}
+.lead p{color:var(--fg-2);margin-top:var(--s2);max-width:58ch}
+.cta{display:flex;gap:var(--s2)}
+.btn{height:36px;padding:0 var(--s4);border-radius:var(--r-ctl);display:inline-flex;align-items:center;gap:var(--s2);font-weight:600;font-size:13px;white-space:nowrap;transition:background-color var(--dur-2) ease,transform var(--dur-1) var(--ease-out)}
+[data-w=concrete] .btn{text-transform:uppercase;letter-spacing:.04em;font-size:14px}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:var(--primary);color:var(--on-primary)}
+.btn.ghost{border:1px solid var(--border-2)}
+.btn.ghost:hover{background:var(--muted)}
+
+/* the line (21st 1247): beats travel from Idea to Sold */
+.line{flex:1;border:1px solid var(--border);border-radius:var(--r-card);background:var(--card);padding:var(--s4) var(--s5) var(--s5)}
+.line header{display:flex;justify-content:space-between;color:var(--fg-2);font-size:12.5px;margin-bottom:var(--s4)}
+.stages{display:grid;grid-template-columns:repeat(5,1fr);position:relative}
+.stages::before{content:"";position:absolute;left:0;right:0;top:19px;height:1px;background:var(--border-2)}
+.stage{position:relative;padding-right:var(--s3)}
+.stage .gate{display:flex;align-items:center;gap:var(--s2);height:38px}
+.stage .gate i{width:12px;height:12px;border-radius:3px;background:var(--c);box-shadow:0 0 0 4px var(--card)}
+.stage .gate b{font-weight:600}
+.stage .gate span{color:var(--fg-3);font-size:12px}
+.stack{display:flex;flex-direction:column;gap:5px;margin-top:var(--s2)}
+.tick{display:grid;grid-template-columns:1fr auto;gap:var(--s2);align-items:center;padding:7px 9px;border-radius:var(--r-chip);background:var(--raised);border:1px solid var(--border);font-size:12.5px;cursor:pointer;transition:transform var(--dur-2) var(--ease-out),border-color var(--dur-2) ease}
+@media (hover:hover){.tick:hover{transform:translateX(3px);border-color:var(--c)}}
+.tick small{color:var(--fg-3)}
+.tick.next{border-color:var(--c);box-shadow:inset 3px 0 0 var(--c)}
+.stage .none{color:var(--fg-3);font-size:12.5px;padding:7px 0;max-width:20ch}
+
+/* bento of solid colour (21st 40334) */
+.bento{display:grid;grid-template-columns:2fr 1fr 1fr 1.2fr;gap:var(--s2)}
+.blk{border-radius:var(--r-card);padding:var(--s4);min-height:118px;display:flex;flex-direction:column;justify-content:space-between;color:#0b0b0b}
+.blk small{font-weight:600;font-size:12px;opacity:.75}
+.blk b{font:700 40px/1 var(--font-display);letter-spacing:-.01em}
+[data-w=concrete] .blk b{font-size:56px;font-weight:800}
+.blk.dim{background:var(--card);border:1px solid var(--border);color:var(--foreground)}
+.blk.dim small{color:var(--fg-2);opacity:1}
+
+.rail{border-left:1px solid var(--border);padding:var(--s5);overflow:auto;display:flex;flex-direction:column;gap:var(--s5)}
+.rail h3{font-weight:600;font-size:13px;display:flex;justify-content:space-between;margin-bottom:var(--s2)}
+.rail h3 span{color:var(--fg-3);font-weight:400}
+.todo{display:grid;grid-template-columns:10px 1fr auto;gap:var(--s3);align-items:center;padding:10px 0;border-top:1px solid var(--border)}
+.todo i{width:10px;height:10px;border-radius:3px;background:var(--c)}
+.todo small{display:block;color:var(--fg-3);font-size:12px}
+.go{font-size:12.5px;font-weight:600;padding:6px 10px;border-radius:var(--r-ctl);border:1px solid var(--border-2)}
+.go:hover{background:var(--muted)}
+.empty{border:1px dashed var(--border-2);border-radius:var(--r-card);padding:var(--s4);color:var(--fg-2);font-size:13px}
+.empty b{display:block;color:var(--foreground);margin-bottom:4px}
+
+/* BEATS: dense table (21st 23604) + inspector (21st 45217) */
+#beats{grid-template-columns:1fr 360px}
+.list{display:grid;grid-template-rows:auto auto 1fr auto;min-height:0}
+.tools{display:flex;align-items:center;gap:var(--s2);padding:var(--s4) var(--s5) var(--s3)}
+.tools h2{font:700 20px var(--font-display);text-transform:var(--display-case);margin-right:var(--s3)}
+[data-w=concrete] .tools h2{font-size:30px;font-weight:800}
+.seg{display:flex;padding:3px;background:var(--well);border:1px solid var(--border);border-radius:var(--r-ctl)}
+.seg button{padding:5px 11px;border-radius:var(--r-ctl);font-size:12.5px;color:var(--fg-2);display:flex;gap:6px;align-items:center}
+.seg button.on{background:var(--raised);color:var(--foreground);box-shadow:0 1px 2px rgba(0,0,0,.4)}
+[data-w=concrete] .seg button.on{background:var(--foreground);color:var(--background)}
+.seg i{width:7px;height:7px;border-radius:2px;background:var(--c)}
+.tools .r{margin-left:auto}
+.thead,.row{display:grid;grid-template-columns:36px minmax(170px,1.3fr) minmax(160px,1.4fr) 56px 76px 128px 96px;gap:var(--s3);align-items:center;padding:0 var(--s5)}
+.thead{height:32px;font-size:12px;color:var(--fg-3);border-block:1px solid var(--border);background:var(--card);position:sticky;top:0}
+.thead .sorted{color:var(--foreground)}
+.rows{overflow:auto}
+.grp{padding:var(--s3) var(--s5) 6px;font-size:12.5px;font-weight:600;color:var(--fg-2);display:flex;gap:var(--s2);align-items:center}
+.grp i{width:8px;height:8px;border-radius:2px;background:var(--c)}
+.row{height:48px;border-bottom:1px solid var(--border);cursor:pointer}
+.row:hover{background:var(--card)}
+.row.sel{background:var(--raised);box-shadow:inset 3px 0 0 var(--c)}
+.row .p{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--border-2);color:var(--fg-2)}
+.row:hover .p,.row.sel .p{background:var(--primary);color:var(--on-primary);border-color:var(--primary)}
+.row b{font-weight:600}
+.row canvas{width:100%;height:24px}
+.row .d{color:var(--fg-2)}
+.pill{display:inline-flex;gap:6px;align-items:center;font-size:12px;font-weight:600;padding:3px 9px;border-radius:var(--r-chip);background:color-mix(in srgb,var(--c) 18%,transparent);color:color-mix(in srgb,var(--c) 75%,var(--foreground))}
+.pill::before{content:"";width:6px;height:6px;border-radius:2px;background:var(--c)}
+.tfoot{display:flex;gap:var(--s5);padding:10px var(--s5);border-top:1px solid var(--border);color:var(--fg-3);font-size:12px;background:var(--card)}
+.tfoot b{color:var(--foreground);font-weight:600}
+.insp{border-left:1px solid var(--border);overflow:auto;display:flex;flex-direction:column}
+.insp .wave{height:132px;border-bottom:1px solid var(--border);position:relative;background:var(--well)}
+.insp .wave canvas{position:absolute;inset:18px;width:calc(100% - 36px);height:96px}
+.insp .wave .ph{position:absolute;top:12px;bottom:12px;left:40%;width:2px;background:var(--wip)}
+.insp section{padding:var(--s4) var(--s5);border-bottom:1px solid var(--border)}
+.insp h2{font:700 22px/1.1 var(--font-display);text-transform:var(--display-case)}
+[data-w=concrete] .insp h2{font-size:34px;font-weight:800}
+.insp .sub{color:var(--fg-2);margin-top:6px}
+.kv{display:grid;grid-template-columns:96px 1fr auto;align-items:center;gap:var(--s3);height:34px;font-size:13px}
+.kv span{color:var(--fg-3)}
+.kv em{font-style:normal;color:var(--fg-3);font-size:11.5px}
+.check{display:grid;grid-template-columns:18px 1fr auto;gap:var(--s3);align-items:center;height:36px}
+.box{width:16px;height:16px;border-radius:4px;border:1.5px solid var(--border-2);display:grid;place-items:center;font-size:11px}
+.check.ok .box{background:var(--done);border-color:var(--done);color:#000}
+.check.ok span{color:var(--fg-3);text-decoration:line-through}
+.acts{display:grid;grid-template-columns:1fr 1fr;gap:var(--s2)}
+.acts .btn{justify-content:center}
+.acts .btn.primary{grid-column:1/-1}
+
+/* DIALOG: routing matrix */
+.scrim{position:fixed;inset:0;display:none;place-items:center;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);z-index:5}
+[data-w=concrete] .scrim{background:rgba(60,58,54,.45)}
+.scrim.on{display:grid;animation:fade var(--dur-2) ease-out both}
+@keyframes fade{from{opacity:0}}
+.dlg{width:840px;max-width:calc(100vw - 48px);background:var(--card);border:1px solid var(--border-2);border-radius:calc(var(--r-card) + 4px);box-shadow:0 40px 100px rgba(0,0,0,.6);overflow:hidden;animation:pop var(--dur-3) var(--ease-out) both}
+@keyframes pop{from{opacity:0;transform:scale(.96) translateY(8px)}}
+.dlg header{display:flex;align-items:baseline;gap:var(--s3);padding:var(--s4) var(--s5);border-bottom:1px solid var(--border)}
+.dlg header h2{font:700 20px var(--font-display);text-transform:var(--display-case)}
+[data-w=concrete] .dlg header h2{font-size:30px;font-weight:800}
+.dlg header p{color:var(--fg-2)}
+.dlg header .x{margin-left:auto;width:32px;height:32px;border-radius:var(--r-ctl);color:var(--fg-2)}
+.route{display:grid;grid-template-columns:250px 1fr;min-height:360px}
+.route aside{background:var(--well);border-right:1px solid var(--border);padding:var(--s4);display:flex;flex-direction:column;gap:6px}
+.route h4{font-size:12px;color:var(--fg-3);font-weight:600;margin-bottom:4px}
+.bt{display:grid;grid-template-columns:22px 1fr;gap:var(--s3);align-items:center;padding:9px 10px;border-radius:var(--r-chip);background:var(--raised);border:1px solid var(--border)}
+.bt b{display:grid;place-items:center;width:22px;height:22px;border-radius:5px;background:var(--done);color:#000;font-size:11px}
+.bt small{display:block;color:var(--fg-3)}
+.matrix{padding:var(--s4) var(--s5);display:grid;grid-template-columns:1fr repeat(3,52px);align-items:center}
+.matrix .hd{text-align:center;font-size:12px;font-weight:700;color:var(--fg-2)}
+.who{display:flex;gap:var(--s3);align-items:center;height:52px;border-top:1px solid var(--border)}
+.who small{display:block;color:var(--fg-3)}
+.av{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:11px;color:#000;background:var(--c)}
+.cell{height:52px;border-top:1px solid var(--border);display:grid;place-items:center}
+.pin{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--border-2);transition:background-color var(--dur-2) ease,transform var(--dur-1) var(--ease-out)}
+.pin:active{transform:scale(.88)}
+.pin.on{background:var(--sent);border-color:var(--sent)}
+.dlg footer{display:flex;align-items:center;gap:var(--s3);padding:var(--s3) var(--s5);border-top:1px solid var(--border);background:var(--raised)}
+.dlg footer .sum{color:var(--fg-2)}
+.dlg footer .r{margin-left:auto;display:flex;gap:var(--s2)}
+
+/* toast */
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);display:flex;gap:var(--s3);align-items:center;padding:10px 12px 10px 16px;background:var(--foreground);color:var(--background);border-radius:var(--r-ctl);font-weight:500;box-shadow:0 12px 30px rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:opacity var(--dur-2) ease,transform var(--dur-3) var(--ease-out)}
+.toast.on{opacity:1;transform:translate(-50%,-6px);pointer-events:auto}
+.toast button{font-weight:700;text-decoration:underline}
+
+/* mockup controls (not part of the design) */
+.mock{position:fixed;right:12px;bottom:12px;z-index:9;display:flex;gap:3px;padding:4px;background:#000;border:1px solid #555;border-radius:9px;font:500 12px system-ui;color:#bbb}
+.mock button{padding:6px 9px;border-radius:6px;font:inherit;color:inherit}
+.mock button.on{background:#fff;color:#000}
+.mock i{width:1px;background:#444;margin:3px 2px}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="transport">
+    <div class="mark">Studio HQ</div>
+    <div class="deck" aria-label="Player">
+      <button class="play" aria-label="Play State Of Anarchy"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3.2 1.6v8.8l7.2-4.4z" fill="currentColor"/></svg></button>
+      <div class="np"><b>State Of Anarchy</b><small>143 BPM, B minor</small></div>
+      <canvas data-seed="7" data-played=".38" aria-hidden="true"></canvas>
+      <span class="t">1:12 / 3:08</span>
+    </div>
+    <div class="search" role="button" tabindex="0"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="6" cy="6" r="4.5"/><path d="M9.5 9.5 13 13"/></svg>Find a beat, lead or action<kbd>⌘K</kbd></div>
+    <div class="session"><span class="rec" aria-hidden="true"></span>Session 1h 12m</div>
+  </header>
+  <nav class="strip" aria-label="Sections">
+    <button data-v="home" class="on">Today</button>
+    <button data-v="beats">Beats <span class="n">79</span></button>
+    <button>Loops <span class="n">412</span></button>
+    <button>Sounds</button>
+    <button>Leads <span class="n">156</span></button>
+    <button>Pitches <span class="due" aria-label="2 due">2</span></button>
+    <button>Content</button>
+    <button>Sales</button>
+    <button>Store</button>
+    <span class="gap"></span>
+    <button>Plugins</button>
+    <button>Settings</button>
+    <span class="glide" aria-hidden="true"></span>
+  </nav>
+  <main>
+    <section class="view on" id="home" aria-label="Today">
+      <div class="hm">
+        <div class="lead">
+          <div><h1>Finish rouge before you start anything new</h1><p>It is the closest to done and you last touched it 3 days ago. Six finished beats have never been pitched or posted.</p></div>
+          <div class="cta"><button class="btn primary">Open rouge in FL Studio</button><button class="btn ghost" data-open="pitch">Pitch a beat</button></div>
+        </div>
+        <div class="line">
+          <header><span>Where your beats are</span><span>79 beats, last 30 days</span></header>
+          <div class="stages">
+            <div class="stage" style="--c:var(--idea)"><div class="gate"><i></i><b>Idea</b><span>4</span></div><div class="stack"><div class="tick">huhhh idea <small>2d</small></div><div class="tick">808 sketch <small>5d</small></div></div></div>
+            <div class="stage" style="--c:var(--wip)"><div class="gate"><i></i><b>In progress</b><span>21</span></div><div class="stack"><div class="tick next">rouge <small>3d</small></div><div class="tick">Retroville <small>5d</small></div><div class="tick">glo gang <small>11d</small></div><div class="tick">glo <small>12d</small></div></div></div>
+            <div class="stage" style="--c:var(--done)"><div class="gate"><i></i><b>Finished</b><span>54</span></div><div class="stack"><div class="tick">State Of Anarchy <small>2d</small></div><div class="tick">Spider <small>4d</small></div><div class="tick">SAYWHAT <small>5d</small></div><div class="tick">+ 51 more</div></div></div>
+            <div class="stage" style="--c:var(--sent)"><div class="gate"><i></i><b>Pitched</b><span>0</span></div><p class="none">Nothing out yet. Send a finished beat to start replies coming back.</p></div>
+            <div class="stage" style="--c:var(--sold)"><div class="gate"><i></i><b>Sold</b><span>0</span></div><p class="none">First sale lands here.</p></div>
+          </div>
+        </div>
+        <div class="bento">
+          <div class="blk" style="background:var(--done)"><small>Finished and ready to sell</small><b>54</b></div>
+          <div class="blk" style="background:var(--wip)"><small>Made this week</small><b>3</b></div>
+          <div class="blk" style="background:var(--idea)"><small>Day streak</small><b>3</b></div>
+          <div class="blk dim"><small>Earned this month</small><b>$0</b></div>
+        </div>
+      </div>
+      <aside class="rail" aria-label="Waiting on you">
+        <div>
+          <h3>Waiting on you <span>4</span></h3>
+          <div class="todo" style="--c:var(--wip)"><i></i><div>Finish rouge<small>Last touched 3 days ago</small></div><button class="go">Open</button></div>
+          <div class="todo" style="--c:var(--wip)"><i></i><div>Finish glo gang<small>Last touched 11 days ago</small></div><button class="go">Open</button></div>
+          <div class="todo" style="--c:var(--done)"><i></i><div>Pitch Spider<small>Finished, never sent</small></div><button class="go" data-open="pitch">Pitch</button></div>
+          <div class="todo" style="--c:var(--done)"><i></i><div>Post Retroville<small>Finished, never posted</small></div><button class="go">Post</button></div>
+        </div>
+        <div class="empty"><b>No replies to read</b>Replies from artists show up here once a pitch is out.</div>
+      </aside>
+    </section>
+
+    <section class="view" id="beats" aria-label="Beats">
+      <div class="list">
+        <div class="tools">
+          <h2>Beats</h2>
+          <div class="seg" role="tablist">
+            <button class="on">All 79</button>
+            <button style="--c:var(--idea)"><i></i>Idea 4</button>
+            <button style="--c:var(--wip)"><i></i>In progress 21</button>
+            <button style="--c:var(--done)"><i></i>Finished 54</button>
+            <button style="--c:var(--sent)"><i></i>Pitched 0</button>
+          </div>
+          <div class="r"><button class="btn ghost">Rescan FL projects</button></div>
+        </div>
+        <div class="thead"><span></span><span class="sorted">Title</span><span>Waveform</span><span>BPM</span><span>Key</span><span>Status</span><span>Touched ↓</span></div>
+        <div class="rows" id="rows"></div>
+        <div class="tfoot"><span><b>79</b> beats</span><span><b>54</b> finished</span><span>Average <b>141</b> BPM</span><span>Most used key <b>E minor</b></span></div>
+      </div>
+      <aside class="insp" aria-label="Selected beat">
+        <div class="wave"><canvas data-seed="7" data-played=".4" aria-hidden="true"></canvas><span class="ph"></span></div>
+        <section><h2>State Of Anarchy</h2><p class="sub">Finished 2 days ago. Not pitched, not posted, not in the store.</p></section>
+        <section>
+          <div class="kv"><span>BPM</span><b>143</b><em>from FL project</em></div>
+          <div class="kv"><span>Key</span><b>B minor</b><em>detected</em></div>
+          <div class="kv"><span>Length</span><b>3:08</b><em></em></div>
+          <div class="kv"><span>Loudness</span><b>−8.1 LUFS</b><em>good for streaming</em></div>
+          <div class="kv"><span>Versions</span><b>2</b><em>v1 in progress</em></div>
+        </section>
+        <section>
+          <div class="check ok"><span class="box">✓</span><span>Mixdown exported</span></div>
+          <div class="check ok"><span class="box">✓</span><span>Tagged preview</span></div>
+          <div class="check"><span class="box"></span><span>Cover art</span><button class="go">Make</button></div>
+          <div class="check"><span class="box"></span><span>In the store</span><button class="go">Add</button></div>
+        </section>
+        <section class="acts"><button class="btn primary" data-open="pitch">Pitch this beat</button><button class="btn ghost">Make a video</button><button class="btn ghost">Open in FL</button></section>
+      </aside>
+    </section>
+  </main>
+</div>
+
+<div class="scrim" id="pitch" role="dialog" aria-modal="true" aria-labelledby="pt">
+  <div class="dlg">
+    <header><h2 id="pt">Pitch</h2><p>Each person gets one email with the beats you tick for them.</p><button class="x" data-close aria-label="Close">✕</button></header>
+    <div class="route">
+      <aside>
+        <h4>Beats</h4>
+        <div class="bt"><b>A</b><div>State Of Anarchy<small>143 BPM, B minor</small></div></div>
+        <div class="bt"><b>B</b><div>Spider<small>120 BPM, A♯ minor</small></div></div>
+        <div class="bt"><b>C</b><div>TITAN<small>155 BPM, D minor</small></div></div>
+        <button class="btn ghost" style="justify-content:center;margin-top:4px">Add a beat</button>
+      </aside>
+      <div class="matrix">
+        <span style="font-size:12px;color:var(--fg-3);font-weight:600">People</span><span class="hd">A</span><span class="hd">B</span><span class="hd">C</span>
+        <div class="who"><span class="av" style="--c:var(--idea)">M</span><div>moneyman<small>Southside, melodic</small></div></div><span class="cell"><button class="pin on" aria-label="Send A to moneyman" aria-pressed="true"></button></span><span class="cell"><button class="pin on" aria-label="Send B to moneyman" aria-pressed="true"></button></span><span class="cell"><button class="pin" aria-label="Send C to moneyman"></button></span>
+        <div class="who"><span class="av" style="--c:var(--wip)">L</span><div>lilbaby<small>4PF piano and triplets</small></div></div><span class="cell"><button class="pin" aria-label="Send A to lilbaby"></button></span><span class="cell"><button class="pin on" aria-label="Send B to lilbaby" aria-pressed="true"></button></span><span class="cell"><button class="pin" aria-label="Send C to lilbaby"></button></span>
+        <div class="who"><span class="av" style="--c:var(--done)">H</span><div>hunxho<small>Hard</small></div></div><span class="cell"><button class="pin on" aria-label="Send A to hunxho" aria-pressed="true"></button></span><span class="cell"><button class="pin" aria-label="Send B to hunxho"></button></span><span class="cell"><button class="pin on" aria-label="Send C to hunxho" aria-pressed="true"></button></span>
+        <div class="who"><span class="av" style="--c:var(--sent)">B</span><div>bc_shooter<small>Dark, wheezy</small></div></div><span class="cell"><button class="pin" aria-label="Send A to bc_shooter"></button></span><span class="cell"><button class="pin" aria-label="Send B to bc_shooter"></button></span><span class="cell"><button class="pin on" aria-label="Send C to bc_shooter" aria-pressed="true"></button></span>
+      </div>
+    </div>
+    <footer><span class="sum" id="sum">4 emails, 6 beats, using your “Short and direct” template</span><div class="r"><button class="btn ghost" data-close>Cancel</button><button class="btn primary" id="send">Send 4 emails</button></div></footer>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite">Sent 4 emails <button>Undo</button></div>
+
+<div class="mock" aria-label="Mockup controls"><button data-v="home" class="on">Home</button><button data-v="beats">Beats</button><button data-open="pitch">Pitch dialog</button><i></i><span style="opacity:.6">Flagship</span></div>
+
+<script>
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim()
+function rng(s){return()=>(s=Math.sin(s*9301+49297)*233280,s-Math.floor(s))}
+function wave(c,seed,col,played,hl){const d=devicePixelRatio||1,w=c.clientWidth,h=c.clientHeight;if(!w)return;c.width=w*d;c.height=h*d;const x=c.getContext('2d');x.scale(d,d);const r=rng(seed),n=Math.floor(w/3);for(let i=0;i<n;i++){const env=Math.sin(Math.PI*i/n)**.35,a=Math.max(2,(.25+.75*r())*env*h);x.fillStyle=played&&i/n<played?hl:col;x.fillRect(i*3,(h-a)/2,2,a)}}
+const F=[['State Of Anarchy',143,'B min',2],['Spider',120,'A♯ min',4],['SAYWHAT',109,'F min',5],['FALLING',114,'E♭ min',6],['TITAN',155,'D min',8],['LEMONS',149,'E min',9],['BLASTOFF',149,'B♭ min',10],['SINEWAVE',149,'E min',11],['IHAVEABOMB',136,'A min',12],['COMPUTAAA',132,'F min',13],['War',154,'B♭ min',13]]
+const W=[['rouge','–','–',3],['Retroville',142,'G maj',5],['huhhh','–','–',7],['glo gang','–','–',11],['glo','–','–',12]]
+const rows=document.getElementById('rows')
+function grp(t,c,label,list){rows.insertAdjacentHTML('beforeend',`<div class="grp" style="--c:var(${c})"><i></i>${t} <span style="color:var(--fg-3);font-weight:400">${list.length}</span></div>`);list.forEach(([n,b,k,d],i)=>rows.insertAdjacentHTML('beforeend',`<div class="row${n==='State Of Anarchy'?' sel':''}" tabindex="0" style="--c:var(${c})"><span class="p" aria-hidden="true"><svg width="9" height="9" viewBox="0 0 12 12"><path d="M3 1.5v9l7.5-4.5z" fill="currentColor"/></svg></span><b>${n}</b><canvas data-seed="${n.length*7+i}" data-col="${c}" aria-hidden="true"></canvas><span class="d">${b}</span><span class="d">${k}</span><span><span class="pill" style="--c:var(${c})">${label}</span></span><span class="d">${d} days ago</span></div>`))}
+grp('In progress','--wip','In progress',W);grp('Finished','--done','Finished',F)
+function draw(){document.querySelectorAll('canvas').forEach(c=>wave(c,+c.dataset.seed||3,c.dataset.col?css(c.dataset.col):css('--fg-3'),+c.dataset.played||0,css('--wip')))}
+function glide(){const on=document.querySelector('.strip button.on'),g=document.querySelector('.glide');if(!on)return;g.style.width=on.offsetWidth-16+'px';g.style.transform=`translateX(${on.offsetLeft+8-16}px)`}
+function show(v){document.querySelectorAll('.view').forEach(x=>x.classList.toggle('on',x.id===v));document.querySelectorAll('[data-v]').forEach(b=>b.classList.toggle('on',b.dataset.v===v));glide();requestAnimationFrame(draw)}
+document.querySelectorAll('[data-v]').forEach(b=>b.addEventListener('click',()=>show(b.dataset.v)))
+document.querySelectorAll('[data-w]').forEach(b=>b.addEventListener('click',()=>{if(b.tagName!=='BUTTON')return;document.documentElement.dataset.w=b.dataset.w;document.querySelectorAll('.mock [data-w]').forEach(x=>x.classList.toggle('on',x===b));setTimeout(()=>{draw();glide()},60)}))
+document.querySelectorAll('[data-open]').forEach(b=>b.addEventListener('click',()=>{const d=document.getElementById(b.dataset.open);d.classList.add('on');d.querySelector('.x').focus()}))
+document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>b.closest('.scrim').classList.remove('on')))
+function recount(){const on=[...document.querySelectorAll('.pin.on')];const ppl=new Set(on.map(p=>p.closest('.cell').previousElementSibling&&p.getAttribute('aria-label').split(' to ')[1]));document.getElementById('sum').textContent=`${ppl.size} emails, ${on.length} beats, using your “Short and direct” template`;document.getElementById('send').textContent=`Send ${ppl.size} emails`}
+document.querySelectorAll('.pin').forEach(p=>p.addEventListener('click',()=>{p.classList.toggle('on');p.setAttribute('aria-pressed',p.classList.contains('on'));recount()}))
+document.getElementById('send').addEventListener('click',()=>{document.getElementById('pitch').classList.remove('on');const t=document.getElementById('toast');t.classList.add('on');setTimeout(()=>t.classList.remove('on'),3500)})
+addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.scrim').forEach(s=>s.classList.remove('on'))})
+document.fonts.ready.then(()=>{draw();glide()});addEventListener('resize',()=>{draw();glide()})
+</script>
+</body>
+</html>

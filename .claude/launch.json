@@ -1,6 +1,7 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "store", "runtimeExecutable": "python3", "runtimeArgs": ["-m", "http.server", "8099", "--directory", "store"], "port": 8099 }
+    { "name": "store", "runtimeExecutable": "python3", "runtimeArgs": ["-m", "http.server", "8099", "--directory", "store"], "port": 8099 },
+    { "name": "mockups", "runtimeExecutable": "python3", "runtimeArgs": ["-m", "http.server", "8098", "--directory", "docs/design/mockups"], "port": 8098 }
   ]
 }

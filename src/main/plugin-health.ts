@@ -251,8 +251,9 @@ export async function runHealthChecks(db: Database.Database, home: string, deps:
   drafts.push(...findDuplicates(plugins))
 
   const bundles = plugins.flatMap((p) => p.bundles.map((b) => ({ p, b })))
-  // Signature checks are slow and only matter for plugins FL has not already scanned fine.
-  const checked = await pool(bundles, 6, ({ b }) => checkBundle(b, { codesign: deps.codesign !== false && !accepted.has(b.path) }))
+  // Signature checks are off unless a caller asks for them (deps.codesign === true). Modified or unsigned plugins are the
+  // owner's choice, so they are never flagged and never offered an ad-hoc re-sign.
+  const checked = await pool(bundles, 6, ({ b }) => checkBundle(b, { codesign: deps.codesign === true && !accepted.has(b.path) }))
   checked.forEach((list, i) => { for (const d of list) drafts.push({ ...d, pluginId: bundles[i].p.id, name: bundles[i].p.name }) })
 
   if (flEntries) drafts.push(...compareFlDatabase(flEntries, plugins))

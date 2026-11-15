@@ -40,22 +40,11 @@ export function Defs() {
   )
 }
 
-/** Every theme has its own mark; CSS shows the one that matches. */
+/** The Studio HQ mark. Themes can swap it by styling .bm; Deck draws a wide S in the display face. */
 export function BrandMark() {
   return (
     <span className="bm" aria-hidden>
-      <span className="bm-defied">S<b>✦</b></span>
-      <span className="bm-pearl"><i /></span>
-      <svg className="bm-signal" viewBox="0 0 22 20"><rect x="0" y="11" width="3.4" height="9" /><rect x="6" y="0" width="3.4" height="20" /><rect x="12" y="6" width="3.4" height="14" /><rect x="18" y="13" width="3.4" height="7" /></svg>
-      <svg className="bm-faceplate" viewBox="0 0 22 22"><rect x="9.5" y="1" width="3" height="20" rx="1.5" className="slot" /><rect x="4" y="12" width="14" height="6" rx="1" className="cap" /><path d="M11 13.5v3" className="mark" /></svg>
-      <svg className="bm-tape" viewBox="0 0 34 20">
-        <path d="M10 18.5h14" className="strip" />
-        <g className="reel r1"><circle cx="9" cy="9" r="7.5" className="ring" /><circle cx="9" cy="9" r="1.7" className="hub" /><path d="M9 2v4M9 12v4M2 9h4M12 9h4" className="spk" /></g>
-        <g className="reel r2"><circle cx="25" cy="9" r="7.5" className="ring" /><circle cx="25" cy="9" r="1.7" className="hub" /><path d="M25 2v4M25 12v4M18 9h4M28 9h4" className="spk" /></g>
-      </svg>
-      <svg className="bm-brass" viewBox="0 0 28 28"><circle cx="14" cy="14" r="13" className="o" /><circle cx="14" cy="14" r="10.4" className="i" /><text x="14" y="19" textAnchor="middle" className="t">S</text></svg>
-      <svg className="bm-ballpoint" viewBox="0 0 120 10" preserveAspectRatio="none"><path d="M2 7c18-5 38-5 58-3s38 2 58-2" className="scribble" /></svg>
-      <svg className="bm-concrete" viewBox="0 0 22 22"><rect width="22" height="22" className="blk" /><path d="M5 17V9M11 17V5M17 17v-6" className="cut" /></svg>
+      <span className="bm-deck">S</span>
     </span>
   )
 }

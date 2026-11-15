@@ -36,7 +36,7 @@ function Mini({ theme }: { theme: Theme }) {
 }
 
 export function ThemesView({ current, onPick }: { current: string; onPick: (id: string) => void }) {
-  const group = (dark: boolean, title: string) => (
+  const group = (dark: boolean, title: string) => THEMES.some((t) => t.dark === dark) && (
     <>
       <h3 className="tgroup">{title}</h3>
       <div className="tgrid" role="radiogroup" aria-label={title}>

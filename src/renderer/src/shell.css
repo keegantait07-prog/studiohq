@@ -35,7 +35,7 @@
 [data-theme='defied'] .tp-name { background: var(--chrome-text); -webkit-background-clip: text; background-clip: text; color: transparent; }
 
 .deck {
-  display: grid; grid-template-columns: 34px minmax(110px, 180px) minmax(80px, 1fr) auto auto auto; align-items: center; gap: var(--s3);
+  display: grid; grid-template-columns: 34px minmax(110px, 180px) minmax(80px, 1fr) auto auto; align-items: center; gap: var(--s3);
   height: 44px; padding: 0 6px 0 5px; border-radius: var(--r-btn); background: var(--well); border: 1px solid var(--line);
 }
 .dk-play { width: 34px; height: 34px; padding: 0; border: 0; border-radius: var(--r-btn); background: var(--accent); color: var(--accent-ink); font-size: 11px; display: grid; place-items: center; transition: transform var(--dur-1) var(--ease-out); }
@@ -46,8 +46,9 @@
 .dk-wave { height: 28px; min-width: 0; }
 .dk-wave > * { height: 100%; }
 .deck > .sub { font-size: 12px; color: var(--text-2); white-space: nowrap; }
-.dk-chip { height: 28px; padding: 0 10px; border-radius: var(--r-btn); border: 1px solid var(--line-hi); background: none; color: var(--text-2); font-size: 12px; }
-.dk-chip.on { background: var(--text); color: var(--bg); border-color: var(--text); }
+.dk-chips { position: relative; display: flex; gap: 6px; }
+.dk-chip { position: relative; height: 28px; padding: 0 10px; border-radius: var(--r-btn); border: 1px solid var(--line-hi); background: var(--well); color: var(--text-2); font-size: 12px; transition: color var(--dur-2) ease, border-color var(--dur-2) ease; }
+.dk-chip.on { background: transparent; color: var(--bg); border-color: var(--text); }
 .dk-chip:disabled { opacity: .4; }
 .tp-find { display: flex; align-items: center; gap: var(--s2); height: 36px; padding: 0 var(--s3); border-radius: var(--r-btn); border: 1px solid var(--line); background: none; color: var(--dim); font-size: 13px; text-align: left; transition: border-color var(--dur-2) ease; }
 .tp-find span { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -59,6 +60,51 @@
 .tp-session i { width: 7px; height: 7px; border-radius: 50%; background: var(--sold); }
 @media (prefers-reduced-motion: no-preference) { .tp-session i { animation: v4-pulse 2s ease-in-out infinite; } }
 @keyframes v4-pulse { 50% { opacity: .35; } }
+
+/* ---- v4 life: shell ---- */
+/* 1. play / pause: two shapes that trade a triangle for two bars */
+.dk-play svg { overflow: visible; }
+.dk-play path { fill: currentColor; transition: d var(--dur-3) var(--ease-out); }
+.dk-play .pl { d: path('M3 2 L7 4.4 L7 9.6 L3 12 Z'); }
+.dk-play .pr { d: path('M7 4.4 L11 7 L11 7 L7 9.6 Z'); }
+.dk-play[data-playing] .pl { d: path('M3 2 L6 2 L6 12 L3 12 Z'); }
+.dk-play[data-playing] .pr { d: path('M8 2 L11 2 L11 12 L8 12 Z'); }
+/* 3. tab text roll: the label slides up, a copy slides in from below */
+.st-roll { position: relative; display: inline-block; overflow: hidden; line-height: 1.5; vertical-align: middle; }
+.st-roll > span { display: block; transition: transform var(--dur-3) var(--ease-out); }
+.st-roll::after { content: attr(data-t); position: absolute; left: 0; top: 100%; transition: transform var(--dur-3) var(--ease-out); }
+@media (hover: hover) { .st-tab:hover .st-roll > span, .st-tab:hover .st-roll::after { transform: translateY(-100%); } }
+/* 4. tooltip with an arrow */
+.tip { position: relative; display: grid; }
+.tip-bubble { position: absolute; left: 50%; z-index: 30; padding: 4px 8px; border-radius: 6px; background: var(--text); color: var(--bg); font: 500 11.5px/1.3 var(--font); white-space: nowrap; pointer-events: none; opacity: 0; transform: translate(-50%, 4px) scale(.96); transition: opacity var(--dur-2) ease, transform var(--dur-2) var(--ease-out); }
+.tip-bubble::after { content: ''; position: absolute; left: 50%; width: 8px; height: 8px; background: var(--text); transform: translateX(-50%) rotate(45deg); border-radius: 1px; }
+.tip-bottom .tip-bubble { top: calc(100% + 8px); }
+.tip-bottom .tip-bubble::after { top: -3px; }
+.tip-top .tip-bubble { bottom: calc(100% + 8px); }
+.tip-top .tip-bubble::after { bottom: -3px; }
+.tip:focus-within .tip-bubble { opacity: 1; transform: translate(-50%, 0) scale(1); }
+@media (hover: hover) { .tip:hover .tip-bubble { opacity: 1; transform: translate(-50%, 0) scale(1); transition-delay: 350ms; } }
+/* 6. rolling digits */
+.rn { --h: var(--rn-h, 1.2em); display: inline-flex; align-items: flex-start; height: var(--h); line-height: var(--h); font-variant-numeric: tabular-nums; vertical-align: bottom; }
+.rn-d { display: inline-block; height: var(--h); overflow: hidden; }
+.rn-col { display: flex; flex-direction: column; transform: translateY(calc(var(--d) * var(--h) * -1)); transition: transform var(--dur-3) var(--ease-out); }
+.rn-col > span, .rn-s { height: var(--h); white-space: pre; }
+.st-badge .rn { --rn-h: 1.2em; }
+.h-blk b { --rn-h: 1em; }
+/* 7. gooey chips: shapes live in a filtered layer under the buttons */
+.dk-blobs { position: absolute; inset: 0; display: flex; gap: 6px; filter: url(#dk-goo); pointer-events: none; }
+.dk-blob { box-sizing: border-box; height: 28px; padding: 0 10px; border: 1px solid transparent; border-radius: var(--r-btn); background: var(--line-hi); color: transparent; font-size: 12px; font-style: normal; display: inline-flex; align-items: center; transition: background var(--dur-3) var(--ease-out), transform var(--dur-3) var(--ease-out); }
+.dk-blob.on { background: var(--text); transform: scaleX(1.16); }
+.dk-blob.off { opacity: .4; }
+/* 5. soft edges on scroll panels: the fade eases in only once there is more to scroll */
+@property --ft { syntax: '<length>'; inherits: false; initial-value: 0px; }
+@property --fb { syntax: '<length>'; inherits: false; initial-value: 0px; }
+@keyframes v4-edge { 0% { --ft: 0px; --fb: 22px; } 6% { --ft: 22px; } 94% { --fb: 22px; } 100% { --ft: 22px; --fb: 0px; } }
+.h-main, .h-rail, .vt-rows, .insp {
+  animation: v4-edge linear both; animation-timeline: scroll(self);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--ft), #000 calc(100% - var(--fb)), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 var(--ft), #000 calc(100% - var(--fb)), transparent 100%);
+}
 
 /* ---- the strip ---- */
 .strip { grid-row: 2; grid-column: 1 / -1; position: relative; display: flex; align-items: stretch; padding: 0 var(--s4); border-bottom: 1px solid var(--line); background: var(--bg); overflow-x: auto; scrollbar-width: none; }
@@ -172,6 +218,8 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .st-line, .h-tick, .h-btn, .h-meter i, .dk-play, .v-seg button, .v-btn, .vt-row, .vt-play { transition: none; }
+  .dk-play path, .st-roll > span, .st-roll::after, .tip-bubble, .rn-col, .dk-blob, .dk-chip { transition: none; }
+  .st-roll::after { display: none; }
 }
 
 /* ===== v4 Beats and Loops (docs/design/mockups/v4/a-deck.html #beats) ============================ */

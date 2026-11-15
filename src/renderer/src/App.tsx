@@ -2,6 +2,8 @@ import { lazy, useCallback, useEffect, useMemo, useRef, useState, Fragment } fro
 import { STATUSES, type Beat, type BeatDetail, type ContentData, type CrmData, type FeedbackData, type SoundList, type SoundStatus, type StudioSession, type SalesData, type Sale, type ScanStatus, type Settings as AppSettings, type Status, type TagKind, type NetlifyStatus, type VaultKind } from '@shared/types'
 import { clickable } from './a11y'
 import { SectionStrip, Transport, type TabBadges } from './Shell'
+import { Tip } from './components/ui/Tooltip'
+import { GooChips } from './components/ui/GooChips'
 import { ViewGuard } from './ViewGuard'
 import { useNow } from './useNow'
 import { displayKey } from '@shared/key'
@@ -429,15 +431,19 @@ export function App() {
         brand={<BrandMark />}
         onFind={() => setPalette(true)}
         deck={<>
-          <button className="dk-play" onClick={() => (player.id == null && selectedId != null ? safePlay(selectedId) : player.toggle())} aria-label={player.playing ? 'Pause' : 'Play'}>{player.playing ? '❚❚' : '▶'}</button>
+          <Tip label={player.playing ? 'Pause (Space)' : 'Play (Space)'}><button className="dk-play" data-playing={player.playing ? '' : undefined} onClick={() => (player.id == null && selectedId != null ? safePlay(selectedId) : player.toggle())} aria-label={player.playing ? 'Pause' : 'Play'}>
+            <svg viewBox="0 0 14 14" width="14" height="14" aria-hidden="true"><path className="pl" d="M3 2 L7 4.4 L7 9.6 L3 12 Z" /><path className="pr" d="M7 4.4 L11 7 L11 7 L7 9.6 Z" /></svg>
+          </button></Tip>
           <div className="dk-now">
             <b>{playingDetail?.title ?? 'Nothing playing'}</b>
             <small>{playingDetail ? [playingDetail.bpm && `${Math.round(playingDetail.bpm)} BPM`, playingDetail.key].filter(Boolean).join(', ') || 'No BPM or key yet' : 'Space plays the selected beat'}</small>
           </div>
           <div className="dk-wave"><PlayerWave player={player} peaks={playingDetail?.peaks ?? []} /></div>
           <PlayerReadout player={player} fallbackDuration={playingDetail?.duration ?? null} />
-          <button className={`dk-chip ${audition ? 'on' : ''}`} onClick={() => setAudition((a) => !a)} aria-pressed={audition} title="Audition mode (A): play beats from their fullest part as you move through them">Audition</button>
-          <button className="dk-chip" onClick={flipTake} disabled={player.id == null || takesOf(beats, player.id).length < 2} title="A/B the takes of this beat at the same moment (B)">A/B</button>
+          <GooChips chips={[
+            { id: 'audition', label: 'Audition', on: audition, onClick: () => setAudition((a) => !a), title: 'Audition mode (A): play beats from their fullest part as you move through them' },
+            { id: 'ab', label: 'A/B', onClick: flipTake, disabled: player.id == null || takesOf(beats, player.id).length < 2, title: 'A/B the takes of this beat at the same moment (B)' },
+          ]} />
         </>}
         right={<>
           {scanning && <span className="tp-scan" title="Reading BPM and key">Analyzing {scan.total - scan.pending} of {scan.total}</span>}

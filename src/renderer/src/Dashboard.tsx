@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { RollNumber } from './components/ui/RollNumber'
 import type { Beat, ContentData, CrmData, FeedbackData, SalesData, Settings, Status, StudioSession } from '@shared/types'
 import { isDue, daysSince } from './crmUtils'
 import { clickable } from './a11y'
@@ -61,7 +62,7 @@ function CatalogHealth({ beats, onQuery }: { beats: Beat[]; onQuery: (q: string)
   const score = audioN ? Math.round(100 * (1 - Math.min(1, rows.slice(0, 3).reduce((a, r) => a + r.n, 0) / (audioN * 3)))) : 100
   return (
     <section className="h-panel" aria-labelledby="h-health">
-      <h3 id="h-health">Catalogue health <span className="h-count">{score}%</span></h3>
+      <h3 id="h-health">Catalogue health <span className="h-count"><RollNumber value={`${score}%`} /></span></h3>
       <div className="h-meter"><i className={score >= 90 ? 'done' : ''} style={{ transform: `scaleX(${score / 100})` }} /></div>
       {issues === 0 ? <p className="h-quiet">Everything is tagged and up to date.</p> : rows.filter((r) => r.n > 0).map((r) => (
         <div key={r.q} className="h-kv"><button className="h-link" onClick={() => onQuery(r.q)}>{r.n} {r.label}</button><span>{r.hint}</span></div>
@@ -163,10 +164,10 @@ export function Dashboard(p: Props) {
         </section>
 
         <div className="h-bento">
-          <div className="h-blk" style={{ ['--c' as string]: 'var(--finished)' }}><small>Finished, not out yet</small><b>{ready.length}</b></div>
-          <div className="h-blk" style={{ ['--c' as string]: 'var(--wip)' }}><small>Made this week</small><b>{madeWeek}</b></div>
-          <div className="h-blk" style={{ ['--c' as string]: 'var(--sent)' }}><small>Day streak, best {best}</small><b>{current}</b></div>
-          <div className="h-blk dim"><small>Earned this month</small><b>{money(Math.round(revenue))}</b></div>
+          <div className="h-blk" style={{ ['--c' as string]: 'var(--finished)' }}><small>Finished, not out yet</small><b><RollNumber value={ready.length} /></b></div>
+          <div className="h-blk" style={{ ['--c' as string]: 'var(--wip)' }}><small>Made this week</small><b><RollNumber value={madeWeek} /></b></div>
+          <div className="h-blk" style={{ ['--c' as string]: 'var(--sent)' }}><small>Day streak, best {best}</small><b><RollNumber value={current} /></b></div>
+          <div className="h-blk dim"><small>Earned this month</small><b><RollNumber value={money(Math.round(revenue))} /></b></div>
         </div>
 
         <div className="h-row">
@@ -178,7 +179,7 @@ export function Dashboard(p: Props) {
             <p className="h-quiet">Weeks run Monday to Sunday. Click a goal number to change it.</p>
           </section>
           <section className="h-panel" aria-labelledby="h-streak">
-            <h3 id="h-streak">Beat-making streak <span className="h-count">{current} day{current === 1 ? '' : 's'}</span></h3>
+            <h3 id="h-streak">Beat-making streak <span className="h-count"><RollNumber value={`${current} day${current === 1 ? '' : 's'}`} /></span></h3>
             <div className="h-heat">
               {weeks.map((w, i) => <div key={i}>{w.map((t) => { const d = act.get(dayKey(t)); const n = d ? d.bounces + (isActive({ bounces: 0, ms: d.ms }) ? 1 : 0) : 0; return <i key={t} title={`${new Date(t).toLocaleDateString()}: ${d?.bounces ?? 0} bounce${d?.bounces === 1 ? '' : 's'}, ${fmtHM(d?.ms ?? 0)}`} className={`${t > now ? 'future' : n >= 3 ? 'l3' : n === 2 ? 'l2' : n === 1 ? 'l1' : ''} ${t === today0 ? 'today' : ''}`} /> })}</div>)}
             </div>
@@ -190,7 +191,7 @@ export function Dashboard(p: Props) {
 
       <aside className="h-rail" aria-label="Waiting on you">
         <section>
-          <h3>Waiting on you <span className="h-count">{due.length + Math.min(3, wip.length) + Math.min(3, ready.length) + Math.min(3, planned.length)}</span></h3>
+          <h3>Waiting on you <span className="h-count"><RollNumber value={due.length + Math.min(3, wip.length) + Math.min(3, ready.length) + Math.min(3, planned.length)} /></span></h3>
           {due.slice(0, 5).map((x) => <div key={`f${x.id}`} className="h-todo" style={{ ['--c' as string]: 'var(--sent)' }}><i /><div>Follow up with {x.contactName}<small>{x.beats.map((b) => b.title).join(', ') || x.subject}, {daysSince(x.sentAt, now)} days ago</small></div><button className="h-go" onClick={() => p.onOpenContact(x.contactId)}>Open</button></div>)}
           {due.length > 5 && <button className="h-link" onClick={() => p.onGo('crm')}>{due.length - 5} more follow-ups</button>}
           {wip.slice(0, 3).map((b) => <div key={`w${b.id}`} className="h-todo" style={{ ['--c' as string]: 'var(--wip)' }}><i /><div>Finish {b.title}<small>Last touched {daysSince(b.mtime, now)} days ago</small></div><button className="h-go" onClick={() => p.onSetStatus(b.id, 'finished')} title="Mark it finished">Done</button></div>)}
@@ -216,7 +217,7 @@ export function Dashboard(p: Props) {
         </section>
 
         <section>
-          <h3>Replies and feedback {unseen.length > 0 && <span className="h-count hot">{unseen.length} new</span>}</h3>
+          <h3>Replies and feedback {unseen.length > 0 && <span className="h-count hot"><RollNumber value={`${unseen.length} new`} /></span>}</h3>
           {unseen.slice(0, 3).map((c) => <div key={c.id} className="h-todo" style={{ ['--c' as string]: 'var(--accent)' }}><i /><div>{c.name || 'Someone'} on {c.beatId ? title(c.beatId) : 'a beat'}<small>{c.text.slice(0, 70)}</small></div></div>)}
           {unseen.length > 0 && <button className="h-link" onClick={() => p.onGo('feedback')}>Open Feedback</button>}
           {!unseen.length && <p className="h-empty"><b>{awaiting ? `${awaiting} pitch${awaiting === 1 ? '' : 'es'} out, no replies yet` : 'No replies to read'}</b>{awaiting ? 'Replies and comments show up here.' : 'Pitch a finished beat or send a feedback link, and replies show up here.'}</p>}

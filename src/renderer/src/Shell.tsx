@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, type ReactNode } from 'react'
 import { SECTIONS, type ViewId } from './navModel'
+import { RollNumber } from './components/ui/RollNumber'
 
 export type TabBadges = Partial<Record<ViewId, string | null>>
 
@@ -48,7 +49,7 @@ export function SectionStrip({ view, onGo, badges, end }: { view: ViewId; onGo: 
           {i > 0 && <span className="st-sep" aria-hidden="true" />}
           {s.tabs.map((t) => (
             <button key={t.view} className={`st-tab ${view === t.view ? 'on' : ''}`} aria-current={view === t.view ? 'page' : undefined} onClick={() => onGo(t.view)}>
-              {t.label}{badges[t.view] && <span className="st-badge">{badges[t.view]}</span>}
+              <span className="st-roll" data-t={t.label}><span>{t.label}</span></span>{badges[t.view] && <span className="st-badge"><RollNumber value={badges[t.view] as string} /></span>}
             </button>
           ))}
         </div>

@@ -32,7 +32,6 @@
 .tp-brand { display: flex; align-items: center; gap: var(--s2); white-space: nowrap; }
 .tp-brand svg { width: 22px; height: 22px; }
 .tp-name { font: var(--display-weight, 700) 14px var(--font-display); text-transform: var(--display-case); letter-spacing: var(--display-track); color: var(--text); }
-[data-theme='defied'] .tp-name { background: var(--chrome-text); -webkit-background-clip: text; background-clip: text; color: transparent; }
 
 .deck {
   display: grid; grid-template-columns: 34px minmax(110px, 180px) minmax(80px, 1fr) auto auto; align-items: center; gap: var(--s3);
@@ -127,7 +126,6 @@
 .h-main { overflow-y: auto; padding: var(--s5) var(--s6) var(--s6); display: flex; flex-direction: column; gap: var(--s5); }
 .h-lead { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: var(--s5); }
 .h-lead h1 { margin: 0; max-width: 24ch; font: var(--display-weight, 700) 30px/1.08 var(--font-display); text-transform: var(--display-case); letter-spacing: var(--display-track); color: var(--text); text-wrap: balance; }
-[data-theme='defied'] .h-lead h1 { background: var(--chrome-text); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .h-lead p { margin: var(--s2) 0 0; max-width: 60ch; color: var(--text-2); text-wrap: pretty; }
 .h-cta { display: flex; gap: var(--s2); }
 .h-btn { height: 36px; padding: 0 var(--s4); border-radius: var(--r-btn); border: 1px solid var(--line-hi); background: none; color: var(--text); font-weight: 600; white-space: nowrap; transition: background-color var(--dur-2) ease, transform var(--dur-1) var(--ease-out); }
@@ -160,7 +158,6 @@
 .h-blk { min-height: 116px; padding: var(--s4); border-radius: var(--r-card); background: var(--c); color: var(--accent-ink); display: flex; flex-direction: column; justify-content: space-between; }
 .h-blk small { font-size: 12px; font-weight: 600; color: color-mix(in srgb, #000 72%, transparent); }
 .h-blk b { font: 700 40px/1 var(--font-display); letter-spacing: -.01em; color: #0b0b0b; }
-:is([data-theme='concrete'], [data-theme='ballpoint']) .h-blk:not(.dim) :is(small, b) { color: #fff; } /* their status colours are dark, so the ink flips */
 .h-blk.dim { background: var(--panel); border: 1px solid var(--line); }
 .h-blk.dim small { color: var(--dim); }
 .h-blk.dim b { color: var(--text); }
@@ -231,7 +228,6 @@
 .v-tools, .v-opts { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s2); padding: var(--s4) var(--s5) 0; }
 .v-opts { padding-top: var(--s3); padding-bottom: var(--s3); }
 .v-tools h2 { margin: 0 var(--s3) 0 0; font: var(--display-weight, 700) 20px var(--font-display); text-transform: var(--display-case); letter-spacing: var(--display-track); color: var(--text); }
-:is([data-theme='concrete'], [data-theme='ballpoint']) .v-tools h2 { font-size: 30px; }
 .v-gap { flex: 1; }
 .v-tools > :not(.v-search), .v-opts > * { flex: none; }
 .v-check, .v-seg button, .v-opts .chips-inline { white-space: nowrap; }
@@ -241,8 +237,6 @@
 .v-seg button i { width: 7px; height: 7px; border-radius: 2px; background: var(--c); }
 .v-seg button.on { background: var(--raise); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, .25); }
 .v-seg button.on span { color: var(--text-2); }
-:is([data-theme='concrete'], [data-theme='ballpoint']) .v-seg button.on { background: var(--text); color: var(--bg); box-shadow: none; }
-:is([data-theme='concrete'], [data-theme='ballpoint']) .v-seg button.on span { color: var(--bg); }
 .v-search { position: relative; flex: 1 1 180px; min-width: 180px; max-width: 420px; }
 .v-search input { width: 100%; padding: 7px 28px 7px 12px; font-size: 13px; background: var(--well); border: 1px solid var(--line); border-radius: var(--r-field); color: var(--text); }
 .v-search button { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); padding: 2px 6px; color: var(--dim); cursor: pointer; }
@@ -318,7 +312,6 @@
 .i-wave .wave { display: block; width: 100%; }
 .i-head { display: flex; flex-direction: column; gap: var(--s2); }
 .insp .title-input { margin: 0 -6px; padding: 4px 6px; font: var(--display-weight, 700) 22px/1.1 var(--font-display); text-transform: var(--display-case); letter-spacing: var(--display-track); color: var(--text); }
-:is([data-theme='concrete'], [data-theme='ballpoint']) .insp .title-input { font-size: 30px; }
 .i-sub { margin: 0; color: var(--text-2); font-size: 13px; }
 .insp .filename { margin: 0; color: var(--dim); font-size: 11px; }
 .insp .status-row { gap: 4px; margin-top: var(--s2); }

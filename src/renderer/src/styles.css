@@ -8,7 +8,7 @@
   --bg-glow: #12110f;
   --bg: #0b0b0a; --panel: #121210; --panel-hi: #151412; --panel-lo: #0f0f0d; --panel2: #1a1917; --well: #070706; --hov: #161513; --sel: #22211e; --raise: #1a1917; /* --background, --card, --well, --muted, --raised */
   --chip: #22211e; --track: #22211e; --rowline: rgba(255, 244, 230, .05); --line: rgba(255, 244, 230, .08); --line-soft: rgba(255, 244, 230, .05); --line-hi: rgba(255, 244, 230, .16);
-  --text: #f3efe8; --text-2: #aaa49a; --dim: #78736b;
+  --text: #f3efe8; --text-2: #aaa49a; --dim: #8a847b; /* 5.06:1 on --panel, 4.74:1 on --raise (approved #78736b failed AA) */
   --accent: #ff5533; --accent-hi: #ff7a5e; --accent-ink: #0b0b0a; --accent-text: #ff6a4d; --accent-rgb: 255, 85, 51; --ember: #ffb547;
   --fg-rgb: 255, 244, 230; --shadow-rgb: 0, 0, 0; --scrim: rgba(5, 5, 4, .66);
   --wf: #3a3833; --wf-played: var(--accent);

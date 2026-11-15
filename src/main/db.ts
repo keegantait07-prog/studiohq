@@ -489,12 +489,80 @@ function seedLicenses(db: Database.Database): void {
   fillStarterLicenses(db)
 }
 
-function seedTemplates(db: Database.Database): void {
-  if ((db.prepare('SELECT COUNT(*) c FROM templates').get() as { c: number }).c) return
-  const ins = db.prepare('INSERT INTO templates(name,kind,subject,body) VALUES(?,?,?,?)')
-  ins.run(
-    'First pitch', 'first_pitch', '{{beat_count}} beats for you, {{name}}',
-    `Hey {{name}},
+const SIGNATURE = `Best,
+{{my_name}}
+Instagram: @smalls.mp3
+musicbysmalls@gmail.com`
+
+export const PITCH_TEMPLATES = {
+  first_pitch: {
+    subject: 'heat for you {{name}}',
+    body: `yoo {{name}},
+
+got some beats I think fit ur sound:
+
+{{beats}}
+
+listen here: {{link}}
+
+if anything hits just hit me back and I'll send the files
+
+- smalls
+@smalls.mp3`
+  },
+  follow_up: {
+    subject: 'Re: {{subject}}',
+    body: `yoo {{name}},
+
+just making sure u saw the beats I sent ({{beat_titles}})
+
+{{link}}
+
+tell me what vibe ur on and I'll send something else
+
+- smalls
+@smalls.mp3`
+  }
+}
+
+export const PRO_STARTER = {
+  first_pitch: {
+    subject: 'Beat selection for {{name}}',
+    body: `Hi {{name}},
+
+I'm {{my_name}}, a producer. I put together a short selection with your sound in mind:
+
+{{beats}}
+
+You can listen here: {{link}}
+
+Everything is available with stems, and I'm happy to send full files or build in a different direction if something is close. If any of it fits a current project, I'd love to hear from you.
+
+Thank you for your time.
+
+${SIGNATURE}`
+  },
+  follow_up: {
+    subject: 'Re: {{subject}}',
+    body: `Hi {{name}},
+
+I'm following up on the selection I sent {{days}} days ago ({{beat_titles}}), in case it was buried in your inbox.
+
+Listen here: {{link}}
+
+If the direction isn't quite right, tell me what you're leaning toward and I'll send something more targeted.
+
+Thank you again for your time.
+
+${SIGNATURE}`
+  }
+}
+
+/** The first starter wording, kept so an untouched copy can be upgraded without overwriting anyone's edits. */
+const FIRST_STARTER: Record<'first_pitch' | 'follow_up', { subject: string; body: string }> = {
+  first_pitch: {
+    subject: '{{beat_count}} beats for you, {{name}}',
+    body: `Hey {{name}},
 
 I'm {{my_name}}, a producer. I put together a few beats I think would fit what you're doing:
 
@@ -505,10 +573,10 @@ Listen here: {{link}}
 No pressure at all. If anything hits, let me know and I'll send the full files or stems.
 
 {{my_name}}`
-  )
-  ins.run(
-    'Follow-up', 'follow_up', 'Re: {{subject}}',
-    `Hey {{name}},
+  },
+  follow_up: {
+    subject: 'Re: {{subject}}',
+    body: `Hey {{name}},
 
 Floating this back to the top of your inbox in case it got buried. I sent over {{beat_titles}} {{days}} days ago.
 
@@ -517,5 +585,21 @@ Listen: {{link}}
 Happy to send other directions if these aren't it.
 
 {{my_name}}`
-  )
+  }
+}
+
+function seedTemplates(db: Database.Database): void {
+  if (!(db.prepare('SELECT COUNT(*) c FROM templates').get() as { c: number }).c) {
+    const ins = db.prepare('INSERT INTO templates(name,kind,subject,body) VALUES(?,?,?,?)')
+    ins.run('First pitch', 'first_pitch', PITCH_TEMPLATES.first_pitch.subject, PITCH_TEMPLATES.first_pitch.body)
+    ins.run('Follow-up', 'follow_up', PITCH_TEMPLATES.follow_up.subject, PITCH_TEMPLATES.follow_up.body)
+    return
+  }
+  // upgrade only templates that still match the original starter text exactly
+  const upd = db.prepare('UPDATE templates SET subject=?, body=? WHERE kind=? AND subject=? AND body=?')
+  for (const kind of ['first_pitch', 'follow_up'] as const) {
+    for (const old of [FIRST_STARTER[kind], PRO_STARTER[kind]]) {
+      upd.run(PITCH_TEMPLATES[kind].subject, PITCH_TEMPLATES[kind].body, kind, old.subject, old.body)
+    }
+  }
 }

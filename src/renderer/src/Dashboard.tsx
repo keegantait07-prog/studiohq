@@ -3,7 +3,8 @@ import type { Beat, ContentData, CrmData, FeedbackData, SalesData, Settings, Sta
 import { isDue, daysSince } from './crmUtils'
 import { clickable } from './a11y'
 import { useNow } from './useNow'
-import { activity, beatsMadeSince, dayKey, DAY, fmtClock, fmtHM, isActive, sessionMs, startOfDay, streaks, weekStart } from './dashUtils'
+import { activity, beatsMadeSince, dayKey, DAY, fmtClock, fmtHM, isActive, madeSeries, type MadePeriod, sessionMs, startOfDay, streaks, weekStart } from './dashUtils'
+import { PeakChart } from './components/ui/peak-chart'
 import { money, net } from './salesUtils'
 import { HEALTH } from './query'
 
@@ -109,6 +110,10 @@ export function Dashboard(p: Props) {
   // 15-week activity heatmap, Monday-first columns
   const weeks = Array.from({ length: 15 }, (_, w) => Array.from({ length: 7 }, (_, d) => wk - (14 - w) * 7 * DAY + d * DAY))
 
+  const [madePeriod, setMadePeriod] = useState<MadePeriod>('Monthly')
+  const made = useMemo(() => madeSeries(beats, madePeriod, today0 + DAY - 1), [beats, madePeriod, today0])
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()
+
   const next = due[0] ? 'due' : wip[0] ? 'wip' : ready[0] ? 'ready' : 'none'
   const w0 = wip[0], r0 = ready[0], d0 = due[0]
   const openWip = (b: Beat) => (b.projectPath ? void window.api.openProject(b.id) : p.onOpenBeat(b.id))
@@ -204,6 +209,10 @@ export function Dashboard(p: Props) {
           </div>
           <p className="h-quiet">Today {fmtHM(todayMs)}, this week {fmtHM(weekMs)}</p>
           <label className="h-check"><input type="checkbox" checked={!!settings?.autoTrackFL} onChange={(e) => window.api.setSetting({ autoTrackFL: e.target.checked })} /> Time sessions while FL Studio is open</label>
+        </section>
+
+        <section aria-label="Beats made over time">
+          <PeakChart width={292} font="var(--font)" accent={accent} data={made.data} labels={made.labels} value={made.data.reduce((a, b) => a + b, 0)} valueSuffix="" title="Beats made" caption={madePeriod === 'Weekly' ? 'Last 7 days' : madePeriod === 'Monthly' ? 'Last 30 days' : 'Last 12 months'} updatedText="Your catalogue" trend="none" period={madePeriod} onPeriodChange={(x) => setMadePeriod(x as MadePeriod)} formatValue={(v) => `${Math.round(v)} made`} />
         </section>
 
         <section>

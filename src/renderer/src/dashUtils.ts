@@ -36,3 +36,21 @@ export function beatsMadeSince(beats: Beat[], since: number): number {
   for (const b of beats) first.set(b.groupId, Math.min(first.get(b.groupId) ?? Infinity, b.mtime))
   return [...first.values()].filter((t) => t >= since).length
 }
+
+export type MadePeriod = 'Weekly' | 'Monthly' | 'Yearly'
+/** Beats made per day (last 7 or 30 days) or per month (last 12), counting each beat group once at its first file. */
+export function madeSeries(beats: Beat[], period: MadePeriod, now: number): { data: number[]; labels: string[] } {
+  const first = new Map<number, number>()
+  for (const b of beats) first.set(b.groupId, Math.min(first.get(b.groupId) ?? Infinity, b.mtime))
+  const today = new Date(startOfDay(now))
+  const starts: Date[] =
+    period === 'Yearly'
+      ? Array.from({ length: 12 }, (_, i) => new Date(today.getFullYear(), today.getMonth() - 11 + i, 1))
+      : Array.from({ length: period === 'Weekly' ? 7 : 30 }, (_, i) => new Date(today.getFullYear(), today.getMonth(), today.getDate() - (period === 'Weekly' ? 6 : 29) + i))
+  const data = starts.map(() => 0)
+  for (const t of first.values()) {
+    for (let i = starts.length - 1; i >= 0; i--) if (t >= starts[i].getTime()) { if (t <= now) data[i]++; break }
+  }
+  const fmt: Intl.DateTimeFormatOptions = period === 'Yearly' ? { month: 'short' } : period === 'Weekly' ? { weekday: 'short' } : { month: 'short', day: 'numeric' }
+  return { data, labels: starts.map((d) => d.toLocaleDateString(undefined, fmt)) }
+}

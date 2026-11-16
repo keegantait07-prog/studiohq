@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { PLATFORMS, type Beat, type Platform, type Post } from '@shared/types'
 import { BeatPicker } from './BeatPicker'
+import { Button, Dlg } from './reachUi'
 import { errMsg, fromInputDate, toInputDate } from './salesUtils'
 
 interface Props {
@@ -32,24 +33,24 @@ export function PostDialog({ beats, post, beatId: b0, platform: p0, date: d0, st
     } catch (e) { setError(errMsg(e)) }
   }
   return (
-    <div className="overlay" onMouseDown={onClose}>
-      <div className="modal" onMouseDown={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Escape') onClose(); if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) save() }}>
-        <header><h2>{post ? 'Edit post' : status === 'posted' ? 'Log a post' : 'Plan a post'}</h2><button onClick={onClose}>Cancel</button></header>
-        <div className="field"><label>Beat</label><BeatPicker beats={beats} value={beatId} onChange={setBeatId} /></div>
-        <div className="three">
-          <div className="field"><label>Platform</label><select value={platform} onChange={(e) => setPlatform(e.target.value as Platform)}>{PLATFORMS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}</select></div>
-          <div className="field"><label>Status</label><select value={status} onChange={(e) => setStatus(e.target.value as Post['status'])}><option value="planned">Planned</option><option value="private">Private on YouTube</option><option value="posted">Posted</option></select></div>
-          <div className="field"><label>Date</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
-        </div>
-        {status !== 'planned' && <div className="field"><label>Link to the post (optional)</label><input value={url} placeholder="https://…" onChange={(e) => setUrl(e.target.value)} /></div>}
-        <div className="field"><label>Caption / notes</label><textarea rows={4} value={caption} onChange={(e) => setCaption(e.target.value)} /></div>
-        {error && <div className="notice err">{error}</div>}
-        <div className="draft-actions">
-          {post && <button onClick={async () => { await window.api.deletePost(post.id); onSaved() }}>Delete</button>}
-          <span className="flash" />
-          <button className="primary" disabled={!beatId} onClick={save}>Save <kbd>⌘↵</kbd></button>
-        </div>
+    <Dlg
+      title={post ? 'Edit post' : status === 'posted' ? 'Log a post' : 'Plan a post'} onClose={onClose} size="sm"
+      onKeyDown={(e) => { if (e.key === 'Escape') onClose(); if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) save() }}
+      footer={<>
+        {post && <Button variant="outline" onClick={async () => { await window.api.deletePost(post.id); onSaved() }}>Delete</Button>}
+        <div className="r"><Button disabled={!beatId} onClick={save}>Save <kbd>⌘↵</kbd></Button></div>
+      </>}
+    >
+      <div className="pc-fld"><label>Beat</label><BeatPicker beats={beats} value={beatId} onChange={setBeatId} /></div>
+      <div className="pc-two">
+        <div className="pc-fld"><label>Platform</label><select className="pc-in" value={platform} onChange={(e) => setPlatform(e.target.value as Platform)}>{PLATFORMS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}</select></div>
+        <div className="pc-fld"><label>Status</label><select className="pc-in" value={status} onChange={(e) => setStatus(e.target.value as Post['status'])}><option value="planned">Planned</option><option value="private">Private on YouTube</option><option value="posted">Posted</option></select></div>
       </div>
-    </div>
+      <div className="pc-fld"><label>Date</label><input className="pc-in" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
+      {status !== 'planned' && <div className="pc-fld"><label>Link to the post (optional)</label><input className="pc-in" value={url} placeholder="https://…" onChange={(e) => setUrl(e.target.value)} /></div>}
+      <div className="pc-fld"><label>Caption / notes</label><textarea className="pc-in" rows={4} value={caption} onChange={(e) => setCaption(e.target.value)} /></div>
+      {caption.trim() && <div className="pc-fld"><label>Preview</label><div className="rc-prev">{caption.slice(0, 140)}</div></div>}
+      {error && <div className="pc-err">{error}</div>}
+    </Dlg>
   )
 }

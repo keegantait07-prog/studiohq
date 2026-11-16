@@ -71,7 +71,7 @@ export function BeatProfile({ beat, detail, order, player, onClose, onGo, onPlay
             <span className="spill ghost">{fmtDur(beat.duration)}</span>
           </div>
           {beat.credits && <div className="pf-credits">{beat.credits}</div>}
-          {tags.length > 0 && <div className="pf-tags">{tags.slice(0, 8).map((t) => <span key={t} className="spill mini">{t}</span>)}</div>}
+          {tags.length > 0 && <div className="pf-tags">{tags.slice(0, 8).map((t, i) => <span key={`${t}-${i}`} className="spill mini">{t}</span>)}</div>}
 
           <div className="pf-h">Release checklist <em>{r.done} / {r.total}</em></div>
           <ul className="pf-check">

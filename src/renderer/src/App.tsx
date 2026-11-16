@@ -550,7 +550,7 @@ export function App() {
                     </div>
                     <div className="vc-t">{b.title}</div>
                     <div className="vc-m">{fmtBpm(b.bpm)} BPM · {displayKey(b.key) || '–'}{count > 1 ? ` · ${count} versions` : ''}</div>
-                    <div className="vc-p"><StatusPill status={b.status} />{b.tags.genre.slice(0, 1).concat(b.tags.vibe.slice(0, 1)).map((t) => <span key={t} className="spill mini">{t}</span>)}</div>
+                    <div className="vc-p"><StatusPill status={b.status} />{b.tags.genre.slice(0, 1).concat(b.tags.vibe.slice(0, 1)).map((t, i) => <span key={`${t}-${i}`} className="spill mini">{t}</span>)}</div>
                   </div>
                 )
               })}

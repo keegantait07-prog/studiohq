@@ -10,6 +10,8 @@ import { errMsg, fmtDay, money } from './salesUtils'
 import { ReleaseCard } from './ReleaseCard'
 import { Waveform } from './Waveform'
 import { usePlayerTime, type PlayerClock } from './player'
+import { Check, X } from 'lucide-react'
+import { Button, Num, Reveal } from './deckUi'
 
 const KIND_LABEL: Record<TagKind, string> = { vibe: 'Vibe', genre: 'Genre', artist: 'Type beat artist' }
 const LOOP_KIND_LABEL: Record<TagKind, string> = { vibe: 'Vibe', genre: 'Genre', artist: 'Sounds like (artist)' }
@@ -28,7 +30,7 @@ function TagEditor({ kind, label, values, suggestions, onChange }: { kind: TagKi
         {values.map((v) => (
           <span key={v} className={`chip ${kind}`}>
             {v}
-            <button onClick={() => onChange(values.filter((x) => x !== v))} aria-label={`remove ${v}`}>×</button>
+            <button onClick={() => onChange(values.filter((x) => x !== v))} aria-label={`remove ${v}`}><X size={12} strokeWidth={1.75} aria-hidden="true" /></button>
           </span>
         ))}
         <input
@@ -120,6 +122,7 @@ export function Detail({ beat, kind, allTags, onSelect, onPlay, refresh, pitched
         </div>
       </section>
 
+      <Reveal key={`k${beat.id}`} className="i-reveal">
       <section className="i-kvs">
         <div className="kv">
           <span>BPM</span>
@@ -136,23 +139,24 @@ export function Detail({ beat, kind, allTags, onSelect, onPlay, refresh, pitched
           <em>{camelot(beat.key) && <i className="cam" style={{ background: keyColor(beat.key) }} title="Camelot wheel code">{camelot(beat.key)}</i>} {beat.keySource}{beat.keyConfidence === 'low' ? ' · low confidence' : ''}</em>
         </div>
         <div className="kv"><span>Length</span><b>{fmtDur(beat.duration)}</b><em>{beat.ext.toUpperCase()} · {(beat.size / 1e6).toFixed(1)} MB{!beat.analyzed && ' · analyzing…'}</em></div>
-        <div className="kv"><span>Versions</span><b>{beat.versions.length}</b><em>{beat.versionLabel || 'main'}</em></div>
+        <div className="kv"><span>Versions</span><b><Num value={beat.versions.length} /></b><em>{beat.versionLabel || 'main'}</em></div>
       </section>
 
       <section className="i-checks">
         <h3>Details <span>{rd.done} of {rd.total} filled in</span></h3>
         {rd.steps.map((s) => (
           <div key={s.id} className={`check ${s.done ? 'ok' : ''}`}>
-            <i className="box" aria-hidden="true">{s.done ? '✓' : ''}</i><span><span className="sr-only">{s.done ? 'Done: ' : 'Missing: '}</span>{s.label}</span>
+            <i className="box" aria-hidden="true">{s.done && <Check size={12} strokeWidth={2.25} />}</i><span><span className="sr-only">{s.done ? 'Done: ' : 'Missing: '}</span>{s.label}</span>
             {s.id === 'cover' ? <button onClick={makeCover} title={s.done ? 'Draw a new cover from this beat' : 'Draw a cover from this beat: key colour, tempo and waveform'}>{s.done ? 'Redraw' : 'Draw one'}</button> : <span />}
           </div>
         ))}
       </section>
 
+      </Reveal>
       <section className="acts">
-        {beat.ext !== 'flp' && <button className="primary" onClick={onPitch} disabled={beat.status === 'sold'}>{beat.status === 'sold' ? 'Sold. Can’t pitch' : kind === 'loop' ? 'Send this loop…' : 'Pitch this beat…'}</button>}
-        <button onClick={() => window.api.reveal(beat.id)}>Reveal in Finder</button>
-        {beat.ext !== 'flp' && <button onClick={async () => { await window.api.reanalyze(beat.id) }}>Re-analyze</button>}
+        {beat.ext !== 'flp' && <Button className="primary" onClick={onPitch} disabled={beat.status === 'sold'}>{beat.status === 'sold' ? 'Sold. Can’t pitch' : kind === 'loop' ? 'Send this loop…' : 'Pitch this beat…'}</Button>}
+        <Button variant="outline" onClick={() => window.api.reveal(beat.id)}>Reveal in Finder</Button>
+        {beat.ext !== 'flp' && <Button variant="outline" onClick={async () => { await window.api.reanalyze(beat.id) }}>Re-analyze</Button>}
       </section>
 
       <section className="i-more">
@@ -169,7 +173,7 @@ export function Detail({ beat, kind, allTags, onSelect, onPlay, refresh, pitched
             <span title={beat.projectPath}>{projectName}</span>
             <button onClick={() => window.api.openProject(beat.id)}>Open in FL</button>
             <button onClick={() => window.api.linkProject(beat.id)}>Change</button>
-            <button onClick={() => save({ projectPath: null })} aria-label="unlink">×</button>
+            <button onClick={() => save({ projectPath: null })} aria-label="unlink"><X size={13} strokeWidth={1.75} aria-hidden="true" /></button>
           </div>
         ) : (
           <button className="wide" onClick={() => window.api.linkProject(beat.id)}>Link .flp…</button>

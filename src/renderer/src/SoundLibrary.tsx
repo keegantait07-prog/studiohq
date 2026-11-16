@@ -1,13 +1,19 @@
 import type * as React from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { clickable } from './a11y'
 import { SOUND_KINDS, type SoundKind, type SoundList, type SoundRow, type SoundStatus } from '@shared/types'
 import { displayKey } from '@shared/key'
 import { Waveform } from './Waveform'
 import { DupesDialog } from './DupesDialog'
 import { fmtBpm } from './format'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { Heart, Play, Pause, Search, Copy, RefreshCw, ChevronRight, ChevronDown, GripVertical, Folder as FolderIcon, X } from 'lucide-react'
+import { ScrollArea } from '@/components/lib/scroll-area'
+import { TooltipProvider } from '@/components/lib/tooltip'
+import { Button, Chip, IconBtn, Seg, useHoverCapable } from './makeUi'
+import './make.css'
 
-const ROW = 34
+const ROW = 44
+const XP = 58 // height of the hover-expand panel (S53 HoverExpand pattern)
 const SEP = '/'
 const group = (k: SoundKind) => (['kick', 'snare', 'clap', 'hat', 'perc', '808'].includes(k) ? 'g1' : ['bass', 'melody', 'vocal'].includes(k) ? 'g2' : 'g3')
 const fmtLen = (u: number | null) => (u == null ? '' : u < 10 ? u.toFixed(2) + 's' : `${Math.floor(u / 60)}:${String(Math.floor(u % 60)).padStart(2, '0')}`)
@@ -235,137 +241,194 @@ export function SoundLibrary({ data, roots: settingsRoots, status, query, onQuer
 
   // ---- tree rendering ----
   const toggle = (p: string) => setOpen((o) => { const n = new Set(o); n.has(p) ? n.delete(p) : n.add(p); return n })
+  const start = Math.max(0, Math.floor(scroll / ROW) - 6)
+  const end = Math.min(filtered.length, start + Math.ceil(viewH / ROW) + 14)
+  const selTags = useMemo(() => { const m = new Map<string, number>(); for (const id of sel) for (const t of byId.get(id)?.t ?? []) m.set(t, (m.get(t) ?? 0) + 1); return [...m] }, [sel, byId])
+  const rootOf = (d: string) => roots.find((r) => d.startsWith(r)) ?? ''
+  const activeSound = active != null ? byId.get(active) : undefined
+
+  const still = useReducedMotion()
+  const hoverOK = useHoverCapable()
+  const [hov, setHov] = useState<number | null>(null)
+  const hovS = hov != null ? filtered[hov] : undefined
+  const togglePlay = () => { const a = audio.current!; if (!a.src && active != null) play(active); else a.paused ? (onPauseMain(), a.play().catch(() => {})) : a.pause() }
+  const statusText = status.phase !== 'idle' ? ` · ${status.phase === 'reading' ? `reading file info ${status.done.toLocaleString()}/${status.total.toLocaleString()}` : status.phase === 'hashing' ? `comparing files ${status.done}/${status.total}` : 'scanning folders…'}` : ''
+  const relDir = (d: number) => dirs[d].slice(rootOf(dirs[d]).length + 1) || dirs[d]
+  const allFav = ids().length > 0 && ids().every((id) => byId.get(id)?.f)
+  const sortAttr = (by: typeof sort.by) => (sort.by === by ? (sort.dir === 1 ? 'ascending' : 'descending') : 'none') as 'ascending' | 'descending' | 'none'
+  const th = (by: typeof sort.by, label: string, cls = '') => (
+    <button type="button" role="columnheader" aria-sort={sortAttr(by)} className={`mk-th ${cls}`} onClick={() => setSort((s) => ({ by, dir: s.by === by ? (-s.dir as 1 | -1) : 1 }))}>{label}{sort.by === by ? (sort.dir === 1 ? ' ↑' : ' ↓') : ''}</button>
+  )
+
   const renderNode = (n: Node, depth: number): React.ReactNode => (
     <div key={n.path}>
-      <div className={`tnode ${folder === n.path ? 'sel' : ''}`} style={{ paddingLeft: 8 + depth * 14 }} {...clickable(() => setFolder(folder === n.path ? null : n.path))}>
-        <span className="tcaret" onClick={(e) => { e.stopPropagation(); toggle(n.path) }}>{n.kids.size ? (open.has(n.path) ? '▾' : '▸') : ''}</span>
-        <span className="tname" title={n.path}>{n.name}</span><span className="tcount">{n.count}</span>
+      <div className={`mk-node ${folder === n.path ? 'on' : ''}`} style={{ paddingLeft: 8 + depth * 14 }}>
+        <button type="button" className="mk-caret" aria-label={open.has(n.path) ? 'Collapse' : 'Expand'} aria-expanded={n.kids.size ? open.has(n.path) : undefined} disabled={!n.kids.size} onClick={() => toggle(n.path)}>{n.kids.size ? (open.has(n.path) ? <ChevronDown /> : <ChevronRight />) : null}</button>
+        <button type="button" className="mk-nname" title={n.path} onClick={() => setFolder(folder === n.path ? null : n.path)}>{n.name}</button>
+        <span className="mk-n">{n.count}</span>
       </div>
       {open.has(n.path) && [...n.kids.values()].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })).map((k) => renderNode(k, depth + 1))}
     </div>
   )
 
-  const start = Math.max(0, Math.floor(scroll / ROW) - 6)
-  const end = Math.min(filtered.length, start + Math.ceil(viewH / ROW) + 14)
-  const selTags = useMemo(() => { const m = new Map<string, number>(); for (const id of sel) for (const t of byId.get(id)?.t ?? []) m.set(t, (m.get(t) ?? 0) + 1); return [...m] }, [sel, byId])
-  const rootOf = (d: string) => roots.find((r) => d.startsWith(r)) ?? ''
-  const head = (by: typeof sort.by, label: string, cls = '') => <span className={`sh ${cls}`} onClick={() => setSort((s) => ({ by, dir: s.by === by ? (-s.dir as 1 | -1) : 1 }))}>{label}{sort.by === by ? (sort.dir === 1 ? ' ↑' : ' ↓') : ''}</span>
-  const activeSound = active != null ? byId.get(active) : undefined
-
   return (
-    <section className="soundv">
-      <div className="sales-head">
-        <h2>Sound Library</h2>
-        <span className="dim">{items.length.toLocaleString()} sounds{status.phase !== 'idle' ? ` · ${status.phase === 'reading' ? `reading file info ${status.done.toLocaleString()}/${status.total.toLocaleString()}` : status.phase === 'hashing' ? `comparing files ${status.done}/${status.total}` : 'scanning folders…'}` : ''}</span>
-        <div className="grow" />
-        <button onClick={() => setDupes(true)}>Find duplicates</button>
-        <button onClick={() => window.api.soundsScan().then(onReload)} disabled={status.phase === 'scanning'}>Rescan</button>
-      </div>
-      <div className="snd-tools">
-        <input value={query} onChange={(e) => onQuery(e.target.value)} placeholder="Search name, folder, tag…" style={{ maxWidth: 280 }} />
-        <div className="kchips">
-          {SOUND_KINDS.filter((k) => k !== 'other').map((k) => <button key={k} className={`tab ${kinds.has(k) ? 'on' : ''}`} onClick={() => setKinds((p) => { const n = new Set(p); n.has(k) ? n.delete(k) : n.add(k); return n })}>{k}</button>)}
+    <TooltipProvider>
+    <section className="mk-sounds">
+      <aside className="mk-tree" aria-label="Library">
+        <div className="mk-tree-h">
+          <Seg full label="Library side" value={side} onChange={setSide} options={[{ v: 'folders', label: 'Folders' }, { v: 'projects', label: `FL projects ${projects.length || ''}` }]} />
+          {side === 'projects' && <label className="mk-field"><Search aria-hidden="true" /><input value={projQ} onChange={(e) => setProjQ(e.target.value)} placeholder="Find a project…" aria-label="Find a project" /></label>}
         </div>
-        <div className="seg" style={{ width: 'auto' }}>{([['all', 'All'], ['oneshot', 'One-shots'], ['loop', 'Loops']] as const).map(([k, l]) => <button key={k} className={shape === k ? 'on' : ''} onClick={() => setShape(k)}>{l}</button>)}</div>
-        <button className={favOnly ? 'primary' : ''} onClick={() => setFavOnly((f) => !f)}>★ Favorites</button>
-      </div>
-
-      <div className="snd-split">
-        <aside className="snd-tree">
-          <div className="seg" style={{ margin: '0 8px 8px' }}>
-            <button className={side === 'folders' ? 'on' : ''} onClick={() => setSide('folders')}>Folders</button>
-            <button className={side === 'projects' ? 'on' : ''} onClick={() => setSide('projects')}>FL projects {projects.length || ''}</button>
-          </div>
-          {side === 'folders' ? (
-            <>
-              <div className={`tnode ${folder === null && !project ? 'sel' : ''}`} {...clickable(() => { setFolder(null); onProjectSel(null) })}><span className="tcaret" /><span className="tname">All folders</span><span className="tcount">{items.length}</span></div>
-              {tree.map((n) => renderNode(n, 0))}
-              {!roots.length && <p className="help" style={{ padding: 8 }}>Add a sounds folder in Settings.</p>}
-            </>
-          ) : (
-            <>
-              <input style={{ margin: '0 8px 6px', width: 'calc(100% - 16px)' }} value={projQ} onChange={(e) => setProjQ(e.target.value)} placeholder="Find a project…" />
-              {projects.filter((x) => !projQ || x.name.toLowerCase().includes(projQ.toLowerCase())).map((x) => (
-                <div key={x.id} className={`tnode ${projectSel === x.id ? 'sel' : ''}`} style={{ paddingLeft: 10 }} {...clickable(() => { onProjectSel(projectSel === x.id ? null : x.id); setFolder(null); setPart('all') })} title={x.path}>
-                  <span className="tname">{x.name}</span><span className="tcount">{x.samples.length}{x.midis.length ? ` + ${x.midis.length}♪` : ''}</span>
+        <ScrollArea className="mk-scroll">
+          <div className="mk-tlist">
+            {side === 'folders' ? (
+              <>
+                <div className={`mk-node ${folder === null && !project ? 'on' : ''}`}>
+                  <span className="mk-caret" />
+                  <button type="button" className="mk-nname" onClick={() => { setFolder(null); onProjectSel(null) }}>All folders</button>
+                  <span className="mk-n">{items.length}</span>
                 </div>
-              ))}
-              {!projects.length && <p className="help" style={{ padding: 8 }}>No FL projects read yet. They are picked up from your project folders on each scan.</p>}
-            </>
-          )}
-        </aside>
+                {tree.map((n) => renderNode(n, 0))}
+                {!roots.length && <p className="mk-help">Add a sounds folder in Settings.</p>}
+              </>
+            ) : (
+              <>
+                {projects.filter((x) => !projQ || x.name.toLowerCase().includes(projQ.toLowerCase())).map((x) => (
+                  <button key={x.id} type="button" className={`mk-proj ${projectSel === x.id ? 'on' : ''}`} title={x.path} onClick={() => { onProjectSel(projectSel === x.id ? null : x.id); setFolder(null); setPart('all') }}>
+                    <b>{x.name}</b><small>{x.samples.length} sample{x.samples.length === 1 ? '' : 's'}{x.midis.length ? ` + ${x.midis.length} MIDI` : ''}{x.missing.length ? <span className="mk-miss"> · {x.missing.length} missing</span> : null}</small>
+                  </button>
+                ))}
+                {!projects.length && <p className="mk-help">No FL projects read yet. They are picked up from your project folders on each scan.</p>}
+              </>
+            )}
+          </div>
+        </ScrollArea>
+      </aside>
 
-        <div className="snd-main">
+      <div className="mk-list">
+        <div className="mk-tools">
+          <h2 className="mk-disp">Sounds</h2>
+          <span className="mk-dim">{items.length.toLocaleString()} sounds{statusText}</span>
+          <label className="mk-field grow"><Search aria-hidden="true" /><input value={query} onChange={(e) => onQuery(e.target.value)} placeholder="Search name, folder, tag…" aria-label="Search sounds" /></label>
+          <Chip on={favOnly} onClick={() => setFavOnly((f) => !f)}><Heart aria-hidden="true" />Favorites</Chip>
+          <span className="mk-sp" />
+          <Button variant="outline" size="sm" onClick={() => setDupes(true)}><Copy />Find duplicates</Button>
+          <Button variant="outline" size="sm" onClick={() => window.api.soundsScan().then(onReload)} disabled={status.phase === 'scanning'}><RefreshCw />Rescan</Button>
+        </div>
+        <div className="mk-top">
+          <div className="mk-filters">
+            <Seg label="Shape" value={shape} onChange={setShape} options={[{ v: 'all', label: 'All' }, { v: 'oneshot', label: 'One-shots' }, { v: 'loop', label: 'Loops' }]} />
+            <div className="mk-chips" role="group" aria-label="Sound type">
+              {SOUND_KINDS.filter((k) => k !== 'other').map((k) => <Chip key={k} on={kinds.has(k)} onClick={() => setKinds((p) => { const n = new Set(p); n.has(k) ? n.delete(k) : n.add(k); return n })}>{k}</Chip>)}
+            </div>
+          </div>
           {project && (
-            <div className="pbanner">
-              <div className="pb-top">
-                <b>{project.name}</b>{project.beatTitle && <span className="dim"> · beat “{project.beatTitle}”</span>}
-                <div className="grow" />
-                <div className="seg" style={{ width: 'auto' }}>{([['all', `All ${project.samples.length + project.midis.length}`], ['samples', `Samples ${project.samples.length}`], ['midi', `MIDI ${project.midis.length}`]] as const).map(([k, l]) => <button key={k} className={part === k ? 'on' : ''} onClick={() => setPart(k)}>{l}</button>)}</div>
-                <button onClick={() => window.api.projectOpen(project.id)}>Open in FL</button>
-                <button onClick={() => window.api.projectReveal(project.id)}>Show in Finder</button>
-                <button onClick={() => onProjectSel(null)}>×</button>
+            <div className="mk-pbanner">
+              <div className="mk-pb-top">
+                <b>{project.name}</b>{project.beatTitle && <span className="mk-dim"> · beat “{project.beatTitle}”</span>}
+                <span className="mk-sp" />
+                <Seg label="Project part" value={part} onChange={setPart} options={[{ v: 'all', label: `All ${project.samples.length + project.midis.length}` }, { v: 'samples', label: `Samples ${project.samples.length}` }, { v: 'midi', label: `MIDI ${project.midis.length}` }]} />
+                <Button variant="outline" size="xs" onClick={() => window.api.projectOpen(project.id)}>Open in FL</Button>
+                <Button variant="outline" size="xs" onClick={() => window.api.projectReveal(project.id)}>Show in Finder</Button>
+                <IconBtn label="Close project" onClick={() => onProjectSel(null)}><X /></IconBtn>
               </div>
-              <div className="dim pb-sub">
+              <div className="mk-dim mk-pb-sub">
                 {project.samples.length} sample{project.samples.length === 1 ? '' : 's'} used{project.byName ? ` (${project.byName} found by file name, not by original path)` : ''} · {project.midis.length} MIDI pattern{project.midis.length === 1 ? '' : 's'} exported{project.partial ? ' · newer or unusual project format: samples found, MIDI not available' : ''}
               </div>
               {project.missing.length > 0 && (
-                <details className="pb-missing"><summary>{project.missing.length} sample{project.missing.length === 1 ? '' : 's'} not found on this Mac</summary>
-                  <div>{project.missing.slice(0, 60).map((m) => <div key={m.ref} className="dim" title={m.ref}>{m.name}{m.channel && m.channel !== m.name ? ` (channel “${m.channel}”)` : ''}</div>)}{project.missing.length > 60 && <div className="dim">…and {project.missing.length - 60} more</div>}</div>
+                <details className="mk-pb-missing"><summary>{project.missing.length} sample{project.missing.length === 1 ? '' : 's'} not found on this Mac</summary>
+                  <div>{project.missing.slice(0, 60).map((m) => <div key={m.ref} className="mk-dim" title={m.ref}>{m.name}{m.channel && m.channel !== m.name ? ` (channel “${m.channel}”)` : ''}</div>)}{project.missing.length > 60 && <div className="mk-dim">…and {project.missing.length - 60} more</div>}</div>
                 </details>
               )}
             </div>
           )}
-          <div className="srow2 shead2"><span /><span>{head('n', 'Name')}</span>{head('k', 'Type')}<span>Tags</span>{head('u', 'Length', 'r')}{head('b', 'BPM', 'r')}<span>Key</span>{head('s', 'Size', 'r')}<span>Folder</span></div>
-          <div className="svirt" ref={list} onScroll={(e) => setScroll(e.currentTarget.scrollTop)}>
-            <div style={{ height: filtered.length * ROW, position: 'relative' }}>
-              {filtered.slice(start, end).map((s, k) => {
-                const i = start + k
-                const on = sel.has(s.id)
-                return (
-                  <div key={s.id} className={`srow2 ${on ? 'sel' : ''} ${active === s.id ? 'act' : ''}`} style={{ position: 'absolute', top: i * ROW, left: 0, right: 0, height: ROW }}
-                    draggable onDragStart={(e) => { e.preventDefault(); window.api.startDrag('sound', on ? [...sel] : [s.id]) }}
-                    onClick={(e) => select(i, e)} onDoubleClick={() => play(s.id)}>
-                    <button className={`star ${s.f ? 'on' : ''}`} onClick={async (e) => { e.stopPropagation(); await window.api.soundsFav([s.id], !s.f); onReload() }} aria-label="favorite">{s.f ? '★' : '☆'}</button>
-                    <span className="sname" title={s.n}>{s.n}</span>
-                    <span><i className={`kdot ${group(s.k)}`} />{s.k}</span>
-                    <span className="stags">{s.t.slice(0, 3).map((t) => <span key={t} className="chip">{t}</span>)}</span>
-                    <span className="r mono dim">{s.k === 'midi' ? `${s.m ?? ''} notes` : fmtLen(s.u)}</span>
-                    <span className="r mono">{s.b ? fmtBpm(s.b) : ''}</span>
-                    <span className="mono dim">{displayKey(s.y)}</span>
-                    <span className="r mono dim">{fmtSize(s.s)}</span>
-                    <span className="dim sfolder" title={dirs[s.d]}>{dirs[s.d].slice(rootOf(dirs[s.d]).length + 1)}</span>
-                  </div>
-                )
-              })}
-              {data && !filtered.length && <div className="empty">{items.length ? 'No sounds match.' : 'No sounds found yet. Add a folder in Settings, then Rescan.'}</div>}
-            </div>
-          </div>
-
-          <div className="snd-bottom">
-            {sel.size > 0 ? (
-              <div className="selbar">
-                <b>{sel.size} selected</b>
-                <div className="chips" style={{ background: 'transparent', border: 0, padding: 0 }}>
-                  {selTags.map(([t, c]) => <span key={t} className="chip">{t}{c < sel.size ? ` (${c})` : ''}<button onClick={async () => { await window.api.soundsTag([...sel], [], [t]); onReload() }}>×</button></span>)}
-                  <input value={tagDraft} placeholder="add tag, press Enter" onChange={(e) => setTagDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addTag() }} style={{ width: 170 }} />
+        </div>
+        <div className="mk-thead mk-sgrid" role="row"><span /><span />{th('n', 'Name')}{th('k', 'Type')}<span className="c-tags">Tags</span>{th('u', 'Length', 'r')}{th('b', 'BPM', 'r')}<span>Key</span>{th('s', 'Size', 'r c-size')}</div>
+        <div className="mk-rows" ref={list} onScroll={(e) => { setScroll(e.currentTarget.scrollTop); setHov(null) }} role="rowgroup">
+          <div style={{ height: filtered.length * ROW, position: 'relative' }} onMouseLeave={() => setHov(null)}>
+            {filtered.slice(start, end).map((s, k) => {
+              const i = start + k
+              const on = sel.has(s.id)
+              return (
+                <div key={s.id} className={`mk-sr mk-sgrid ${on ? 'sel' : ''} ${active === s.id ? 'act' : ''}`} style={{ top: i * ROW, height: ROW }} role="row"
+                  draggable onDragStart={(e) => { e.preventDefault(); window.api.startDrag('sound', on ? [...sel] : [s.id]) }}
+                  onMouseEnter={() => setHov(i)}
+                  onClick={(e) => select(i, e)} onDoubleClick={() => play(s.id)}>
+                  <button type="button" className={`mk-fav ${s.f ? 'on' : ''}`} aria-pressed={s.f} aria-label={s.f ? 'Remove favorite' : 'Favorite'} onClick={async (e) => { e.stopPropagation(); await window.api.soundsFav([s.id], !s.f); onReload() }}><Heart /></button>
+                  <button type="button" className="mk-p" aria-label={`Preview ${s.n}`} onClick={(e) => { e.stopPropagation(); select(i, undefined, false); play(s.id) }}>{playing && active === s.id ? <Pause /> : <Play />}</button>
+                  <span className="mk-nm"><b title={s.n}>{s.n}</b><small title={dirs[s.d]}>{relDir(s.d)}</small></span>
+                  <span className="mk-type"><i className={`mk-kdot ${group(s.k)}`} />{s.k}</span>
+                  <span className="mk-tg c-tags">{s.t.slice(0, 2).map((t) => <span key={t} className="mk-tag">{t}</span>)}</span>
+                  <span className="r mono mk-dim">{s.k === 'midi' ? `${s.m ?? ''} notes` : fmtLen(s.u)}</span>
+                  <span className="r mono">{s.b ? fmtBpm(s.b) : ''}</span>
+                  <span className="mono mk-dim">{displayKey(s.y)}</span>
+                  <span className="r mono mk-dim c-size">{fmtSize(s.s)}</span>
                 </div>
-                <button onClick={toggleFav}>★ Favorite</button>
-                {sel.size === 1 && <button onClick={() => window.api.soundsReveal([...sel][0])}>Reveal</button>}
-                <span className="dim">Drag a row into FL Studio</span>
-              </div>
-            ) : <div className="selbar dim">Click to preview · ↑↓ browse · F favorite · L loop · drag a row into your DAW</div>}
-            <div className="pv">
-              <button className="big-play" style={{ width: 34, height: 34, fontSize: 12 }} onClick={() => { const a = audio.current!; if (!a.src && active != null) play(active); else a.paused ? (onPauseMain(), a.play().catch(() => {})) : a.pause() }}>{playing ? '❚❚' : '▶'}</button>
-              <div className="pv-name"><b>{activeSound?.n ?? 'Nothing selected'}</b><span className="dim mono">{activeSound ? (activeSound.k === 'midi' ? `MIDI · ${activeSound.m ?? ''} notes · drag into FL` : `${fmtLen(activeSound.u)} · ${activeSound.e}`) : ''}</span></div>
-              <div style={{ flex: 1, minWidth: 0 }}><Waveform peaks={peaks} progress={dur ? time / dur : 0} height={40} onSeek={(f) => { const a = audio.current!; if (dur) { a.currentTime = f * dur; if (a.paused) a.play().catch(() => {}) } }} /></div>
-              <label className="check small"><input type="checkbox" checked={auto} onChange={(e) => { setAuto(e.target.checked); try { localStorage.setItem('shq-autoplay', e.target.checked ? '1' : '0') } catch { /* ignore */ } }} /> Auto-play</label>
-              <label className="check small"><input type="checkbox" checked={loop} onChange={(e) => setLoop(e.target.checked)} /> Loop</label>
-            </div>
+              )
+            })}
+            <AnimatePresence>
+              {hoverOK && hov != null && hovS && (
+                <motion.div key={hovS.id} className="mk-xp" style={{ top: (hov + 1) * ROW }} aria-hidden="true"
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: XP, opacity: 1, transition: { duration: still ? 0 : 0.26, delay: still ? 0 : 0.14, ease: [0.23, 1, 0.32, 1] } }}
+                  exit={{ height: 0, opacity: 0, transition: { duration: still ? 0 : 0.12 } }}>
+                  <div className="mk-xp-in">
+                    <span className="mk-xp-path"><FolderIcon />{dirs[hovS.d]}</span>
+                    <span className="mk-xp-tags">{hovS.t.length ? hovS.t.map((t) => <span key={t} className="mk-tag">{t}</span>) : <span className="mk-dim">no tags</span>}<span className="mk-dim mono">{hovS.e} · {fmtSize(hovS.s)}</span></span>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+            {!data && <div className="mk-empty"><b>Loading your library…</b></div>}
+            {data && !filtered.length && <div className="mk-empty"><b>{items.length ? 'No sounds match.' : 'No sounds found yet.'}</b>{items.length ? 'Clear a filter or change the search.' : 'Add a folder in Settings, then Rescan.'}</div>}
           </div>
         </div>
+        <div className="mk-hint">
+          <span><kbd>Click</kbd> preview</span><span><kbd>↑</kbd><kbd>↓</kbd> browse</span><span><kbd>F</kbd> favorite</span><span><kbd>L</kbd> loop</span><span>drag a row into your DAW</span>
+          <span className="mk-sp" />
+          <label className="mk-lbl"><input type="checkbox" checked={auto} onChange={(e) => { setAuto(e.target.checked); try { localStorage.setItem('shq-autoplay', e.target.checked ? '1' : '0') } catch { /* ignore */ } }} />Auto-play</label>
+          <label className="mk-lbl"><input type="checkbox" checked={loop} onChange={(e) => setLoop(e.target.checked)} />Loop</label>
+        </div>
       </div>
+
+      <aside className="mk-insp" aria-label="Preview">
+        <div className="mk-pv">
+          <Waveform peaks={peaks} progress={dur ? time / dur : 0} height={96} onSeek={(f) => { const a = audio.current!; if (dur) { a.currentTime = f * dur; if (a.paused) a.play().catch(() => {}) } }} />
+        </div>
+        <div className="mk-pvc">
+          <IconBtn label={playing ? 'Pause' : 'Play'} onClick={togglePlay}>{playing ? <Pause /> : <Play />}</IconBtn>
+          <div className="mk-pv-name"><b>{sel.size > 1 ? `${sel.size} selected` : activeSound?.n ?? 'Nothing selected'}</b><span className="mk-dim mono">{sel.size > 1 ? 'Drag them into FL Studio together' : activeSound ? (activeSound.k === 'midi' ? `MIDI · ${activeSound.m ?? ''} notes` : `${fmtLen(activeSound.u)} · ${activeSound.e}`) : 'Click a sound to preview it.'}</span></div>
+        </div>
+        <ScrollArea className="mk-scroll">
+          {activeSound && (
+            <div className="mk-insp-body">
+              <dl className="mk-kv">
+                <dt>Folder</dt><dd title={dirs[activeSound.d]}>{relDir(activeSound.d)}</dd>
+                <dt>Length</dt><dd>{activeSound.k === 'midi' ? `${activeSound.m ?? ''} notes` : fmtLen(activeSound.u) || '–'}</dd>
+                <dt>BPM</dt><dd>{activeSound.b ? fmtBpm(activeSound.b) : '–'}</dd>
+                <dt>Key</dt><dd>{displayKey(activeSound.y) || '–'}</dd>
+                <dt>Size</dt><dd>{fmtSize(activeSound.s)}</dd>
+              </dl>
+              <div className="mk-tagbox">
+                <span className="mk-eyebrow">Tags</span>
+                <div className="mk-chips">
+                  {selTags.map(([t, c]) => <span key={t} className="mk-tag rm">{t}{c < sel.size ? ` (${c})` : ''}<button type="button" aria-label={`Remove tag ${t}`} onClick={async () => { await window.api.soundsTag([...sel], [], [t]); onReload() }}><X /></button></span>)}
+                </div>
+                <input className="mk-in" value={tagDraft} placeholder="add tag, press Enter" aria-label="Add tag" onChange={(e) => setTagDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addTag() }} />
+              </div>
+              <div className="mk-row">
+                <Button variant="outline" size="sm" onClick={toggleFav}><Heart />{allFav ? 'Favorited' : 'Favorite'}</Button>
+                {sel.size === 1 && <Button variant="outline" size="sm" onClick={() => window.api.soundsReveal([...sel][0])}>Reveal</Button>}
+              </div>
+              <div className="mk-drag" draggable onDragStart={(e) => { e.preventDefault(); window.api.startDrag('sound', ids()) }}>
+                <GripVertical aria-hidden="true" /><span><b>Drag into FL Studio</b><small>a row, or this handle onto a channel</small></span>
+              </div>
+            </div>
+          )}
+        </ScrollArea>
+      </aside>
       {dupes && <DupesDialog roots={roots} onClose={() => setDupes(false)} onDone={(m) => { setDupes(false); toast(m); onReload() }} />}
     </section>
+    </TooltipProvider>
   )
 }

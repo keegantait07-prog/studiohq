@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { SoundList, SoundRow } from '@shared/types'
-import { KIT_SLOTS, soundKey, autoFill, candidates, clearAuto, cleanName, emptyPicks, isEdm, planKit, type Picks, type Pool, type SlotId } from '@shared/kitmaker'
+import { KIT_SLOTS, slotOf, soundKey, autoFill, candidates, clearAuto, cleanName, emptyPicks, isEdm, planKit, type Picks, type Pool, type SlotId } from '@shared/kitmaker'
 import { emptyHistory, newKit, record, redo, sanitize, undo, uniqueName, upsert, usageByKey, type History, type SavedKit } from '@shared/kitdrafts'
+
+import { Undo2, Redo2, Sparkles, Dices, Plus, Trash2, Download, Play, Pause, Search, Minus, Folder } from 'lucide-react'
+import { TooltipProvider } from '@/components/lib/tooltip'
+import { ScrollArea } from '@/components/lib/scroll-area'
+import { Button, IconBtn, Seg, Tip } from './makeUi'
+import { KitCoverflow, DropZone } from './kitUi'
+import { matchDropped } from './kitDrop'
+import './make.css'
 
 const STORE_KEY = 'shq.kitmaker.kits'
 const POOL_KEY = 'shq.kitmaker.pool'
@@ -157,110 +165,148 @@ export function KitMaker({ data, onPauseMain, toast }: { data: SoundList | null;
   const preview = useMemo(() => planKit(live, byId, tag).filter((f) => f.slot === slot).slice(0, 3).map((f) => f.name), [live, byId, tag, slot])
   const missingTag = !tag.trim()
 
+  const slotMeta = KIT_SLOTS.find((s) => s.id === slot)!
+  const tgtTotal = KIT_SLOTS.reduce((n, s) => n + targets[s.id], 0)
+  const step = (id: SlotId, d: number) => setTargets((t) => ({ ...t, [id]: Math.max(0, Math.min(200, t[id] + d)) }))
+  const addDropped = (files: File[]) => {
+    const r = matchDropped(files.map((f) => f.name), data?.items ?? [], new Set(Object.values(live).flat().map((p) => p.id)))
+    if (!r.matched.length) { toast(`None of ${files.length === 1 ? 'that file is' : `those ${files.length} files are`} in your library yet. Add the folder in Settings, then Rescan.`); return }
+    const n = change((p) => {
+      let out = p
+      for (const s of r.matched) { const sl = slotOf(s, data!.dirs[s.d]) ?? slot; if (!out[sl].some((x) => x.id === s.id)) out = { ...out, [sl]: [...out[sl], { id: s.id, auto: false }] } }
+      return out
+    })
+    toast(`Added ${n} sound${n === 1 ? '' : 's'} to the kit${r.missed ? `. ${r.missed} not found in your library.` : '.'}`)
+  }
+  const coverKits = useMemo(() => kits.map((k) => ({ id: k.id, name: k.id === activeId ? name : k.name, count: count(k.id === activeId ? picks : k.picks), updated: k.id === activeId ? (savedAt ?? k.updated) : k.updated })), [kits, activeId, name, picks, savedAt])
+  const playBtn = (id: number, label: string) => <button type="button" className={`mk-p ${playing === id ? 'pl' : ''}`} aria-label={`Preview ${label}`} onClick={() => play(id)}>{playing === id ? <Pause /> : <Play />}</button>
+
   return (
-    <section className="sales pl2 km">
-      <div className="sales-head">
-        <h2>Kit Maker</h2>
-        <span className="dim">{total} sounds</span>
-        <div className="grow" />
-        <button onClick={doUndo} disabled={!hist.past.length} title="Undo the last change (⌘Z)">Undo</button>
-        <button onClick={doRedo} disabled={!hist.future.length} title="Redo (⇧⌘Z)">Redo</button>
-        <span className="km-sep" />
-        <button onClick={fill} title="Fill every folder up to its target with random sounds. You can undo it.">Auto-fill</button>
-        <button onClick={reroll} disabled={!autoCount} title="Swap the auto-picked sounds for new ones. Sounds you added yourself stay.">Re-roll auto-picks</button>
-        <button onClick={clear} disabled={!total}>Clear</button>
-        <button className="primary" onClick={exportKit} disabled={busy || !total}>{busy ? 'Saving…' : 'Export kit'}</button>
+    <TooltipProvider>
+    <section className="mk-kits">
+      <div className="mk-tools">
+        <h2 className="mk-disp">Kit Maker</h2>
+        <span className="mk-dim">{total} sounds</span>
+        <IconBtn label="Undo the last change (⌘Z)" onClick={doUndo} disabled={!hist.past.length}><Undo2 /></IconBtn>
+        <IconBtn label="Redo (⇧⌘Z)" onClick={doRedo} disabled={!hist.future.length}><Redo2 /></IconBtn>
+        <Tip label="Fill every folder up to its target with random sounds. You can undo it."><Button variant="outline" size="sm" onClick={fill}><Sparkles />Auto-fill</Button></Tip>
+        <IconBtn label="Re-roll auto-picks: swap the auto-picked sounds for new ones. Sounds you added yourself stay." onClick={reroll} disabled={!autoCount}><Dices /></IconBtn>
+        <Button variant="outline" size="sm" onClick={clear} disabled={!total}>Clear</Button>
+        <span className="mk-sp" />
+        <span className="mk-dim mk-saved">{savedAt ? '✓ Saved automatically' : ''}</span>
+        <Button variant="outline" size="sm" onClick={createKit}><Plus />New kit</Button>
+        <Tip label="Delete this saved kit"><Button variant="destructive" size="sm" onClick={deleteKit}><Trash2 />Delete</Button></Tip>
+        <Button size="sm" onClick={exportKit} disabled={busy || !total}><Download />{busy ? 'Saving…' : 'Export kit'}</Button>
       </div>
 
-      <div className="km-kitbar">
-        <label>Kit
-          <select value={activeId} onChange={(e) => switchKit(e.target.value)}>
-            {[...kits].sort((a, b) => b.updated - a.updated).map((k) => <option key={k.id} value={k.id}>{k.id === activeId ? name : k.name} · {count(k.id === activeId ? picks : k.picks)} sounds</option>)}
-          </select>
-        </label>
-        <button onClick={createKit}>+ New kit</button>
-        <button onClick={deleteKit} title="Delete this saved kit">Delete</button>
-        <span className="dim km-saved">{savedAt ? '✓ Saved automatically. Pick this kit from the list to come back to it.' : ''}</span>
-      </div>
+      <KitCoverflow kits={coverKits} activeId={activeId} onSwitch={switchKit} onNew={createKit} />
 
-      <div className="pl-wrap">
-        <div className="km-meta">
-          <label>Kit name<input value={name} onChange={(e) => setName(e.target.value)} placeholder="My Drum Kit" /></label>
-          <label>Your tag<input value={tag} onChange={(e) => setTag(e.target.value)} placeholder="yourname" />{missingTag && <small className="dim">No tag: files will be named “Kick 01.wav”.</small>}</label>
-          <label className="km-out">Save to<span className="km-dir"><input value={outDir} onChange={(e) => setOutDir(e.target.value)} /><button onClick={pickFolder}>Choose…</button></span></label>
-        </div>
+      <div className="mk-kbody">
+        <nav className="mk-slots" aria-label="Kit sections">
+          <ScrollArea className="mk-scroll">
+            <div className="mk-slots-in">
+              {KIT_SLOTS.map((s) => {
+                const n = live[s.id].length, t = targets[s.id]
+                return (
+                  <div key={s.id} className={`mk-slot ${slot === s.id ? 'on' : ''} ${t > 0 && n >= t ? 'done' : ''}`}>
+                    <button type="button" className="mk-slot-main" aria-pressed={slot === s.id} onClick={() => { setSlot(s.id); setQ(''); setMode('browse') }}>
+                      <b>{s.folder}</b><em>{n}<i> / {t}</i></em>
+                      <span className="mk-prog" style={{ ['--p' as string]: `${t ? Math.min(100, (n / t) * 100) : n ? 100 : 0}%` }}><i /></span>
+                    </button>
+                    <span className="mk-step" role="group" aria-label={`${s.folder} target`}>
+                      <button type="button" aria-label={`Lower ${s.folder} target`} onClick={() => step(s.id, -1)}><Minus /></button>
+                      <button type="button" aria-label={`Raise ${s.folder} target`} onClick={() => step(s.id, 1)}><Plus /></button>
+                    </span>
+                  </div>
+                )
+              })}
+              <p className="mk-help">Targets are what Auto-fill aims for. Change them any time.</p>
+            </div>
+          </ScrollArea>
+        </nav>
 
-        <div className="km-slots">
-          {KIT_SLOTS.map((s) => (
-            <button key={s.id} className={`km-slot ${slot === s.id ? 'on' : ''}`} onClick={() => { setSlot(s.id); setQ('') }}>
-              <b>{s.folder}</b>
-              <span className="mono">{live[s.id].length}<i className="dim">/{targets[s.id]}</i></span>
-            </button>
-          ))}
-        </div>
-
-        <div className="km-tools">
-          <div className="seg km-mode">
-            <button className={mode === 'browse' ? 'on' : ''} onClick={() => setMode('browse')}>Browse library</button>
-            <button className={mode === 'kit' ? 'on' : ''} onClick={() => setMode('kit')}>In this kit ({total})</button>
+        <div className="mk-kmain">
+          <div className="mk-ktools">
+            <Seg label="Show" value={mode} onChange={setMode} options={[{ v: 'browse', label: 'Browse library' }, { v: 'kit', label: <>This kit <span className="mk-c">{total}</span></> }]} />
+            {mode === 'browse' && <>
+              <Tip label="EDM sample packs are kept out of the main pool. Switch to EDM to use them."><span><Seg label="Sound pool" value={pool} onChange={setPool} options={[{ v: 'main', label: `Main ${poolCounts.main.toLocaleString()}` }, { v: 'edm', label: `EDM ${poolCounts.edm.toLocaleString()}` }, { v: 'both', label: 'Both' }]} /></span></Tip>
+              <label className="mk-field grow"><Search aria-hidden="true" /><input value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search the library" placeholder={`Search ${cands[slot].length.toLocaleString()} ${slotMeta.folder.toLowerCase()} in your library…`} /></label>
+              <Tip label="Hide sounds you already used in your other saved kits, and keep Auto-fill from picking them"><label className="mk-lbl"><input type="checkbox" checked={skipUsed} onChange={(e) => setSkipUsed(e.target.checked)} />Skip used</label></Tip>
+            </>}
           </div>
-          {mode === 'browse' && <><div className="seg km-mode" title="EDM sample packs are kept out of the main pool. Switch to EDM to use them.">
-            <button className={pool === 'main' ? 'on' : ''} onClick={() => setPool('main')}>Main {poolCounts.main.toLocaleString()}</button>
-            <button className={pool === 'edm' ? 'on' : ''} onClick={() => setPool('edm')}>EDM {poolCounts.edm.toLocaleString()}</button>
-            <button className={pool === 'both' ? 'on' : ''} onClick={() => setPool('both')}>Both</button>
-          </div><input placeholder={`Search ${cands[slot].length.toLocaleString()} ${KIT_SLOTS.find((s) => s.id === slot)!.folder.toLowerCase()} in your library…`} value={q} onChange={(e) => setQ(e.target.value)} />
-          <label className="km-target">Auto-fill target
-            <input type="number" min={0} max={200} value={targets[slot]} onChange={(e) => setTargets((t) => ({ ...t, [slot]: Math.max(0, Math.min(200, Number(e.target.value) || 0)) }))} />
-          </label>
-          <label className="km-target" title="Hide sounds you already used in your other saved kits, and keep Auto-fill from picking them"><input type="checkbox" checked={skipUsed} onChange={(e) => setSkipUsed(e.target.checked)} style={{ width: 'auto' }} />Skip sounds from other kits</label>
-          {preview.length > 0 && <span className="dim km-prev">Exports as {preview.join(' · ')}{live[slot].length > 3 ? ' …' : ''}</span>}</>}
-        </div>
-
-        {mode === 'kit' ? (
-          <div className="km-list">
-            {!total && <div className="empty">Nothing in this kit yet. Switch to Browse library and add sounds, or hit Auto-fill.</div>}
-            {KIT_SLOTS.filter((s) => live[s.id].length).map((s) => (
-              <div key={s.id}>
-                <div className="km-group"><b>{s.folder}</b><span className="dim">{live[s.id].length}</span><span className="grow" /><button className="ghost" onClick={() => { setSlot(s.id); setMode('browse') }}>Add more</button></div>
-                {plan.filter((f) => f.slot === s.id).map((f) => {
-                  const r = byId.get(f.id)!
-                  const pk = live[s.id].find((p) => p.id === f.id)
-                  const used = usage.get(soundKey(r))
+          <div className="mk-thead mk-kgrid" role="row"><span /><span>Name</span><span className="c-fold">Folder</span><span className="r">Length</span><span /></div>
+          <div className="mk-rows">
+            {mode === 'kit' ? (
+              <>
+                {!total && <div className="mk-empty"><b>Nothing in this kit yet</b>Switch to Browse library and add sounds, or hit Auto-fill.</div>}
+                {KIT_SLOTS.filter((s) => live[s.id].length).map((s) => (
+                  <div key={s.id}>
+                    <div className="mk-kgroup"><b>{s.folder}</b><span className="mk-dim">{live[s.id].length}</span><span className="mk-sp" /><Button variant="ghost" size="xs" onClick={() => { setSlot(s.id); setMode('browse') }}>Add more</Button></div>
+                    {plan.filter((f) => f.slot === s.id).map((f) => {
+                      const r = byId.get(f.id)!
+                      const pk = live[s.id].find((p) => p.id === f.id)
+                      const used = usage.get(soundKey(r))
+                      return (
+                        <div key={f.id} className="mk-krow mk-kgrid on">
+                          {playBtn(f.id, f.name)}
+                          <span className="mk-kn" title={f.name}>{f.name}{isEdm(data!.dirs[r.d]) && <em className="mk-badge edm">EDM</em>}{used && <em className="mk-badge" title={`Also in: ${used.join(', ')}`}>also in {used.length === 1 ? used[0] : `${used.length} kits`}</em>}</span>
+                          <span className="mk-dim c-fold mk-ellip" title={r.n}>from “{r.n}”{pk?.auto ? ' · auto' : ''}</span>
+                          <span className="mono mk-dim r">{fmtLen(r.u)}</span>
+                          <Button variant="ghost" size="xs" onClick={() => change((p) => ({ ...p, [s.id]: p[s.id].filter((x) => x.id !== f.id) }))}>Remove</Button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ))}
+              </>
+            ) : (
+              <>
+                {!data && <div className="mk-empty"><b>Loading your library…</b></div>}
+                {data && !list.length && <div className="mk-empty"><b>{cands[slot].length ? 'No sounds match.' : 'No WAV sounds of this type in your library yet.'}</b></div>}
+                {list.map((s) => {
+                  const on = picked.has(s.id)
+                  const auto = on && live[slot].find((p) => p.id === s.id)?.auto
+                  const u = usage.get(soundKey(s))
                   return (
-                    <div key={f.id} className="km-row on">
-                      <button className="km-play" onClick={() => play(f.id)} aria-label="Preview">{playing === f.id ? '❚❚' : '▶'}</button>
-                      <span className="sname" title={f.name}>{f.name}{isEdm(data!.dirs[r.d]) && <em className="km-used km-edm">EDM</em>}{used && <em className="km-used" title={`Also in: ${used.join(', ')}`}>also in {used.length === 1 ? used[0] : `${used.length} kits`}</em>}</span>
-                      <span className="dim sfolder" title={r.n}>from “{r.n}”{pk?.auto ? ' · auto' : ''}</span>
-                      <span className="mono dim r">{fmtLen(r.u)}</span>
-                      <button onClick={() => change((p) => ({ ...p, [s.id]: p[s.id].filter((x) => x.id !== f.id) }))}>Remove</button>
+                    <div key={s.id} className={`mk-krow mk-kgrid ${on ? 'on' : ''}`}>
+                      {playBtn(s.id, s.n)}
+                      <span className="mk-kn" title={s.n}>{s.n}{u && <em className="mk-badge" title={`Also in: ${u.join(', ')}`}>also in {u.length === 1 ? u[0] : `${u.length} kits`}</em>}</span>
+                      <span className="mk-dim c-fold mk-ellip" title={data!.dirs[s.d]}>{data!.dirs[s.d].split('/').slice(-2).join(' / ')}</span>
+                      <span className="mono mk-dim r">{fmtLen(s.u)}</span>
+                      <Button variant={on ? 'secondary' : 'outline'} size="xs" aria-pressed={on} onClick={() => toggle(s)}>{on ? (auto ? 'Auto ✓' : 'Added ✓') : 'Add'}</Button>
                     </div>
                   )
                 })}
-              </div>
-            ))}
+              </>
+            )}
           </div>
-        ) : (
-
-        <div className="km-list">
-          {!data && <div className="empty">Loading your library…</div>}
-          {data && !list.length && <div className="empty">{cands[slot].length ? 'No sounds match.' : 'No WAV sounds of this type in your library yet.'}</div>}
-          {list.map((s) => {
-            const on = picked.has(s.id)
-            const auto = on && live[slot].find((p) => p.id === s.id)?.auto
-            return (
-              <div key={s.id} className={`km-row ${on ? 'on' : ''}`}>
-                <button className="km-play" onClick={() => play(s.id)} aria-label="Preview">{playing === s.id ? '❚❚' : '▶'}</button>
-                <span className="sname" title={s.n}>{s.n}{usage.has(soundKey(s)) && <em className="km-used" title={`Also in: ${usage.get(soundKey(s))!.join(', ')}`}>also in {usage.get(soundKey(s))!.length === 1 ? usage.get(soundKey(s))![0] : `${usage.get(soundKey(s))!.length} kits`}</em>}</span>
-                <span className="dim sfolder" title={data!.dirs[s.d]}>{data!.dirs[s.d].split('/').slice(-2).join(' / ')}</span>
-                <span className="mono dim r">{fmtLen(s.u)}</span>
-                <button className={on ? 'primary' : ''} onClick={() => toggle(s)}>{on ? (auto ? 'Auto ✓' : 'Added ✓') : 'Add'}</button>
-              </div>
-            )
-          })}
-          {data && cands[slot].length > list.length && !q && <div className="empty dim">Showing the first {list.length}. Search to narrow it down.</div>}
+          <div className="mk-kfoot">{mode === 'browse' && data && cands[slot].length > list.length && !q ? `Showing the first ${list.length}. Search to narrow it down. ` : ''}{preview.length > 0 ? `Exports as ${preview.join(' · ')}${live[slot].length > 3 ? ' …' : ''}` : `${total} sounds in this kit`}</div>
         </div>
-        )}
+
+        <aside className="mk-kside" aria-label="Kit details">
+          <ScrollArea className="mk-scroll">
+            <div className="mk-insp-body">
+              <div>
+                <h3 className="mk-disp mk-kname">{name || 'My Drum Kit'}</h3>
+                <div className="mk-dim">{total} of {tgtTotal} target sounds</div>
+                <span className="mk-prog big" style={{ ['--p' as string]: `${tgtTotal ? Math.min(100, (total / tgtTotal) * 100) : 0}%` }}><i /></span>
+              </div>
+              <label className="mk-fld">Kit name<input className="mk-in" value={name} onChange={(e) => setName(e.target.value)} placeholder="My Drum Kit" /></label>
+              <label className="mk-fld">Your tag<input className="mk-in" value={tag} onChange={(e) => setTag(e.target.value)} placeholder="yourname" />{missingTag && <small className="mk-dim">No tag: files will be named “Kick 01.wav”.</small>}</label>
+              <div className="mk-fld">Save to
+                <span className="mk-dir"><input className="mk-in" value={outDir} onChange={(e) => setOutDir(e.target.value)} aria-label="Save to folder" /><Button variant="outline" size="sm" onClick={pickFolder}><Folder />Choose…</Button></span>
+              </div>
+              <DropZone title="Drop WAVs here" hint={<>Sounds already in your library are added to the kit; the type is read from the file name. Others are skipped.</>} onFiles={addDropped} />
+              <dl className="mk-kv">
+                <dt>Sounds</dt><dd>{total}</dd>
+                <dt>Size</dt><dd>about {(plan.reduce((n, f) => n + (byId.get(f.id)?.s ?? 0), 0) / 1e6).toFixed(1)} MB</dd>
+                <dt>Format</dt><dd>WAV, as in your library</dd>
+              </dl>
+            </div>
+          </ScrollArea>
+        </aside>
       </div>
     </section>
+    </TooltipProvider>
   )
 }

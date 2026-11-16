@@ -2,6 +2,9 @@ import { useMemo, useState } from 'react'
 import type { Beat } from '@shared/types'
 import { addable } from './storeUtils'
 import { errMsg } from './salesUtils'
+import { X } from 'lucide-react'
+import { Art, Button } from './salesUi'
+import './sales.css'
 
 /** Pick several finished beats to put on the public site. Adding does not publish. */
 export function AddToStoreDialog({ beats, onSite, onClose, onAdded }: { beats: Beat[]; onSite: Set<number>; onClose: () => void; onAdded: (n: number) => void }) {
@@ -16,25 +19,27 @@ export function AddToStoreDialog({ beats, onSite, onClose, onAdded }: { beats: B
     try { onAdded(await window.api.siteAddMany([...sel])) } catch (e) { setError(errMsg(e)); setBusy(false) }
   }
   return (
-    <div className="overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="modal wide-modal" onKeyDown={(e) => { if (e.key === 'Escape') onClose() }}>
-        <header><h2>Add beats to the store</h2><button className="x" onClick={onClose} aria-label="Close">×</button></header>
-        <p className="help">Finished beats with audio that are not on the site yet. Adding does not publish; use Publish when you are ready.</p>
-        <div className="field"><input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by title…" aria-label="Search beats" /></div>
-        <div className="stable addstore-grid" style={{ maxHeight: 320, overflowY: 'auto', marginTop: 10 }}>
-          {rows.map((b) => (
-            <label key={b.id} className="srow addstore-row">
-              <input type="checkbox" checked={sel.has(b.id)} onChange={() => toggle(b.id)} style={{ width: 'auto' }} />
-              <span className="st-title">{b.title}</span>
-            </label>
-          ))}
-          {!rows.length && <div className="empty">{q ? 'No finished beats match.' : 'Every finished beat is already on the site.'}</div>}
+    <div className="overlay sl-scrim" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="modal sl-dlg sm" aria-labelledby="sl-add" onKeyDown={(e) => { if (e.key === 'Escape') onClose() }}>
+        <header><h2 id="sl-add" className="sl-disp">Add beats to the store</h2><Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close"><X /></Button></header>
+        <div className="sl-bd">
+          <p className="sl-help">Finished beats with audio that are not on the site yet. Adding does not publish; use Publish when you are ready.</p>
+          <input className="sl-in" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by title…" aria-label="Search beats" />
+          <div className="sl-pick">
+            {rows.map((b) => (
+              <label key={b.id} className="sl-pick-row">
+                <input type="checkbox" checked={sel.has(b.id)} onChange={() => toggle(b.id)} />
+                <Art name={b.title} size={26} /><span className="sl-ell">{b.title}</span>
+              </label>
+            ))}
+            {!rows.length && <div className="sl-empty"><b>{q ? 'No finished beats match.' : 'Every finished beat is already on the site.'}</b></div>}
+          </div>
+          {error && <div className="sl-note warn">{error}</div>}
         </div>
-        {error && <div className="meta-line warn">{error}</div>}
-        <div className="actions" style={{ marginTop: 12 }}>
-          <button className="primary" disabled={!sel.size || busy} onClick={add}>{busy ? 'Adding…' : `Add ${sel.size || ''} beat${sel.size === 1 ? '' : 's'}`}</button>
-          <button onClick={onClose}>Cancel</button>
-        </div>
+        <footer>
+          <span className="sl-dim">{sel.size ? `${sel.size} picked` : 'Pick one or more beats'}</span>
+          <div className="r"><Button variant="outline" onClick={onClose}>Cancel</Button><Button disabled={!sel.size || busy} onClick={add}>{busy ? 'Adding…' : `Add ${sel.size || ''} beat${sel.size === 1 ? '' : 's'}`}</Button></div>
+        </footer>
       </div>
     </div>
   )

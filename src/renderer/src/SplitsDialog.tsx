@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { SPLIT_ROLES, type SplitRole, type SplitRow } from '@shared/types'
 import { errMsg } from './salesUtils'
+import { Button } from './salesUi'
+import './sales.css'
 
 const blank = (): SplitRow => ({ name: '', role: 'producer', email: '', pro: '', ipi: '', pubPct: 0, masterPct: 0 })
 const r2 = (n: number) => Math.round(n * 100) / 100
@@ -50,40 +52,40 @@ export function SplitsDialog({ groupId, title, producerName, onClose, onDone }: 
   }
 
   if (!loaded) return null
-  const tot = (v: number, ok: boolean) => <span className={ok ? 'okc' : 'badc'}>{fmt(v)}%{!ok && ` (${v < 100 ? fmt(100 - v) + ' left' : fmt(v - 100) + ' over'})`}</span>
+  const tot = (v: number, ok: boolean) => <span className={ok ? 'sl-okc' : 'sl-badc'}>{fmt(v)}%{!ok && ` (${v < 100 ? fmt(100 - v) + ' left' : fmt(v - 100) + ' over'})`}</span>
   return (
-    <div className="overlay" onMouseDown={onClose}>
-      <div className="modal splits" onMouseDown={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Escape') onClose() }}>
-        <header><h2>Splits · {title}</h2><button onClick={onClose}>Cancel</button></header>
-        <p className="help">Applies to every version of this beat. Publishing is the composition; master is the recording. Master follows publishing until you change it.</p>
+    <div className="overlay sl-scrim" onMouseDown={onClose}>
+      <div className="modal sl-dlg lg" aria-labelledby="sl-sp" onMouseDown={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Escape') onClose() }}>
+        <header><h2 id="sl-sp" className="sl-disp">Splits · {title}</h2><Button variant="outline" size="sm" onClick={onClose}>Cancel</Button></header>
+        <div className="sl-bd">
+        <p className="sl-help">Applies to every version of this beat. Publishing is the composition; master is the recording. Master follows publishing until you change it.</p>
         <datalist id="collabs">{known.map((k) => <option key={k.name} value={k.name} />)}</datalist>
-        <div className="sp-grid sp-head"><span>Name</span><span>Role</span><span>Email</span><span>PRO</span><span>IPI</span><span className="r">Pub %</span><span className="r">Master %</span><span /></div>
+        <div className="sl-sp-grid sl-thead"><span>Name</span><span>Role</span><span>Email</span><span>PRO</span><span>IPI</span><span className="r">Pub %</span><span className="r">Master %</span><span /></div>
         {rows.map((r, i) => (
-          <div key={i} className="sp-grid">
-            <input list="collabs" value={r.name} placeholder="Name" onChange={(e) => setName(i, e.target.value)} />
-            <select value={r.role} onChange={(e) => set(i, { role: e.target.value as SplitRole })}>{SPLIT_ROLES.map((x) => <option key={x}>{x}</option>)}</select>
-            <input value={r.email} placeholder="email" onChange={(e) => set(i, { email: e.target.value })} />
-            <input value={r.pro} placeholder="ASCAP…" onChange={(e) => set(i, { pro: e.target.value })} />
-            <input value={r.ipi} placeholder="IPI" onChange={(e) => set(i, { ipi: e.target.value })} />
-            <input className="r" inputMode="decimal" value={r.pubPct || ''} placeholder="0" onChange={(e) => setPub(i, parseFloat(e.target.value) || 0)} />
-            <input className="r" inputMode="decimal" value={r.masterPct || ''} placeholder="0" onChange={(e) => set(i, { masterPct: parseFloat(e.target.value) || 0 })} />
-            <button className="x" onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))} aria-label="remove">×</button>
+          <div key={i} className="sl-sp-grid">
+            <input className="sl-in" list="collabs" value={r.name} placeholder="Name" onChange={(e) => setName(i, e.target.value)} />
+            <select className="sl-in" value={r.role} onChange={(e) => set(i, { role: e.target.value as SplitRole })}>{SPLIT_ROLES.map((x) => <option key={x}>{x}</option>)}</select>
+            <input className="sl-in" value={r.email} placeholder="email" onChange={(e) => set(i, { email: e.target.value })} />
+            <input className="sl-in" value={r.pro} placeholder="ASCAP…" onChange={(e) => set(i, { pro: e.target.value })} />
+            <input className="sl-in" value={r.ipi} placeholder="IPI" onChange={(e) => set(i, { ipi: e.target.value })} />
+            <input className="sl-in r" inputMode="decimal" value={r.pubPct || ''} placeholder="0" onChange={(e) => setPub(i, parseFloat(e.target.value) || 0)} />
+            <input className="sl-in r" inputMode="decimal" value={r.masterPct || ''} placeholder="0" onChange={(e) => set(i, { masterPct: parseFloat(e.target.value) || 0 })} />
+            <Button variant="ghost" size="icon-sm" onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))} aria-label="remove">×</Button>
           </div>
         ))}
-        <div className="sp-grid sp-total"><span style={{ gridColumn: '1 / 6' }}>Total</span><span className="r">{tot(pub, okPub)}</span><span className="r">{tot(master, okMaster)}</span><span /></div>
-        <div className="draft-actions" style={{ marginTop: 8 }}>
-          <button onClick={() => setRows((rs) => [...rs, blank()])}>+ Add person</button>
-          {producerName && !rows.some((r) => r.name.trim().toLowerCase() === producerName.toLowerCase()) && <button onClick={() => setRows((rs) => [...rs, { ...blank(), name: producerName }])}>+ Add me</button>}
-          <button onClick={evenly}>Split evenly</button>
-          <span className="flash" />
+        <div className="sl-sp-grid sl-sp-total"><span style={{ gridColumn: '1 / 6' }}>Total</span><span className="r">{tot(pub, okPub)}</span><span className="r">{tot(master, okMaster)}</span><span /></div>
+        <div className="sl-row-acts">
+          <Button variant="outline" size="sm" onClick={() => setRows((rs) => [...rs, blank()])}>+ Add person</Button>
+          {producerName && !rows.some((r) => r.name.trim().toLowerCase() === producerName.toLowerCase()) && <Button variant="outline" size="sm" onClick={() => setRows((rs) => [...rs, { ...blank(), name: producerName }])}>+ Add me</Button>}
+          <Button variant="outline" size="sm" onClick={evenly}>Split evenly</Button>
         </div>
-        {error && <div className="notice err">{error}</div>}
-        {!canSheet && <div className="help">To create the PDF: two or more named people, and both columns at exactly 100%.</div>}
-        <div className="draft-actions">
-          <span className="flash" />
-          <button disabled={busy} onClick={() => save(false)}>Save</button>
-          <button className="primary" disabled={busy || !canSheet} onClick={() => save(true)}>Save & create split sheet PDF</button>
+        {error && <div className="sl-note warn">{error}</div>}
+        {!canSheet && <div className="sl-help">To create the PDF: two or more named people, and both columns at exactly 100%.</div>}
         </div>
+        <footer>
+          <span />
+          <div className="r"><Button variant="outline" disabled={busy} onClick={() => save(false)}>Save</Button><Button disabled={busy || !canSheet} onClick={() => save(true)}>Save &amp; create split sheet PDF</Button></div>
+        </footer>
       </div>
     </div>
   )

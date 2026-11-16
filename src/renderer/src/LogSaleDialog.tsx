@@ -4,6 +4,8 @@ import { clickable } from './a11y'
 import { displayKey } from '@shared/key'
 import { errMsg, fmtDay, fromInputDate, money, toInputDate } from './salesUtils'
 import { fmtBpm } from './format'
+import { Button } from './salesUi'
+import './sales.css'
 
 interface Props {
   beats: Beat[]
@@ -85,20 +87,21 @@ export function LogSaleDialog({ beats, sales, licenses, contacts, beatId: b0, ed
   const valid = !!beatId && !!buyer.trim() && p >= 0 && !isNaN(p) && f >= 0 && f <= p && !!date && !!licenseName.trim() && !blocked
 
   return (
-    <div className="overlay" onMouseDown={onClose}>
-      <div className="modal formcard" onMouseDown={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Escape') onClose(); if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && valid) save() }}>
-        <header className="fc-head"><div className="ph-eyebrow">Money in</div><h2 className="ph-title fc-title">{edit ? 'Edit sale.' : 'Log a sale.'}</h2><button className="fc-x" onClick={onClose} aria-label="Cancel">Cancel</button></header>
+    <div className="overlay sl-scrim" onMouseDown={onClose}>
+      <div className="modal sl-dlg sm" aria-labelledby="sl-log" onMouseDown={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Escape') onClose(); if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && valid) save() }}>
+        <header><h2 id="sl-log" className="sl-disp">{edit ? 'Edit sale.' : 'Log a sale.'}</h2><Button variant="ghost" size="sm" onClick={onClose} aria-label="Cancel">Cancel</Button></header>
+        <div className="sl-bd">
 
-        <div className="field"><label>Beat</label>
+        <div className="sl-fld"><label>Beat</label>
           {beat ? (
-            <div className="folder"><span><b>{beat.title}</b> <span className="dim mono">{fmtBpm(beat.bpm)} {displayKey(beat.key)} · {beat.status}</span></span>{!edit && <button onClick={() => setBeatId(null)}>Change</button>}</div>
+            <div className="sl-picked"><span><b>{beat.title}</b> <span className="sl-dim sl-mono">{fmtBpm(beat.bpm)} {displayKey(beat.key)} · {beat.status}</span></span>{!edit && <Button variant="outline" size="sm" onClick={() => setBeatId(null)}>Change</Button>}</div>
           ) : (
             <>
-              <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search your beats…" />
-              <div className="plist" style={{ height: 'auto', maxHeight: 200, marginTop: 6 }}>
+              <input className="sl-in" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search your beats…" />
+              <div className="sl-pick">
                 {results.map((b) => (
-                  <div key={b.id} className="pitem" style={{ gridTemplateColumns: '1fr auto 10px' }} {...clickable(() => setBeatId(b.id))}>
-                    <span className="pt">{b.title}</span><span className="mono dim">{fmtBpm(b.bpm)} {displayKey(b.key)}</span><span className={`dot st-${b.status}`} />
+                  <div key={b.id} className="sl-pick-row" {...clickable(() => setBeatId(b.id))}>
+                    <span className="sl-ell">{b.title}</span><span className="sl-mono sl-dim">{fmtBpm(b.bpm)} {displayKey(b.key)}</span><span className={`sl-dot st-${b.status}`} />
                   </div>
                 ))}
               </div>
@@ -106,41 +109,42 @@ export function LogSaleDialog({ beats, sales, licenses, contacts, beatId: b0, ed
           )}
         </div>
 
-        {blocked && lock && <div className="notice err">🔒 “{beat?.title}” was sold exclusively to {lock.buyer} on {fmtDay(lock.soldAt)}. It can’t be sold again{!exclusive ? ' unless this sale happened before that date' : ''}.</div>}
-        {!blocked && beat && groupSales.length > 0 && !edit && <div className="help">Already sold {groupSales.length}×: {groupSales.slice(0, 3).map((s) => `${s.licenseName} to ${s.buyer}`).join(', ')}{groupSales.length > 3 ? '…' : ''}</div>}
+        {blocked && lock && <div className="sl-note warn">🔒 “{beat?.title}” was sold exclusively to {lock.buyer} on {fmtDay(lock.soldAt)}. It can’t be sold again{!exclusive ? ' unless this sale happened before that date' : ''}.</div>}
+        {!blocked && beat && groupSales.length > 0 && !edit && <div className="sl-help">Already sold {groupSales.length}×: {groupSales.slice(0, 3).map((s) => `${s.licenseName} to ${s.buyer}`).join(', ')}{groupSales.length > 3 ? '…' : ''}</div>}
 
-        <div className="stack">
-          <div className="field"><label>Buyer</label><input list="buyers" value={buyer} onChange={(e) => onBuyer(e.target.value)} /><datalist id="buyers">{buyerOptions.map((b) => <option key={b} value={b} />)}</datalist></div>
-          <div className="field"><label>Buyer email (optional)</label><input value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+        <div className="sl-two">
+          <div className="sl-fld"><label>Buyer</label><input className="sl-in" list="buyers" value={buyer} onChange={(e) => onBuyer(e.target.value)} /><datalist id="buyers">{buyerOptions.map((b) => <option key={b} value={b} />)}</datalist></div>
+          <div className="sl-fld"><label>Buyer email (optional)</label><input className="sl-in" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
         </div>
-        <div className="stack">
-          <div className="field"><label>License</label>
-            {edit ? <input value={edit.licenseName} readOnly /> : (
-              <div className="chipset" role="radiogroup" aria-label="License">
-                {licenses.map((l) => <button type="button" role="radio" aria-checked={licId === l.id} key={l.id} className={`fpill ${licId === l.id ? 'on' : ''}`} onClick={() => pickLicense(String(l.id))}>{l.name}{l.exclusive ? ' · excl.' : ''}</button>)}
-                <button type="button" role="radio" aria-checked={licId === 'custom'} className={`fpill ${licId === 'custom' ? 'on' : ''}`} onClick={() => pickLicense('custom')}>Custom…</button>
+        <div className="sl-two">
+          <div className="sl-fld"><label>License</label>
+            {edit ? <input className="sl-in" value={edit.licenseName} readOnly /> : (
+              <div className="sl-chips" role="radiogroup" aria-label="License">
+                {licenses.map((l) => <button type="button" role="radio" aria-checked={licId === l.id} key={l.id} className={`sl-chip${licId === l.id ? ' on' : ''}`} onClick={() => pickLicense(String(l.id))}>{l.name}{l.exclusive ? ' · excl.' : ''}</button>)}
+                <button type="button" role="radio" aria-checked={licId === 'custom'} className={`sl-chip${licId === 'custom' ? ' on' : ''}`} onClick={() => pickLicense('custom')}>Custom…</button>
               </div>
             )}
           </div>
-          <div className="field"><label>Source</label><div className="chipset" role="radiogroup" aria-label="Source">{SALE_SOURCES.map((x) => <button type="button" role="radio" aria-checked={source === x} key={x} className={`fpill ${source === x ? 'on' : ''}`} onClick={() => setSource(x)}>{x === 'beatstars' ? 'BeatStars' : x === 'cashapp' ? 'Cash App' : x[0].toUpperCase() + x.slice(1)}</button>)}</div></div>
+          <div className="sl-fld"><label>Source</label><div className="sl-chips" role="radiogroup" aria-label="Source">{SALE_SOURCES.map((x) => <button type="button" role="radio" aria-checked={source === x} key={x} className={`sl-chip${source === x ? ' on' : ''}`} onClick={() => setSource(x)}>{x === 'beatstars' ? 'BeatStars' : x === 'cashapp' ? 'Cash App' : x[0].toUpperCase() + x.slice(1)}</button>)}</div></div>
         </div>
         {!edit && licId === 'custom' && (
-          <div className="two">
-            <div className="field"><label>Custom license name</label><input value={customName} onChange={(e) => setCustomName(e.target.value)} /></div>
-            <label className="check" style={{ marginTop: 22 }}><input type="checkbox" checked={customExcl} onChange={(e) => setCustomExcl(e.target.checked)} /> This is an exclusive</label>
+          <div className="sl-two">
+            <div className="sl-fld"><label>Custom license name</label><input className="sl-in" value={customName} onChange={(e) => setCustomName(e.target.value)} /></div>
+            <label className="sl-chk"><input type="checkbox" checked={customExcl} onChange={(e) => setCustomExcl(e.target.checked)} /> This is an exclusive</label>
           </div>
         )}
-        <div className="three">
-          <div className="field"><label>Price ($)</label><input inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} /></div>
-          <div className="field"><label>Fees ($)</label><input inputMode="decimal" value={fee} onChange={(e) => setFee(e.target.value)} /></div>
-          <div className="field"><label>Date</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
+        <div className="sl-three">
+          <div className="sl-fld"><label>Price ($)</label><input className="sl-in" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} /></div>
+          <div className="sl-fld"><label>Fees ($)</label><input className="sl-in" inputMode="decimal" value={fee} onChange={(e) => setFee(e.target.value)} /></div>
+          <div className="sl-fld"><label>Date</label><input className="sl-in" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
         </div>
-        {!isNaN(p) && <div className="meta-line" style={{ marginTop: 6 }}>You keep {money(Math.max(0, p - f))}</div>}
-        <div className="field"><label>Notes</label><input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Order #, terms, anything to remember" /></div>
+        {!isNaN(p) && <div className="sl-help">You keep {money(Math.max(0, p - f))}</div>}
+        <div className="sl-fld"><label>Notes</label><input className="sl-in" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Order #, terms, anything to remember" /></div>
 
-        {exclusive && !edit && !blocked && <div className="notice">Exclusive: this marks “{beat?.title ?? 'the beat'}”{beat && beats.filter((b) => b.groupId === beat.groupId).length > 1 ? ` and its ${beats.filter((b) => b.groupId === beat.groupId).length - 1} other version(s)` : ''} as <b>sold</b> and blocks any future sale.</div>}
-        {error && <div className="notice err">{error}</div>}
-        <div className="draft-actions fc-submit"><span className="flash" /><button className="primary" disabled={!valid || busy} onClick={save}>{edit ? 'Save' : exclusive ? 'Log exclusive · lock beat' : 'Log sale'} <kbd>⌘↵</kbd></button></div>
+        {exclusive && !edit && !blocked && <div className="sl-note">Exclusive: this marks “{beat?.title ?? 'the beat'}”{beat && beats.filter((b) => b.groupId === beat.groupId).length > 1 ? ` and its ${beats.filter((b) => b.groupId === beat.groupId).length - 1} other version(s)` : ''} as <b>sold</b> and blocks any future sale.</div>}
+        {error && <div className="sl-note warn">{error}</div>}
+        </div>
+        <footer><span /><div className="r"><Button disabled={!valid || busy} onClick={save}>{edit ? 'Save' : exclusive ? 'Log exclusive · lock beat' : 'Log sale'} <kbd>⌘↵</kbd></Button></div></footer>
       </div>
     </div>
   )

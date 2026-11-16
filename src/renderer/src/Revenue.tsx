@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { Sale } from '@shared/types'
+import { Button, Reveal, Roll, Seg } from './salesUi'
 import { buyerKey, inRange, money, monthly, net, rank, type Ranked, type RangeKey } from './salesUtils'
 
 // Series colors come from the dataviz palette (dark, validated): slot 1 blue = leases, slot 2 orange = exclusives.
@@ -12,15 +13,15 @@ const nice = (max: number) => {
 
 function BarList({ rows, unit }: { rows: Ranked[]; unit: (r: Ranked) => string }) {
   const max = Math.max(1, ...rows.map((r) => r.total))
-  if (!rows.length) return <p className="help">No sales in this range.</p>
+  if (!rows.length) return <p className="sl-help">No sales in this range.</p>
   return (
-    <div className="barlist">
+    <div className="sl-bl">
       {rows.map((r) => (
-        <div key={r.key} className="bl-row" title={`${r.label}: ${money(r.total)}`}>
-          <span className="bl-name">{r.label}</span>
-          <span className="bl-track"><span className="bl-fill" style={{ width: `${(r.total / max) * 100}%` }} /></span>
-          <span className="bl-val mono">{money(r.total)}</span>
-          <span className="bl-sub dim">{unit(r)}</span>
+        <div key={r.key} className="sl-bl-row" title={`${r.label}: ${money(r.total)}`}>
+          <span className="sl-ell">{r.label}</span>
+          <span className="sl-bl-track"><span className="sl-bl-fill" style={{ width: `${(r.total / max) * 100}%` }} /></span>
+          <span className="sl-mono">{money(r.total)}</span>
+          <span className="sl-dim">{unit(r)}</span>
         </div>
       ))}
     </div>
@@ -55,46 +56,41 @@ export function Revenue({ sales }: { sales: Sale[] }) {
   const hv = hover != null ? months[hover] : null
 
   return (
-    <div className="revenue">
-      <div className="rv-top">
-        <div className="seg" style={{ width: 'auto' }}>
-          {([['12m', 'Last 12 months'], ['ytd', 'This year'], ['all', 'All time']] as const).map(([k, l]) => <button key={k} className={range === k ? 'on' : ''} onClick={() => setRange(k)}>{l}</button>)}
-        </div>
-        <div className="seg" style={{ width: 'auto' }}>
-          <button className={!useNet ? 'on' : ''} onClick={() => setUseNet(false)}>Gross</button>
-          <button className={useNet ? 'on' : ''} onClick={() => setUseNet(true)}>Net of fees</button>
-        </div>
+    <div className="sl-rev">
+      <div className="sl-rv-top">
+        <Seg label="Range" value={range} onChange={setRange} options={[{ v: '12m', label: 'Last 12 months' }, { v: 'ytd', label: 'This year' }, { v: 'all', label: 'All time' }]} />
+        <Seg label="Amounts" value={useNet ? 'net' : 'gross'} onChange={(v) => setUseNet(v === 'net')} options={[{ v: 'gross', label: 'Gross' }, { v: 'net', label: 'Net of fees' }]} />
       </div>
 
-      <div className="stats six">
-        <div className="stat"><b>{money(total)}</b><span>{useNet ? 'net revenue' : 'revenue'}</span></div>
-        <div className="stat"><b>{money(thisMonth)}</b><span>this month</span></div>
-        <div className="stat"><b>{inR.length}</b><span>sales</span></div>
-        <div className="stat"><b>{inR.length ? money(Math.round((total / inR.length) * 100) / 100) : '–'}</b><span>average sale</span></div>
-        <div className="stat"><b>{exclusives}</b><span>exclusives</span></div>
-        <div className="stat"><b>{money(fees)}</b><span>fees paid</span></div>
-      </div>
+      <Reveal className="sl-stats">
+        <div className="sl-stat"><b><Roll value={total} money cents={total % 1 !== 0} /></b><span>{useNet ? 'net revenue' : 'revenue'}</span></div>
+        <div className="sl-stat"><b><Roll value={thisMonth} money cents={thisMonth % 1 !== 0} /></b><span>this month</span></div>
+        <div className="sl-stat"><b><Roll value={inR.length} /></b><span>sales</span></div>
+        <div className="sl-stat"><b>{inR.length ? <Roll value={Math.round((total / inR.length) * 100) / 100} money cents /> : '–'}</b><span>average sale</span></div>
+        <div className="sl-stat"><b><Roll value={exclusives} /></b><span>exclusives</span></div>
+        <div className="sl-stat"><b><Roll value={fees} money cents={fees % 1 !== 0} /></b><span>fees paid</span></div>
+      </Reveal>
 
-      <div className="panel">
-        <div className="panel-head">
+      <div className="sl-panel">
+        <div className="sl-panel-h">
           <h3>Revenue by month</h3>
-          <div className="legend">
-            <span><i className="sw s1" />Leases</span><span><i className="sw s2" />Exclusives</span>
-            <button className="ghost" onClick={() => setTable((t) => !t)}>{table ? 'Show chart' : 'Show table'}</button>
+          <div className="sl-legend">
+            <span><i className="sl-sw s1" />Leases</span><span><i className="sl-sw s2" />Exclusives</span>
+            <Button variant="ghost" size="sm" onClick={() => setTable((t) => !t)}>{table ? 'Show chart' : 'Show table'}</Button>
           </div>
         </div>
         {table ? (
-          <table className="mini">
+          <table className="sl-mini">
             <thead><tr><th>Month</th><th className="r">Leases</th><th className="r">Exclusives</th><th className="r">Total</th><th className="r">Sales</th></tr></thead>
             <tbody>{months.map((m) => <tr key={m.key}><td>{m.label}</td><td className="r">{money(m.leases)}</td><td className="r">{money(m.exclusives)}</td><td className="r">{money(m.leases + m.exclusives)}</td><td className="r">{m.count}</td></tr>)}</tbody>
           </table>
         ) : (
-          <div className="chartwrap" onMouseLeave={() => setHover(null)}>
+          <div className="sl-chartwrap" onMouseLeave={() => setHover(null)}>
             <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Revenue by month, leases and exclusives stacked">
               {ticks.map((t) => (
                 <g key={t}>
-                  <line x1={L} x2={W - R} y1={y(t)} y2={y(t)} className="grid" />
-                  <text x={L - 8} y={y(t) + 4} textAnchor="end" className="axis">{t >= 1000 ? `$${t / 1000}k` : `$${t}`}</text>
+                  <line x1={L} x2={W - R} y1={y(t)} y2={y(t)} className="sl-grid" />
+                  <text x={L - 8} y={y(t) + 4} textAnchor="end" className="sl-axis">{t >= 1000 ? `$${t / 1000}k` : `$${t}`}</text>
                 </g>
               ))}
               {months.map((m, i) => {
@@ -106,29 +102,29 @@ export function Revenue({ sales }: { sales: Sale[] }) {
                     <rect x={L + i * bw} y={T} width={bw} height={H - T - B} fill="transparent" />
                     {m.leases > 0 && <rect x={x} y={base - hL} width={w} height={Math.max(hL - (m.exclusives > 0 ? 2 : 0), 1)} rx={3} className="s1" opacity={hover == null || hover === i ? 1 : 0.45} />}
                     {m.exclusives > 0 && <rect x={x} y={base - hL - hE} width={w} height={Math.max(hE, 1)} rx={3} className="s2" opacity={hover == null || hover === i ? 1 : 0.45} />}
-                    {i % everyN === 0 && <text x={x + w / 2} y={H - 8} textAnchor="middle" className="axis">{m.label}</text>}
+                    {i % everyN === 0 && <text x={x + w / 2} y={H - 8} textAnchor="middle" className="sl-axis">{m.label}</text>}
                   </g>
                 )
               })}
-              <line x1={L} x2={W - R} y1={H - B} y2={H - B} className="baseline" />
+              <line x1={L} x2={W - R} y1={H - B} y2={H - B} className="sl-baseline" />
             </svg>
             {hv && hover != null && (
-              <div className="tip" style={{ left: `${((L + hover * bw + bw / 2) / W) * 100}%` }}>
+              <div className="sl-tip" style={{ left: `${((L + hover * bw + bw / 2) / W) * 100}%` }}>
                 <b>{hv.label}</b>
-                <div><i className="sw s1" />Leases <span>{money(hv.leases)}</span></div>
-                <div><i className="sw s2" />Exclusives <span>{money(hv.exclusives)}</span></div>
-                <div className="dim">{hv.count} sale{hv.count === 1 ? '' : 's'}</div>
+                <div><i className="sl-sw s1" />Leases <span>{money(hv.leases)}</span></div>
+                <div><i className="sl-sw s2" />Exclusives <span>{money(hv.exclusives)}</span></div>
+                <div className="sl-dim">{hv.count} sale{hv.count === 1 ? '' : 's'}</div>
               </div>
             )}
           </div>
         )}
-        {!sales.length && <p className="help">No sales logged yet. Log one from the Sales tab and this fills in.</p>}
+        {!sales.length && <p className="sl-help">No sales logged yet. Log one from the Sales tab and this fills in.</p>}
       </div>
 
-      <div className="rv-cols">
-        <div className="panel"><h3>Top beats</h3><BarList rows={topBeats} unit={(r) => `${r.count} sale${r.count === 1 ? '' : 's'}`} /></div>
-        <div className="panel"><h3>Top buyers</h3><BarList rows={buyers.slice(0, 8)} unit={(r) => (r.count > 1 ? `${r.count} purchases · repeat` : '1 purchase')} /></div>
-        <div className="panel"><h3>By source</h3><BarList rows={sources} unit={(r) => `${Math.round((r.total / Math.max(1, total)) * 100)}%`} /></div>
+      <div className="sl-rv-cols">
+        <div className="sl-panel"><h3>Top beats</h3><BarList rows={topBeats} unit={(r) => `${r.count} sale${r.count === 1 ? '' : 's'}`} /></div>
+        <div className="sl-panel"><h3>Top buyers</h3><BarList rows={buyers.slice(0, 8)} unit={(r) => (r.count > 1 ? `${r.count} purchases · repeat` : '1 purchase')} /></div>
+        <div className="sl-panel"><h3>By source</h3><BarList rows={sources} unit={(r) => `${Math.round((r.total / Math.max(1, total)) * 100)}%`} /></div>
       </div>
     </div>
   )

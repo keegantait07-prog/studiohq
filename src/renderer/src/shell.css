@@ -60,41 +60,40 @@
 @media (prefers-reduced-motion: no-preference) { .tp-session i { animation: v4-pulse 2s ease-in-out infinite; } }
 @keyframes v4-pulse { 50% { opacity: .35; } }
 
-/* ---- v4 life: shell ---- */
-/* 1. play / pause: two shapes that trade a triangle for two bars */
-.dk-play svg { overflow: visible; }
-.dk-play path { fill: currentColor; transition: d var(--dur-3) var(--ease-out); }
-.dk-play .pl { d: path('M3 2 L7 4.4 L7 9.6 L3 12 Z'); }
-.dk-play .pr { d: path('M7 4.4 L11 7 L11 7 L7 9.6 Z'); }
-.dk-play[data-playing] .pl { d: path('M3 2 L6 2 L6 12 L3 12 Z'); }
-.dk-play[data-playing] .pr { d: path('M8 2 L11 2 L11 12 L8 12 Z'); }
-/* 3. tab text roll: the label slides up, a copy slides in from below */
-.st-roll { position: relative; display: inline-block; overflow: hidden; line-height: 1.5; vertical-align: middle; }
-.st-roll > span { display: block; transition: transform var(--dur-3) var(--ease-out); }
-.st-roll::after { content: attr(data-t); position: absolute; left: 0; top: 100%; transition: transform var(--dur-3) var(--ease-out); }
-@media (hover: hover) { .st-tab:hover .st-roll > span, .st-tab:hover .st-roll::after { transform: translateY(-100%); } }
-/* 4. tooltip with an arrow */
-.tip { position: relative; display: grid; }
-.tip-bubble { position: absolute; left: 50%; z-index: 30; padding: 4px 8px; border-radius: 6px; background: var(--text); color: var(--bg); font: 500 11.5px/1.3 var(--font); white-space: nowrap; pointer-events: none; opacity: 0; transform: translate(-50%, 4px) scale(.96); transition: opacity var(--dur-2) ease, transform var(--dur-2) var(--ease-out); }
-.tip-bubble::after { content: ''; position: absolute; left: 50%; width: 8px; height: 8px; background: var(--text); transform: translateX(-50%) rotate(45deg); border-radius: 1px; }
-.tip-bottom .tip-bubble { top: calc(100% + 8px); }
-.tip-bottom .tip-bubble::after { top: -3px; }
-.tip-top .tip-bubble { bottom: calc(100% + 8px); }
-.tip-top .tip-bubble::after { bottom: -3px; }
-.tip:focus-within .tip-bubble { opacity: 1; transform: translate(-50%, 0) scale(1); }
-@media (hover: hover) { .tip:hover .tip-bubble { opacity: 1; transform: translate(-50%, 0) scale(1); transition-delay: 350ms; } }
-/* 6. rolling digits */
-.rn { --h: var(--rn-h, 1.2em); display: inline-flex; align-items: flex-start; height: var(--h); line-height: var(--h); font-variant-numeric: tabular-nums; vertical-align: bottom; }
-.rn-d { display: inline-block; height: var(--h); overflow: hidden; }
-.rn-col { display: flex; flex-direction: column; transform: translateY(calc(var(--d) * var(--h) * -1)); transition: transform var(--dur-3) var(--ease-out); }
-.rn-col > span, .rn-s { height: var(--h); white-space: pre; }
-.st-badge .rn { --rn-h: 1.2em; }
-.h-blk b { --rn-h: 1em; }
-/* 7. gooey chips: shapes live in a filtered layer under the buttons */
-.dk-blobs { position: absolute; inset: 0; display: flex; gap: 6px; filter: url(#dk-goo); pointer-events: none; }
-.dk-blob { box-sizing: border-box; height: 28px; padding: 0 10px; border: 1px solid transparent; border-radius: var(--r-btn); background: var(--line-hi); color: transparent; font-size: 12px; font-style: normal; display: inline-flex; align-items: center; transition: background var(--dur-3) var(--ease-out), transform var(--dur-3) var(--ease-out); }
-.dk-blob.on { background: var(--text); transform: scaleX(1.16); }
+/* ---- v4 life: shell (library parts; this is skin only) ---- */
+/* 1. play / pause: Skiper 25 MusicToggle (springy padding, five spring bars that dance while playing) */
+.dk-play { width: auto; min-width: 34px; gap: 5px; display: inline-flex; align-items: center; justify-content: center; }
+.dk-play .mt-bars { display: inline-flex; align-items: center; gap: 2px; height: 18px; }
+.dk-play .mt-bars i { display: block; width: 2px; border-radius: 1px; background: currentColor; }
+.dk-play:not([data-playing]) .mt-bars { display: none; }
+/* 3. tab text roll: Skiper 58 TextRoll (its inline line-height is too tight for the strip) */
+.st-roll { line-height: 1.25 !important; display: inline-block !important; vertical-align: middle; }
+/* 4. tooltip: library Tooltip (base-ui, with arrow), theme font and size */
+.dk-tip { font: 500 11.5px/1.3 var(--font); }
+/* 6. counters: Magic UI NumberTicker; drop its own colour and tracking so the surrounding text decides */
+.dk-num { font-variant-numeric: tabular-nums; }
+.dk-num-t { color: inherit !important; letter-spacing: inherit !important; }
+/* 7. gooey chips: Skiper 64 gooey filter over the blob layer, library Buttons on top */
+.dk-chips > svg { width: 0; height: 0; pointer-events: none; }
+.dk-blobs { position: absolute; inset: 0; display: flex; gap: 6px; filter: url(#SkiperGooeyFilter); pointer-events: none; }
+.dk-blob { box-sizing: border-box; height: 28px; padding: 0 10px; border: 1px solid transparent; border-radius: var(--r-btn); background: var(--line-hi); color: transparent; font-size: 12px; font-style: normal; display: inline-flex; align-items: center; transition: background-color var(--dur-3) var(--ease-out); }
+.dk-blob.on { background: var(--text); }
 .dk-blob.off { opacity: .4; }
+.transport .dk-chip { position: relative; height: 28px; padding: 0 10px; border-radius: var(--r-btn); border: 1px solid var(--line-hi); background: var(--well); color: var(--text-2); font-size: 12px; font-weight: 500; transition: color var(--dur-2) ease, border-color var(--dur-2) ease, background-color var(--dur-2) ease; }
+.transport .dk-chip.on { background: transparent; color: var(--bg); border-color: var(--text); }
+.transport .dk-chip:disabled { opacity: .4; }
+/* segmented control: base-ui Tabs with its sliding Indicator (21st 43122 Segmented Control for the look) */
+.dk-seg-list { position: relative; z-index: 0; display: flex; padding: 3px; background: var(--well); border: 1px solid var(--line); border-radius: var(--r-btn); }
+.dk-seg-tab { position: relative; z-index: 1; display: flex; gap: 6px; align-items: center; padding: 5px 11px; border-radius: var(--r-btn); font-size: 12.5px; color: var(--text-2); white-space: nowrap; cursor: pointer; transition: color var(--dur-2) ease; }
+.dk-seg-tab span { color: var(--dim); font-variant-numeric: tabular-nums; }
+.dk-seg-tab i { width: 7px; height: 7px; border-radius: 2px; background: var(--c); }
+.dk-seg-tab[data-active] { color: var(--text); }
+.dk-seg-tab[data-active] span { color: var(--text-2); }
+.dk-seg-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.dk-seg-ind { position: absolute; z-index: -1; left: var(--active-tab-left); top: var(--active-tab-top); width: var(--active-tab-width); height: var(--active-tab-height); border-radius: var(--r-btn); background: var(--raise); box-shadow: 0 1px 2px rgba(0, 0, 0, .25); transition: left var(--dur-3) var(--ease-out), width var(--dur-3) var(--ease-out); }
+@media (hover: hover) { .dk-seg-tab:not([data-active]):hover { color: var(--text); } }
+/* icons: lucide at one stroke weight, never thickened or filled by a theme token */
+.ico.ico-l { fill: none; stroke-width: 1.75; filter: none; }
 /* 5. soft edges on scroll panels: the fade eases in only once there is more to scroll */
 @property --ft { syntax: '<length>'; inherits: false; initial-value: 0px; }
 @property --fb { syntax: '<length>'; inherits: false; initial-value: 0px; }
@@ -214,9 +213,8 @@
   .h-lead h1 { font-size: 24px; max-width: 30ch; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .st-line, .h-tick, .h-btn, .h-meter i, .dk-play, .v-seg button, .v-btn, .vt-row, .vt-play { transition: none; }
-  .dk-play path, .st-roll > span, .st-roll::after, .tip-bubble, .rn-col, .dk-blob, .dk-chip { transition: none; }
-  .st-roll::after { display: none; }
+  .st-line, .h-tick, .h-btn, .h-meter i, .dk-play, .v-btn, .vt-row, .vt-play { transition: none; }
+  .dk-blob, .transport .dk-chip, .dk-seg-tab, .dk-seg-ind { transition: none; }
 }
 
 /* ===== v4 Beats and Loops (docs/design/mockups/v4/a-deck.html #beats) ============================ */
@@ -230,13 +228,7 @@
 .v-tools h2 { margin: 0 var(--s3) 0 0; font: var(--display-weight, 700) 20px var(--font-display); text-transform: var(--display-case); letter-spacing: var(--display-track); color: var(--text); }
 .v-gap { flex: 1; }
 .v-tools > :not(.v-search), .v-opts > * { flex: none; }
-.v-check, .v-seg button, .v-opts .chips-inline { white-space: nowrap; }
-.v-seg { display: flex; padding: 3px; background: var(--well); border: 1px solid var(--line); border-radius: var(--r-btn); }
-.v-seg button { display: flex; gap: 6px; align-items: center; padding: 5px 11px; border-radius: var(--r-btn); font-size: 12.5px; color: var(--text-2); white-space: nowrap; cursor: pointer; transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out); }
-.v-seg button span { color: var(--dim); font-variant-numeric: tabular-nums; }
-.v-seg button i { width: 7px; height: 7px; border-radius: 2px; background: var(--c); }
-.v-seg button.on { background: var(--raise); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, .25); }
-.v-seg button.on span { color: var(--text-2); }
+.v-check, .dk-seg-tab, .v-opts .chips-inline { white-space: nowrap; }
 .v-search { position: relative; flex: 1 1 180px; min-width: 180px; max-width: 420px; }
 .v-search input { width: 100%; padding: 7px 28px 7px 12px; font-size: 13px; background: var(--well); border: 1px solid var(--line); border-radius: var(--r-field); color: var(--text); }
 .v-search button { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); padding: 2px 6px; color: var(--dim); cursor: pointer; }
@@ -249,7 +241,6 @@
 .v-opts .chips-inline { flex: 0 1 auto; }
 .vault :is(button, input, select, textarea, [role='button']):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @media (hover: hover) {
-  .v-seg button:not(.on):hover { color: var(--text); background: color-mix(in srgb, var(--raise) 55%, transparent); }
   .v-btn:not(:disabled):hover { background: var(--panel); color: var(--text); }
   .insp :is(.bpm-edit, .project, .proj-note, .i-more, .i-head) button:not(.st, .primary, .chip button, [aria-label^='remove']):not(:disabled):hover { background: var(--panel); color: var(--text); }
   .vt-row:hover { background: var(--panel); }
@@ -343,4 +334,24 @@
 @media (max-width: 1180px) {
   .vault { grid-template-columns: minmax(0, 1fr) 300px; }
   .vt-h, .vt-row { grid-template-columns: 36px minmax(100px, 1.3fr) minmax(60px, 1fr) 44px 56px 100px 44px; gap: var(--s2); padding: 0 var(--s3); }
+}
+
+/* ---- v4 Beats/inspector/Home glue for library parts ---- */
+.vt { position: relative; }
+.vt-edge { bottom: 38px !important; z-index: 2; } /* Skiper 41 ProgressiveBlur above the summary row */
+.secrow .caret { display: inline-grid; place-items: center; transition: transform var(--dur-2) var(--ease-out); }
+.secrow .caret.open { transform: rotate(90deg); }
+.insp > .i-reveal > section { padding: var(--s4) var(--s5); border-bottom: 1px solid var(--line); }
+.insp .check .box { display: inline-grid; place-items: center; }
+.h-blk-mc { border-radius: var(--r-card); min-width: 0; }
+.h-blk-mc > .relative, .h-blk-mc { display: flex; flex-direction: column; } .h-blk-mc > .relative { flex: 1; }
+.h-blk-mc .h-blk { height: 100%; }
+@media (prefers-reduced-motion: reduce) { .secrow .caret { transition: none; } }
+/* saved-search chips give way first on narrow windows so Assistant and Settings stay on screen */
+.strip .tab-colls { flex: 0 1 auto; min-width: 0; overflow: hidden; }
+.strip .st-group, .strip .st-tool { flex: none; }
+.strip .st-gap { min-width: var(--s2); }
+@media (max-width: 1180px) {
+  .st-tab { padding: 0 6px; font-size: 12.5px; }
+  .st-sep { margin: 13px 4px; }
 }

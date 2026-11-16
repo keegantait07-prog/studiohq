@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, type ReactNode } from 'react'
 import { SECTIONS, type ViewId } from './navModel'
-import { RollNumber } from './components/ui/RollNumber'
+import { Search } from 'lucide-react'
+import { Count, Roll } from './deckUi'
 
 export type TabBadges = Partial<Record<ViewId, string | null>>
 
@@ -11,7 +12,7 @@ export function Transport({ brand, deck, onFind, right }: { brand: ReactNode; de
       <div className="tp-brand">{brand}<span className="tp-name">Studio HQ</span></div>
       <div className="deck" aria-label="Player">{deck}</div>
       <button className="tp-find" onClick={onFind} aria-label="Find a beat, lead or action (⌘K)">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><circle cx="6" cy="6" r="4.5" /><path d="M9.5 9.5 13 13" /></svg>
+        <Search size={15} strokeWidth={1.75} aria-hidden="true" />
         <span>Find a beat, lead or action</span><kbd>⌘K</kbd>
       </button>
       <div className="tp-right">{right}</div>
@@ -30,7 +31,8 @@ export function SectionStrip({ view, onGo, badges, end }: { view: ViewId; onGo: 
     const place = () => {
       const on = el.querySelector<HTMLElement>('.st-tab.on')
       if (!on) { ln.style.opacity = '0'; return }
-      const l = on.offsetLeft + 10, r = el.clientWidth - (on.offsetLeft + on.offsetWidth) + 10
+      const pad = parseFloat(getComputedStyle(on).paddingLeft) || 10
+      const l = on.offsetLeft + pad, r = el.clientWidth - (on.offsetLeft + on.offsetWidth) + pad
       ln.dataset.dir = last.current == null ? '' : l > last.current ? 'right' : 'left'
       if (last.current == null) ln.style.transition = 'none' // nothing grows in on first paint
       ln.style.left = l + 'px'; ln.style.right = r + 'px'; ln.style.opacity = '1'
@@ -49,7 +51,7 @@ export function SectionStrip({ view, onGo, badges, end }: { view: ViewId; onGo: 
           {i > 0 && <span className="st-sep" aria-hidden="true" />}
           {s.tabs.map((t) => (
             <button key={t.view} className={`st-tab ${view === t.view ? 'on' : ''}`} aria-current={view === t.view ? 'page' : undefined} onClick={() => onGo(t.view)}>
-              <span className="st-roll" data-t={t.label}><span>{t.label}</span></span>{badges[t.view] && <span className="st-badge"><RollNumber value={badges[t.view] as string} /></span>}
+              <Roll text={t.label} />{badges[t.view] && <span className="st-badge"><Count value={badges[t.view] as string} /></span>}
             </button>
           ))}
         </div>

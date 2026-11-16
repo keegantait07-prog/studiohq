@@ -2,8 +2,12 @@ import { lazy, useCallback, useEffect, useMemo, useRef, useState, Fragment } fro
 import { STATUSES, type Beat, type BeatDetail, type ContentData, type CrmData, type FeedbackData, type SoundList, type SoundStatus, type StudioSession, type SalesData, type Sale, type ScanStatus, type Settings as AppSettings, type Status, type TagKind, type NetlifyStatus, type VaultKind } from '@shared/types'
 import { clickable } from './a11y'
 import { SectionStrip, Transport, type TabBadges } from './Shell'
-import { Tip } from './components/ui/Tooltip'
-import { GooChips } from './components/ui/GooChips'
+import { GooToggles, Num, Seg, Tip } from './deckUi'
+import { TooltipProvider } from '@/components/lib/tooltip'
+import { MusicToggle } from '@/components/lib/skiper-ui/skiper25'
+import { ProgressiveBlur } from '@/components/lib/skiper-ui/skiper41'
+import { ChevronRight, Pause, Play, X } from 'lucide-react'
+import { useReducedMotion } from 'motion/react'
 import { ViewGuard } from './ViewGuard'
 import { useNow } from './useNow'
 import { displayKey } from '@shared/key'
@@ -171,6 +175,7 @@ export function App() {
   useEffect(() => { reloadSales() }, [beats, reloadSales])
   const search = useRef<HTMLInputElement>(null)
   const player = usePlayer()
+  const still = useReducedMotion() ?? false
   useEffect(() => { document.documentElement.toggleAttribute('data-playing', player.playing) }, [player.playing])
 
   const reload = useCallback(async () => {
@@ -425,22 +430,25 @@ export function App() {
     </div>
   ) : null
   return (
+    <TooltipProvider delay={350}>
     <div className="app v4">
       <Defs />
       <Transport
         brand={<BrandMark />}
         onFind={() => setPalette(true)}
         deck={<>
-          <Tip label={player.playing ? 'Pause (Space)' : 'Play (Space)'}><button className="dk-play" data-playing={player.playing ? '' : undefined} onClick={() => (player.id == null && selectedId != null ? safePlay(selectedId) : player.toggle())} aria-label={player.playing ? 'Pause' : 'Play'}>
-            <svg viewBox="0 0 14 14" width="14" height="14" aria-hidden="true"><path className="pl" d="M3 2 L7 4.4 L7 9.6 L3 12 Z" /><path className="pr" d="M7 4.4 L11 7 L11 7 L7 9.6 Z" /></svg>
-          </button></Tip>
+          <Tip label={player.playing ? 'Pause (Space)' : 'Play (Space)'}>
+            <MusicToggle className="dk-play" playing={player.playing} still={still} onToggle={() => (player.id == null && selectedId != null ? safePlay(selectedId) : player.toggle())} label={player.playing ? 'Pause' : 'Play'}>
+              {!player.playing && <Play size={13} strokeWidth={1.75} fill="currentColor" aria-hidden="true" />}
+            </MusicToggle>
+          </Tip>
           <div className="dk-now">
             <b>{playingDetail?.title ?? 'Nothing playing'}</b>
             <small>{playingDetail ? [playingDetail.bpm && `${Math.round(playingDetail.bpm)} BPM`, playingDetail.key].filter(Boolean).join(', ') || 'No BPM or key yet' : 'Space plays the selected beat'}</small>
           </div>
           <div className="dk-wave"><PlayerWave player={player} peaks={playingDetail?.peaks ?? []} /></div>
           <PlayerReadout player={player} fallbackDuration={playingDetail?.duration ?? null} />
-          <GooChips chips={[
+          <GooToggles chips={[
             { id: 'audition', label: 'Audition', on: audition, onClick: () => setAudition((a) => !a), title: 'Audition mode (A): play beats from their fullest part as you move through them' },
             { id: 'ab', label: 'A/B', onClick: flipTake, disabled: player.id == null || takesOf(beats, player.id).length < 2, title: 'A/B the takes of this beat at the same moment (B)' },
           ]} />
@@ -503,24 +511,15 @@ export function App() {
         <div className="v-list">
           <div className="v-tools">
             <h2>{isLoop ? 'Loops' : 'Beats'}</h2>
-            <div className="v-seg" role="group" aria-label="Stage">
-              {(['all', ...STATUSES] as const).map((s) => (
-                <button key={s} data-s={s} className={statusTab === s ? 'on' : ''} aria-pressed={statusTab === s} onClick={() => setStatusTab(s)}>
-                  {s !== 'all' && <i aria-hidden="true" />}{STAGE_LABEL[s]} <span>{counts[s] ?? 0}</span>
-                </button>
-              ))}
-            </div>
+            <Seg label="Stage" value={statusTab} onChange={setStatusTab} items={(['all', ...STATUSES] as const).map((s) => ({ id: s, label: STAGE_LABEL[s], dot: s !== 'all', count: counts[s] ?? 0 }))} />
             <div className="v-search">
               <input ref={search} value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search" placeholder={isLoop ? 'Search: dark, 140+ bpm, unsent, sent, Cm…   ( / )' : 'Search: dark, 140+ bpm, unsold, finished, Cm…   ( / )'} spellCheck={false} />
-              {query && <button onClick={() => setQuery('')} aria-label="Clear search">×</button>}
+              {query && <button onClick={() => setQuery('')} aria-label="Clear search"><X size={14} strokeWidth={1.75} aria-hidden="true" /></button>}
             </div>
             <button className="v-btn" onClick={() => setPalette(true)}>Search everything <kbd>⌘K</kbd></button>
           </div>
           <div className="v-opts">
-            <div className="v-seg" role="group" aria-label="View">
-              <button className={vaultView === 'list' ? 'on' : ''} aria-pressed={vaultView === 'list'} onClick={() => setVaultView('list')}>List</button>
-              <button className={vaultView === 'cards' ? 'on' : ''} aria-pressed={vaultView === 'cards'} onClick={() => setVaultView('cards')}>Cards</button>
-            </div>
+            <Seg label="View" value={vaultView} onChange={setVaultView} items={[{ id: 'list', label: 'List' }, { id: 'cards', label: 'Cards' }]} />
             <div className="chips-inline">{parsed.chips.map((c, i) => <span key={i} className="qchip">{c}</span>)}</div>
             {query.trim() && !colls.some((c) => c.q === query) && (naming == null
               ? <button className="v-btn" onClick={() => setNaming(query.length > 24 ? '' : query)} title="Keep this search in the sidebar">Save search</button>
@@ -547,7 +546,7 @@ export function App() {
                   <div key={b.id} data-row={b.id} data-s={b.status} className={`vcard ${b.id === selectedId ? 'sel' : ''}`} {...clickable(() => { setSelectedId(b.id); setProfileId(b.id) })}>
                     <div className="vc-art">
                       <CoverArt beat={b} />
-                      <button className={`play ${isPlaying ? 'on' : ''}`} aria-label="play" onClick={(e) => { e.stopPropagation(); if (b.ext === 'flp' && !b.hasPreview) return toast('FL project with no preview yet. Play it once with Studio HQ Bridge on the Master and close it.'); player.id === b.id ? player.toggle() : playBeat(b.id) }}>{isPlaying ? '❚❚' : '▶'}</button>
+                      <button className={`play ${isPlaying ? 'on' : ''}`} aria-label="play" onClick={(e) => { e.stopPropagation(); if (b.ext === 'flp' && !b.hasPreview) return toast('FL project with no preview yet. Play it once with Studio HQ Bridge on the Master and close it.'); player.id === b.id ? player.toggle() : playBeat(b.id) }}>{isPlaying ? <Pause size={14} strokeWidth={1.75} fill="currentColor" aria-hidden="true" /> : <Play size={14} strokeWidth={1.75} fill="currentColor" aria-hidden="true" />}</button>
                     </div>
                     <div className="vc-t">{b.title}</div>
                     <div className="vc-m">{fmtBpm(b.bpm)} BPM · {displayKey(b.key) || '–'}{count > 1 ? ` · ${count} versions` : ''}</div>
@@ -567,7 +566,7 @@ export function App() {
                 <Fragment key={sec.key}>
                   {grouped && (
                     <div className="secrow" {...clickable(() => toggleSec(sec.key))} title={isShut(sec.key) ? 'Click to open' : 'Click to fold'}>
-                      <span className="caret">{isShut(sec.key) ? '▸' : '▾'}</span><b>{sec.label}</b><span className="dim">{sec.rows.length} {isLoop ? (sec.rows.length === 1 ? 'loop' : 'loops') : ''}</span>
+                      <span className={`caret ${isShut(sec.key) ? '' : 'open'}`}><ChevronRight size={14} strokeWidth={1.75} aria-hidden="true" /></span><b>{sec.label}</b><span className="dim">{sec.rows.length} {isLoop ? (sec.rows.length === 1 ? 'loop' : 'loops') : ''}</span>
                     </div>
                   )}
                   {!isShut(sec.key) && sec.rows.map(({ beat: b, count }) => {
@@ -575,7 +574,7 @@ export function App() {
                     const isPlaying = player.id === b.id && player.playing
                     return (
                       <div key={b.id} data-row={b.id} data-s={b.status} className={`vt-row ${sel ? 'sel' : ''}`} {...clickable(() => setSelectedId(b.id))} onDoubleClick={() => playBeat(b.id)}>
-                        {b.ext === 'flp' && !b.hasPreview ? <span /> : <button className={`vt-play ${isPlaying ? 'on' : ''}`} onClick={(e) => { e.stopPropagation(); player.id === b.id ? player.toggle() : playBeat(b.id) }} aria-label={isPlaying ? 'pause' : 'play'}>{isPlaying ? '❚❚' : '▶'}</button>}
+                        {b.ext === 'flp' && !b.hasPreview ? <span /> : <button className={`vt-play ${isPlaying ? 'on' : ''}`} onClick={(e) => { e.stopPropagation(); player.id === b.id ? player.toggle() : playBeat(b.id) }} aria-label={isPlaying ? 'pause' : 'play'}>{isPlaying ? <Pause size={12} strokeWidth={1.75} fill="currentColor" aria-hidden="true" /> : <Play size={12} strokeWidth={1.75} fill="currentColor" aria-hidden="true" />}</button>}
                         <div className="vt-name">
                           <div className="vt-t">{b.title}{b.ext === 'flp' && <span className="projthumb" title={b.hasPreview ? 'FL Studio project, preview loop' : 'FL Studio project, no audio yet'}>{b.hasPreview ? 'FL loop' : 'FL project'}</span>}{count > 1 && <em className="ver-badge">{count} versions</em>}{!collapse && b.versionLabel && <em className="ver-badge">{b.versionLabel}</em>}</div>
                           {b.credits && <div className="vt-sub">{b.credits}</div>}
@@ -596,10 +595,11 @@ export function App() {
                 </div>
               )}
             </div>
+            <ProgressiveBlur position="bottom" height="44px" blurAmount="2px" backgroundColor="var(--bg)" className="vt-edge" />
             <div className="vt-foot">
-              <span><b>{rows.length}</b> {isLoop ? 'loops' : 'beats'}</span>
-              <span><b>{rows.filter((r) => r.beat.status === 'finished').length}</b> finished</span>
-              {avgBpm != null && <span>Average <b>{avgBpm}</b> BPM</span>}
+              <span><b><Num value={rows.length} /></b> {isLoop ? 'loops' : 'beats'}</span>
+              <span><b><Num value={rows.filter((r) => r.beat.status === 'finished').length} /></b> finished</span>
+              {avgBpm != null && <span>Average <b><Num value={avgBpm} /></b> BPM</span>}
               {topKey && <span>Most used key <b>{topKey}</b></span>}
             </div>
           </div>}
@@ -671,5 +671,6 @@ export function App() {
         />
       )}
     </div>
+    </TooltipProvider>
   )
 }

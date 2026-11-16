@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Confidence, HealthFinding, PluginFile, PluginInfo } from '@shared/types'
+import { Search, ChevronRight } from 'lucide-react'
+import { ScrollArea } from '@/components/lib/scroll-area'
 import { clickable } from './a11y'
+import { Button, Collapse, DynToggle, DialogFade, Num } from './pluginsUi'
+import './plugins.css'
 import { groupFindings, type FindingGroup } from '@shared/cleanup'
 
 const size = (n: number) => (n >= 1e9 ? (n / 1e9).toFixed(1) + ' GB' : n >= 1e6 ? (n / 1e6).toFixed(n < 1e7 ? 1 : 0) + ' MB' : Math.max(1, Math.round(n / 1e3)) + ' KB')
@@ -182,209 +186,227 @@ export function Plugins({ toast }: { toast: (m: string) => void }) {
     return [...m.entries()].sort((a, b) => LOC_ORDER.indexOf(a[0]) - LOC_ORDER.indexOf(b[0]))
   }, [files])
 
+  const maxSize = (plugins ?? []).reduce((a, p) => Math.max(a, p.totalSize), 1)
+  const fmts = (p: PluginInfo) => [...new Set(p.bundles.map((b) => FMT[b.format]))]
+  const fileRow = (f: PluginFile) => (
+    <>
+      <span className="pg-path"><b>{fileName(f.path)}</b><small>{dirName(f.path)}</small></span>
+      <em className={`pg-conf ${f.confidence === 'exact' ? 'ok' : f.confidence === 'maybe' ? 'maybe' : ''}`}>{CONF[f.confidence]}</em>
+      <span className="pg-sz">{size(f.size)}</span>
+    </>
+  )
+
   return (
-    <section className="sales pl2">
-      <div className="sales-head">
-        <h2>Plugins</h2>
-        <div className="grow" />
-        <div className="seg">
-          <button className={tab === 'plugins' ? 'on' : ''} onClick={() => setTab('plugins')}>All plugins</button>
-          <button className={tab === 'problems' ? 'on' : ''} onClick={() => setTab('problems')}>Problems{findings.length ? ` ${findings.length}` : ''}</button>
-          <button className={tab === 'disabled' ? 'on' : ''} onClick={() => setTab('disabled')}>Disabled{disabled.length ? ` ${disabled.length}` : ''}</button>
+    <section className="pgx">
+      <header className="pg-head">
+        <div>
+          <div className="pg-eyebrow">Your plugin folders</div>
+          <h1 className="pg-disp">Plugins</h1>
+          <p>Every plugin FL Studio can see, what each one left on this Mac, and what needs fixing.</p>
         </div>
-        <button onClick={scan} disabled={!!busy}>Rescan</button>
-        <button className="primary" onClick={health} disabled={!!busy} title="Looks for plugins that crash FL or show “not found”">Check for problems</button>
+        <div className="pg-actions">
+          <div className="pg-seg" role="tablist" aria-label="Plugin views">
+            <button type="button" role="tab" aria-selected={tab === 'plugins'} onClick={() => setTab('plugins')}>All plugins</button>
+            <button type="button" role="tab" aria-selected={tab === 'problems'} onClick={() => setTab('problems')}>Problems{findings.length ? ` ${findings.length}` : ''}</button>
+            <button type="button" role="tab" aria-selected={tab === 'disabled'} onClick={() => setTab('disabled')}>Disabled{disabled.length ? ` ${disabled.length}` : ''}</button>
+          </div>
+          <Button variant="outline" onClick={scan} disabled={!!busy}>Rescan</Button>
+          <Button onClick={health} disabled={!!busy} title="Looks for plugins that crash FL or show “not found”">Check for problems</Button>
+        </div>
+      </header>
+
+      <div className="pg-stats">
+        <div className="pg-blk c"><small>plugins</small><b>{plugins ? <Num value={plugins.length} /> : '…'}</b></div>
+        <div className="pg-blk"><small>in plugin folders</small><b>{size(totalSize)}</b></div>
+        <div className={`pg-blk ${bad ? 'hot' : ''}`}><small>{bad ? `${bad} serious` : 'things to look at'}</small><b><Num value={findings.length} /></b></div>
+        <div className={`pg-blk ${picked.size ? 'sel' : ''}`}><small>{picked.size ? `${plural(picked.size, 'plugin', 'plugins')} selected` : 'nothing selected'}</small><b>{picked.size ? size(pickedBytes) : '—'}</b></div>
       </div>
-
-      <div className="pl-wrap">
-        <div className="stats pl-stats">
-          <div className="stat"><b>{plugins ? plugins.length : '…'}</b><span>plugins</span></div>
-          <div className="stat"><b>{size(totalSize)}</b><span>in plugin folders</span></div>
-          <div className={`stat ${bad ? 'hot' : ''}`}><b>{findings.length}</b><span>{bad ? `${bad} serious` : 'things to look at'}</span></div>
-          <div className={`stat ${picked.size ? 'hot' : ''}`}><b>{picked.size ? size(pickedBytes) : '—'}</b><span>{picked.size ? `${plural(picked.size, 'plugin', 'plugins')} selected` : 'nothing selected'}</span></div>
+      {(busy || msg) && (
+        <div className="pg-notes">
+          {busy && <p className="pg-note">{busy}</p>}
+          {msg && <p className="pg-note" onClick={() => setMsg('')} title="Click to dismiss">{msg}</p>}
         </div>
-        {busy && <p className="notice">{busy}</p>}
-        {msg && <p className="notice" onClick={() => setMsg('')} title="Click to dismiss">{msg}</p>}
+      )}
 
-        {tab === 'plugins' && (
-          <>
-            <div className="pl-tools">
-              <input type="text" placeholder="Search plugins" value={q} onChange={(e) => setQ(e.target.value)} />
-              <div className="pl-chips">{FILTERS.map((f) => <button key={f.id} className={`pl-chip ${filter === f.id ? 'on' : ''}`} title={f.hint} onClick={() => setFilter(f.id)}>{f.label}<i>{counts[f.id]}</i></button>)}</div>
-              <select value={sort} onChange={(e) => setSort(e.target.value as Sort)}><option value="size">Largest first</option><option value="name">Name</option><option value="vendor">Vendor</option></select>
-            </div>
-            <div className="cl-body">
-              <div className="pl-list">
-                <div className="pl-listhead">
-                  <input type="checkbox" checked={allShownPicked} onChange={toggleAll} aria-label="select all shown" />
-                  <span>{picked.size ? `${picked.size} selected` : `${shown.length} shown`}</span>
-                  {picked.size > 0 && <button className="ghost" onClick={() => setPicked(new Set())}>Clear</button>}
-                  <span className="grow" /><span className="dim">Shift-click selects a range</span>
-                </div>
-                <div className="pl-rows">
-                  {plugins && !shown.length && <p className="help dim" style={{ padding: 20 }}>{plugins.length ? 'Nothing matches.' : 'No plugins found in the standard plugin folders.'}</p>}
-                  {shown.map((p, i) => (
-                    <div key={p.id} className={`pl-row ${p.id === sel ? 'sel' : ''} ${picked.has(p.id) ? 'pk' : ''}`} {...clickable(() => setSel(p.id))}>
+      {tab === 'plugins' && (
+        <div className="pg-main">
+          <div className="pg-tools">
+            <label className="pg-search"><Search aria-hidden="true" /><input type="text" placeholder="Search plugins" aria-label="Search plugins" value={q} onChange={(e) => setQ(e.target.value)} /></label>
+            <div className="pg-chips">{FILTERS.map((f) => <button key={f.id} type="button" className="pg-chip" aria-pressed={filter === f.id} title={f.hint} onClick={() => setFilter(f.id)}>{f.label}<i>{counts[f.id]}</i></button>)}</div>
+            <select className="pg-select" aria-label="Sort plugins" value={sort} onChange={(e) => setSort(e.target.value as Sort)}><option value="size">Largest first</option><option value="name">Name</option><option value="vendor">Vendor</option></select>
+          </div>
+          <div className="pg-listhead">
+            <input type="checkbox" checked={allShownPicked} onChange={toggleAll} aria-label="select all shown" />
+            <span>{picked.size ? `${picked.size} selected` : `${shown.length} shown`}</span>
+            {picked.size > 0 && <Button variant="ghost" size="xs" onClick={() => setPicked(new Set())}>Clear</Button>}
+            <span className="pg-sp" /><span className="pg-hint">Shift-click selects a range · click a row to open it</span>
+          </div>
+          <div className="pg-listwrap">
+            <ScrollArea className="pg-rows">
+              {plugins && !shown.length && <p className="pg-empty">{plugins.length ? 'Nothing matches.' : 'No plugins found in the standard plugin folders.'}</p>}
+              {shown.map((p, i) => {
+                const isOpen = p.id === sel
+                return (
+                  <div key={p.id} className={`pg-item ${isOpen ? 'open' : ''} ${picked.has(p.id) ? 'pk' : ''}`}>
+                    <div className="pg-row" aria-expanded={isOpen} {...clickable(() => setSel(isOpen ? null : p.id))}>
                       <input type="checkbox" checked={picked.has(p.id)} onChange={() => {}} onClick={(e) => { e.stopPropagation(); pick(p.id, i, e.shiftKey) }} aria-label={`select ${p.name}`} />
-                      <span className={`dot ${dot(p)}`} title={dot(p) === 'ok' ? 'No problems found' : 'Something was flagged'} />
-                      <div className="cl-name"><b>{p.name}</b><span className="dim">{p.vendor || 'Unknown vendor'}</span></div>
-                      <div className="cl-tags">{[...new Set(p.bundles.map((b) => FMT[b.format]))].map((f) => <em key={f} className="cb">{f}</em>)}</div>
-                      <span className="pl-size">{size(p.totalSize)}</span>
+                      <span className={`pg-dot ${dot(p)}`} title={dot(p) === 'ok' ? 'No problems found' : 'Something was flagged'} />
+                      <div className="pg-name"><b>{p.name}</b><small>{p.vendor || 'Unknown vendor'}</small></div>
+                      <div className="pg-fmts">{fmts(p).map((f) => <em key={f} className="pg-fmt">{f}</em>)}</div>
+                      <div className="pg-sizecell"><span className="pg-sz">{size(p.totalSize)}</span><i className="pg-bar"><u style={{ width: `${Math.max(2, (p.totalSize / maxSize) * 100)}%` }} /></i></div>
+                      <ChevronRight className="pg-caret" aria-hidden="true" />
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              <aside className="pl-detail">
-                {cur ? (
-                  <>
-                    <div className="pl-dhead">
-                      <h3>{cur.name}</h3>
-                      <div className="dim">{cur.vendor || 'Unknown vendor'}{cur.bundles[0]?.version ? ` · v${cur.bundles[0].version}` : ''}</div>
-                      <div className="cl-tags" style={{ marginTop: 6 }}>{[...new Set(cur.bundles.map((b) => FMT[b.format]))].map((f) => <em key={f} className="cb">{f}</em>)}<em className="cb">{size(cur.totalSize)}</em></div>
-                    </div>
-                    {findings.filter((f) => f.pluginId === cur.id).map((f) => <p key={f.id} className={`notice ${f.severity === 'bad' ? 'pl-bad-note' : ''}`}>{f.detail}</p>)}
-                    <div className="pl-dbody">
-                      {!files ? <p className="help dim">Looking for every file this plugin installed…</p> : (
-                        <>
-                          <p className="help">{plural(files.length, 'item', 'items')} · {size(files.reduce((a, f) => a + f.size, 0))} in total. You choose what goes when you uninstall.</p>
-                          {grouped.map(([loc, list]) => (
-                            <div key={loc} className="pl-group">
-                              <h4>{loc}</h4>
-                              {list.map((f) => (
-                                <div key={f.path} className="pl-file" title={f.path}>
-                                  <span className="pl-path"><b>{fileName(f.path)}</b><small className="dim">{dirName(f.path)}</small></span>
-                                  <em className={`cb ${f.confidence === 'exact' ? 'ok' : f.confidence === 'maybe' ? 'pl-warn' : ''}`}>{CONF[f.confidence]}</em>
-                                  <span className="dim">{size(f.size)}</span>
-                                  <button className="ghost" onClick={() => window.api.pluginReveal(f.path)} title="Show in Finder">Show</button>
+                    <Collapse open={isOpen && !!cur} className="pg-bodywrap">
+                      {cur && cur.id === p.id && (
+                        <div className="pg-body">
+                          <div className="pg-dhead">
+                            <span>{cur.vendor || 'Unknown vendor'}{cur.bundles[0]?.version ? ` · v${cur.bundles[0].version}` : ''} · {size(cur.totalSize)}</span>
+                            <span className="pg-sp" />
+                            <Button variant="destructive" size="sm" disabled={!files || !!busy} onClick={() => openUninstall([cur])}>Uninstall…</Button>
+                          </div>
+                          {findings.filter((f) => f.pluginId === cur.id).map((f) => <p key={f.id} className={`pg-note ${f.severity === 'bad' ? 'bad' : ''}`}>{f.detail}</p>)}
+                          {!files ? <p className="pg-help">Looking for every file this plugin installed…</p> : (
+                            <>
+                              <p className="pg-help">{plural(files.length, 'item', 'items')} · {size(files.reduce((a, f) => a + f.size, 0))} in total. You choose what goes when you uninstall.</p>
+                              {grouped.map(([loc, list]) => (
+                                <div key={loc} className="pg-group">
+                                  <h4>{loc}</h4>
+                                  {list.map((f) => (
+                                    <div key={f.path} className="pg-file" title={f.path}>
+                                      {fileRow(f)}
+                                      <Button variant="ghost" size="xs" onClick={() => window.api.pluginReveal(f.path)} title="Show in Finder">Show</Button>
+                                    </div>
+                                  ))}
                                 </div>
                               ))}
-                            </div>
-                          ))}
-                        </>
+                            </>
+                          )}
+                        </div>
                       )}
-                    </div>
-                    <div className="pl-dfoot"><button className="danger" disabled={!files || !!busy} onClick={() => openUninstall([cur])}>Uninstall…</button></div>
-                  </>
-                ) : <div className="cl-empty"><p className="help">Pick a plugin to see every file it has on this Mac. Tick the boxes to select several and remove them together.</p></div>}
-              </aside>
+                    </Collapse>
+                  </div>
+                )
+              })}
+            </ScrollArea>
+          </div>
+          {picked.size > 0 && (
+            <div className="pg-bar2">
+              <span><b>{plural(picked.size, 'plugin', 'plugins')}</b> selected · up to {size(pickedBytes)}</span>
+              <span className="pg-sp" />
+              <Button variant="outline" onClick={() => setPicked(new Set())}>Clear</Button>
+              <Button variant="destructive" disabled={!!busy} onClick={() => openUninstall(pickedPlugins)}>Uninstall {picked.size}…</Button>
             </div>
+          )}
+        </div>
+      )}
 
-            {picked.size > 0 && (
-              <div className="pl-bar">
-                <span><b>{plural(picked.size, 'plugin', 'plugins')}</b> selected · up to {size(pickedBytes)}</span>
-                <span className="grow" />
-                <button onClick={() => setPicked(new Set())}>Clear</button>
-                <button className="danger" disabled={!!busy} onClick={() => openUninstall(pickedPlugins)}>Uninstall {picked.size}…</button>
-              </div>
-            )}
-          </>
-        )}
-
-        {tab === 'problems' && (
-          <div className="pl-problems">
+      {tab === 'problems' && (
+        <ScrollArea className="pg-pane">
+          <div className="pg-stack">
             {!findings.length ? (
-              <div className="empty" style={{ padding: '50px 28px' }}>
+              <div className="pg-emptybox">
                 <p>No problems on record. “Check for problems” looks at FL Studio’s crash reports, FL’s own plugin list, broken installs, duplicate copies, and quarantined plugins.</p>
-                <button className="primary" onClick={health} disabled={!!busy}>Check for problems</button>
+                <Button onClick={health} disabled={!!busy}>Check for problems</Button>
               </div>
             ) : (
               <>
                 {safeCount > 0 && (
-                  <div className="pl-clean">
+                  <div className="pg-clean">
                     <div>
                       <b>Clean up for me</b>
                       <p>{plural(safeCount, 'thing', 'things')} can be fixed safely and undone: {safeGroups.map((g) => g.title).join(' · ')}.</p>
                     </div>
-                    <button className="primary" disabled={!!busy} onClick={() => setDialog({ kind: 'fix', heading: 'Clean up for me', cleanup: true, sections: safeGroups.map((g) => section(g)) })}>Review and clean up</button>
+                    <Button disabled={!!busy} onClick={() => setDialog({ kind: 'fix', heading: 'Clean up for me', cleanup: true, sections: safeGroups.map((g) => section(g)) })}>Review and clean up</Button>
                   </div>
                 )}
                 {groups.map((g) => {
                   const keep = g.findings.filter((f) => !unchecked.has(f.id))
                   const isOpen = open.has(g.key) || !g.fix
                   return (
-                    <div key={g.key} className={`pl-find ${g.findings.some((f) => f.severity === 'bad') ? 'bad' : ''}`}>
-                      <div className="pl-find-head">
+                    <div key={g.key} className={`pg-find ${g.findings.some((f) => f.severity === 'bad') ? 'bad' : ''}`}>
+                      <div className="pg-find-head">
                         <b>{g.title}</b>
-                        {g.safe && <em className="cb ok">safe to undo</em>}
-                        <span className="grow" />
-                        {g.fix && <button onClick={() => setOpen((o) => { const n = new Set(o); if (n.has(g.key)) n.delete(g.key); else n.add(g.key); return n })}>{isOpen ? 'Hide list' : 'Choose which'}</button>}
-                        {g.fix && <button className="primary" disabled={!!busy || !keep.length} onClick={() => setDialog({ kind: 'fix', heading: g.title, cleanup: false, sections: [section(g)] })}>Fix {keep.length === g.findings.length ? 'all ' : ''}{keep.length}…</button>}
+                        {g.safe && <em className="pg-conf ok">safe to undo</em>}
+                        <span className="pg-sp" />
+                        {g.fix && <Button variant="outline" size="sm" onClick={() => setOpen((o) => { const n = new Set(o); if (n.has(g.key)) n.delete(g.key); else n.add(g.key); return n })}>{isOpen ? 'Hide list' : 'Choose which'}</Button>}
+                        {g.fix && <Button size="sm" disabled={!!busy || !keep.length} onClick={() => setDialog({ kind: 'fix', heading: g.title, cleanup: false, sections: [section(g)] })}>Fix {keep.length === g.findings.length ? 'all ' : ''}{keep.length}…</Button>}
                       </div>
                       <p>{g.blurb}</p>
-                      {isOpen && (
-                        <div className="pl-items">
+                      <Collapse open={isOpen} className="pg-itemswrap">
+                        <div className="pg-items">
                           {g.findings.map((f) => (
-                            <label key={f.id} className="pl-item" title={f.detail}>
-                              {g.fix ? <input type="checkbox" checked={!unchecked.has(f.id)} onChange={() => setUnchecked((u) => { const n = new Set(u); if (n.has(f.id)) n.delete(f.id); else n.add(f.id); return n })} /> : <span />}
+                            <label key={f.id} className="pg-item2" title={f.detail}>
+                              {g.fix ? <DynToggle checked={!unchecked.has(f.id)} label={f.name || 'Unknown plugin'} onChange={() => setUnchecked((u) => { const n = new Set(u); if (n.has(f.id)) n.delete(f.id); else n.add(f.id); return n })} /> : <span />}
                               <b>{f.name || 'Unknown plugin'}</b>
-                              <span className="dim pl-path-s">{short(f.path)}</span>
+                              <span className="pg-path-s">{short(f.path)}</span>
                             </label>
                           ))}
                         </div>
-                      )}
+                      </Collapse>
                     </div>
                   )
                 })}
               </>
             )}
           </div>
-        )}
+        </ScrollArea>
+      )}
 
-        {tab === 'disabled' && (
-          <div className="pl-problems">
-            {!disabled.length ? <div className="empty" style={{ padding: '50px 28px' }}><p>Nothing is disabled. When a fix turns a plugin off it waits here, and Restore puts it back exactly where it was.</p></div> : (
+      {tab === 'disabled' && (
+        <ScrollArea className="pg-pane">
+          <div className="pg-stack">
+            {!disabled.length ? <div className="pg-emptybox"><p>Nothing is disabled. When a fix turns a plugin off it waits here, and Restore puts it back exactly where it was.</p></div> : (
               <>
-                <div className="pl-find-head"><span className="dim">{plural(disabled.length, 'plugin', 'plugins')} turned off</span><span className="grow" /><button disabled={!!busy} onClick={() => restore(disabled)}>Restore all</button></div>
+                <div className="pg-find-head"><span className="pg-hint">{plural(disabled.length, 'plugin', 'plugins')} turned off</span><span className="pg-sp" /><Button variant="outline" size="sm" disabled={!!busy} onClick={() => restore(disabled)}>Restore all</Button></div>
                 {disabled.map((d) => (
-                  <div key={d.actionId} className="pl-find">
-                    <div className="pl-find-head"><b>{d.name}</b><span className="dim pl-path-s" title={d.originalPath}>{short(d.originalPath)}</span><span className="grow" /><button disabled={!!busy} onClick={() => restore([d])}>Restore</button></div>
+                  <div key={d.actionId} className="pg-find">
+                    <div className="pg-find-head"><b>{d.name}</b><span className="pg-path-s" title={d.originalPath}>{short(d.originalPath)}</span><span className="pg-sp" /><Button variant="outline" size="sm" disabled={!!busy} onClick={() => restore([d])}>Restore</Button></div>
                   </div>
                 ))}
               </>
             )}
           </div>
-        )}
-      </div>
+        </ScrollArea>
+      )}
 
       {dialog?.kind === 'uninstall' && (() => {
         const checked = dialog.plans.reduce((a, p) => a + p.marks.size, 0)
         const bytes = dialog.plans.reduce((a, p) => a + p.files.filter((f) => p.marks.has(f.path)).reduce((s, f) => s + f.size, 0), 0)
         const setPlan = (id: number, fn: (m: Set<string>) => void) => setDialog({ ...dialog, plans: dialog.plans.map((p) => { if (p.plugin.id !== id) return p; const m = new Set(p.marks); fn(m); return { ...p, marks: m } }) })
         return (
-          <div className="overlay" onClick={() => !busy && setDialog(null)}>
-            <div className="modal pl-modal" onClick={(e) => e.stopPropagation()}>
-              <header><h2>Uninstall {plural(dialog.plans.length, 'plugin', 'plugins')}?</h2></header>
-              <p className="help">{plural(checked, 'item', 'items')} · {size(bytes)} will move to the Trash. “Maybe” items are unchecked, so look before you add them. Files in /Library ask for your Mac password, once.</p>
-              <div className="pl-plans">
+          <div className="overlay pg-scrim" onClick={(e) => { if (e.target === e.currentTarget && !busy) setDialog(null) }}>
+            <DialogFade className="modal pg-dlg">
+              <header><h2 className="pg-disp">Uninstall {plural(dialog.plans.length, 'plugin', 'plugins')}?</h2></header>
+              <p className="pg-help pad">{plural(checked, 'item', 'items')} · {size(bytes)} will move to the Trash. “Maybe” items are unchecked, so look before you add them. Files in /Library ask for your Mac password, once.</p>
+              <div className="pg-plans">
                 {dialog.plans.map((p) => {
                   const isOpen = dialog.open.has(p.plugin.id)
                   const sub = p.files.filter((f) => p.marks.has(f.path)).reduce((s, f) => s + f.size, 0)
                   return (
-                    <div key={p.plugin.id} className="pl-plan">
-                      <div className="pl-plan-head" {...clickable(() => setDialog({ ...dialog, open: (() => { const n = new Set(dialog.open); if (n.has(p.plugin.id)) n.delete(p.plugin.id); else n.add(p.plugin.id); return n })() }))}>
-                        <span className="pl-caret">{isOpen ? '▾' : '▸'}</span>
+                    <div key={p.plugin.id} className={`pg-plan ${isOpen ? 'open' : ''}`}>
+                      <div className="pg-plan-head" aria-expanded={isOpen} {...clickable(() => setDialog({ ...dialog, open: (() => { const n = new Set(dialog.open); if (n.has(p.plugin.id)) n.delete(p.plugin.id); else n.add(p.plugin.id); return n })() }))}>
+                        <ChevronRight className="pg-caret" aria-hidden="true" />
                         <b>{p.plugin.name}</b>
-                        <span className="dim">{p.marks.size} of {p.files.length} items · {size(sub)}</span>
+                        <span className="pg-hint">{p.marks.size} of {p.files.length} items · {size(sub)}</span>
                       </div>
-                      {isOpen && p.files.map((f) => (
-                        <label key={f.path} className="pl-file pl-fc" title={f.path}>
-                          <input type="checkbox" checked={p.marks.has(f.path)} onChange={() => setPlan(p.plugin.id, (m) => { if (m.has(f.path)) m.delete(f.path); else m.add(f.path) })} />
-                          <span className="pl-path"><b>{fileName(f.path)}</b><small className="dim">{dirName(f.path)}</small></span>
-                          <em className={`cb ${f.confidence === 'exact' ? 'ok' : f.confidence === 'maybe' ? 'pl-warn' : ''}`}>{CONF[f.confidence]}</em>
-                          <span className="dim">{size(f.size)}</span>
-                        </label>
-                      ))}
+                      <Collapse open={isOpen}>
+                        {p.files.map((f) => (
+                          <label key={f.path} className="pg-file fc" title={f.path}>
+                            <DynToggle checked={p.marks.has(f.path)} label={fileName(f.path)} onChange={() => setPlan(p.plugin.id, (m) => { if (m.has(f.path)) m.delete(f.path); else m.add(f.path) })} />
+                            {fileRow(f)}
+                          </label>
+                        ))}
+                      </Collapse>
                     </div>
                   )
                 })}
               </div>
-              <footer className="pl-mfoot">
-                <span className="grow" />
-                <button onClick={() => setDialog(null)} disabled={!!busy}>Cancel</button>
-                <button className="danger" onClick={doUninstall} disabled={!!busy || !checked}>Move {checked} to Trash</button>
+              <footer>
+                <span className="pg-sp" />
+                <Button variant="outline" onClick={() => setDialog(null)} disabled={!!busy}>Cancel</Button>
+                <Button variant="destructive" onClick={doUninstall} disabled={!!busy || !checked}>Move {checked} to Trash</Button>
               </footer>
-            </div>
+            </DialogFade>
           </div>
         )
       })()}
@@ -393,28 +415,28 @@ export function Plugins({ toast }: { toast: (m: string) => void }) {
         const on = dialog.sections.filter((s) => s.on)
         const n = on.reduce((a, s) => a + s.ids.length, 0)
         return (
-          <div className="overlay" onClick={() => !busy && setDialog(null)}>
-            <div className="modal pl-modal" onClick={(e) => e.stopPropagation()}>
-              <header><h2>{dialog.heading}</h2></header>
-              <p className="help">Here is exactly what will happen. Nothing runs until you press the button. If any of it is in /Library, macOS asks for your password once.</p>
-              <div className="pl-plans">
+          <div className="overlay pg-scrim" onClick={(e) => { if (e.target === e.currentTarget && !busy) setDialog(null) }}>
+            <DialogFade className="modal pg-dlg">
+              <header><h2 className="pg-disp">{dialog.heading}</h2></header>
+              <p className="pg-help pad">Here is exactly what will happen. Nothing runs until you press the button. If any of it is in /Library, macOS asks for your password once.</p>
+              <div className="pg-plans">
                 {dialog.sections.map((s) => (
-                  <label key={s.key} className={`pl-plan pl-sec ${s.on ? '' : 'off'}`}>
-                    {dialog.cleanup ? <input type="checkbox" checked={s.on} onChange={() => setDialog({ ...dialog, sections: dialog.sections.map((x) => (x.key === s.key ? { ...x, on: !x.on } : x)) })} /> : <span />}
+                  <label key={s.key} className={`pg-plan pg-sec ${s.on ? '' : 'off'}`}>
+                    {dialog.cleanup ? <DynToggle checked={s.on} label={s.title} onChange={() => setDialog({ ...dialog, sections: dialog.sections.map((x) => (x.key === s.key ? { ...x, on: !x.on } : x)) })} /> : <span />}
                     <div>
                       <b>{s.title}</b>
                       <p>{s.action}</p>
-                      <span className="dim">{s.names.slice(0, 8).join(', ')}{s.names.length > 8 ? ` and ${s.names.length - 8} more` : ''}</span>
+                      <small>{s.names.slice(0, 8).join(', ')}{s.names.length > 8 ? ` and ${s.names.length - 8} more` : ''}</small>
                     </div>
                   </label>
                 ))}
               </div>
-              <footer className="pl-mfoot">
-                <span className="grow" />
-                <button onClick={() => setDialog(null)} disabled={!!busy}>Cancel</button>
-                <button className="primary" onClick={doFix} disabled={!!busy || !n}>Apply {plural(n, 'fix', 'fixes')}</button>
+              <footer>
+                <span className="pg-sp" />
+                <Button variant="outline" onClick={() => setDialog(null)} disabled={!!busy}>Cancel</Button>
+                <Button onClick={doFix} disabled={!!busy || !n}>Apply {plural(n, 'fix', 'fixes')}</Button>
               </footer>
-            </div>
+            </DialogFade>
           </div>
         )
       })()}

@@ -106,6 +106,73 @@ export const MusicToggleButton = () => {
 };
 
 /**
+ * Studio HQ adaptation: the same MusicToggleButton motion (springy padding on hover/tap, five spring
+ * bars that dance while playing and lie flat when paused), but controlled by the app's own player
+ * instead of use-sound. `still` freezes the bars for reduced motion. Children render beside the bars
+ * (the app puts a play glyph there while paused).
+ */
+export const MusicToggle = ({
+  playing,
+  onToggle,
+  label,
+  still = false,
+  className,
+  children,
+}: {
+  playing: boolean;
+  onToggle: () => void;
+  label: string;
+  still?: boolean;
+  className?: string;
+  children?: React.ReactNode;
+}) => {
+  const bars = 5;
+  const getRandomHeights = () =>
+    Array.from({ length: bars }, () => Math.random() * 0.8 + 0.2);
+  const [heights, setHeights] = useState(() => Array(bars).fill(0.1));
+
+  useEffect(() => {
+    if (playing && !still) {
+      const id = setInterval(() => setHeights(getRandomHeights()), 100);
+      return () => clearInterval(id);
+    }
+    setHeights(Array(bars).fill(playing ? 0.6 : 0.1));
+  }, [playing, still]);
+
+  return (
+    <motion.button
+      type="button"
+      onClick={onToggle}
+      aria-label={label}
+      data-playing={playing ? "" : undefined}
+      initial={{ padding: "0px 10px" }}
+      whileHover={still ? undefined : { padding: "0px 14px" }}
+      whileTap={still ? undefined : { padding: "0px 14px" }}
+      transition={{ duration: 1, bounce: 0.6, type: "spring" }}
+      className={className}
+    >
+      {children}
+      <motion.span
+        aria-hidden="true"
+        initial={still ? false : { opacity: 0, filter: "blur(4px)" }}
+        animate={{ opacity: 1, filter: "blur(0px)" }}
+        transition={{ type: "spring", bounce: 0.35 }}
+        className="mt-bars"
+      >
+        {heights.map((height, index) => (
+          <motion.i
+            key={index}
+            initial={{ height: 1 }}
+            animate={{ height: Math.max(4, height * 14) }}
+            transition={still ? { duration: 0 } : { type: "spring", stiffness: 300, damping: 10 }}
+          />
+        ))}
+      </motion.span>
+    </motion.button>
+  );
+};
+
+/**
  * Skiper 25 Micro Interactions_005 — React + framer motion + use-sound
  *
  * License & Usage:

@@ -3,7 +3,7 @@ import Lenis from 'lenis'
 // The window never scrolls (html/body/#root are overflow:hidden), so Lenis is attached to the
 // panels that do. Panels mount and unmount with the views, so a MutationObserver keeps them in sync.
 // Virtualised lists (.svirt, .cv-rows) and the modal are left alone: they size/measure themselves.
-const SELECTOR = '.insp, .crm-main, .sales-body, .clist, .plist, .vt-rows, .results'
+const SELECTOR = '.insp, .crm-main, .plist, .vt-rows'
 
 export function installSmoothScroll(): void {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return

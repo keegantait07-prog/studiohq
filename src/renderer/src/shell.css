@@ -21,7 +21,7 @@
 .app.v4 > * { grid-row: 3; min-height: 0; }
 .app.v4 > .transport { grid-row: 1; }
 .app.v4 > .strip { grid-row: 2; }
-.app.v4 > :is(.crm, .sales, .contentv, .soundv, .mapv, .themesv, .lh, .h-home, .vault) { grid-column: 1 / -1; }
+.app.v4 > :is(.h-home, .vault) { grid-column: 1 / -1; }
 
 .transport {
   grid-row: 1; grid-column: 1 / -1; display: grid; grid-template-columns: auto minmax(360px, 1fr) minmax(220px, 300px) auto;

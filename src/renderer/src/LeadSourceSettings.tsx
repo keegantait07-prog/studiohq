@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Button, Row } from './settingsUi'
 
 type Name = 'soundcloud' | 'audiomack' | 'x'
 
@@ -17,26 +18,26 @@ function Card({ name, label, text, saved, refresh }: { name: Name; label: string
     refresh()
   }
   return (
-    <div className="field"><label>{label}</label>
-      <p className="help">{text} Access depends on {label} granting API access to your account.</p>
-      <div className="folder"><input type="password" value={value} placeholder={saved ? 'Saved. Paste a new key to replace it' : 'Key'} onChange={(e) => setValue(e.target.value)} />
-        <button disabled={!value.trim()} onClick={() => run(value)}>Save</button>
-        <button disabled={!saved} onClick={() => run(null)}>Remove</button></div>
-      {saved && <div className="help">Saved</div>}
-      {msg && <div className="help warn">{msg}</div>}
+    <div className="set-src">
+      <h4 className="set-sub">{label}{saved && <span className="sx-chip ok">Saved</span>}</h4>
+      <p className="sx-help">{text} Access depends on {label} granting API access to your account.</p>
+      <div className="set-inrow">
+        <input className="sx-in" type="password" value={value} aria-label={`${label} key`} placeholder={saved ? 'Saved. Paste a new key to replace it' : 'Key'} onChange={(e) => setValue(e.target.value)} />
+        <Button variant="outline" disabled={!value.trim()} onClick={() => run(value)}>Save</Button>
+        <Button variant="ghost" disabled={!saved} onClick={() => run(null)}>Remove</Button>
+      </div>
+      {msg && <p className="sx-help sx-warn" role="alert">{msg}</p>}
     </div>
   )
 }
 
-export function LeadSourceSettings() {
+export function LeadSourceSettings({ onChange }: { onChange?: () => void } = {}) {
   const [st, setSt] = useState<Record<Name, boolean> | null>(null)
-  const refresh = () => { window.api.leadsKeyStatus().then(setSt).catch(() => setSt(null)) }
-  useEffect(refresh, [])
+  const refresh = () => { window.api.leadsKeyStatus().then(setSt).catch(() => setSt(null)); onChange?.() }
+  useEffect(() => { window.api.leadsKeyStatus().then(setSt).catch(() => setSt(null)) }, [])
   return (
-    <section>
-      <h3>Lead sources</h3>
-      <p className="help">Keys are stored encrypted with the macOS Keychain and never leave this computer except to the service you connect.</p>
+    <Row id="leads" title="Lead sources" help="Keys are stored encrypted with the macOS Keychain and never leave this computer except to the service you connect.">
       {CARDS.map((c) => <Card key={c.name} {...c} saved={!!st?.[c.name]} refresh={refresh} />)}
-    </section>
+    </Row>
   )
 }

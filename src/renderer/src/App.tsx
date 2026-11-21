@@ -1,7 +1,12 @@
 import { lazy, useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react'
 import { STATUSES, type Beat, type BeatDetail, type ContentData, type CrmData, type FeedbackData, type SoundList, type SoundStatus, type StudioSession, type SalesData, type Sale, type ScanStatus, type Settings as AppSettings, type Status, type TagKind, type NetlifyStatus, type VaultKind } from '@shared/types'
 import { clickable } from './a11y'
-import { SectionStrip, Transport, type TabBadges } from './Shell'
+import { Transport, type TabBadges } from './Shell'
+import ShinyText from './components/ShinyText'
+import SpotlightCard from './components/SpotlightCard'
+import CountUp from './components/CountUp'
+import './beats.css'
+import { SceneBackground, SceneDock } from './Scene'
 import { GooToggles, Num, Seg, Tip } from './deckUi'
 import { TooltipProvider } from '@/components/lib/tooltip'
 import { MusicToggle } from '@/components/lib/skiper-ui/skiper25'
@@ -458,13 +463,8 @@ export function App() {
           {openSession && <SessionPill startedAt={openSession.startedAt} onClick={() => setView('dashboard')} />}
         </>}
       />
-      <SectionStrip view={view} onGo={setView} badges={tabBadges} end={<>
-        {tabExtra}
-        <button className={`st-tab st-tool ${assistantOpen ? 'on-tool' : ''}`} onClick={() => setAssistantOpen((o) => !o)} aria-pressed={assistantOpen} title="Assistant (⌘J). Ask it to look things up or make changes.">
-          Assistant{assistantStatus === 'approval' ? <span className="st-badge" aria-label="Needs your approval">!</span> : assistantStatus === 'working' ? <span className="as-dot" title="Working…" /> : null}
-        </button>
-        <button className="st-tab st-tool" onClick={() => setSettings(true)} title="Settings (⌘,)">Settings</button>
-      </>} />
+      <SceneBackground view={view} />
+      <SceneDock view={view} onGo={setView} last={{}} onAssistant={() => setAssistantOpen((o) => !o)} onSettings={() => setSettings(true)} />
 
       {view === 'dashboard' ? (
         <Dashboard
@@ -507,104 +507,113 @@ export function App() {
           onOpenBeat={(id) => openItem(id)} reload={reloadCrm} newContactSignal={newContactSignal}
         />
       ) : (
-      <section className="vault">
-        <div className="v-list">
-          <div className="v-tools">
-            <h2>{isLoop ? 'Loops' : 'Beats'}</h2>
-            <Seg label="Stage" value={statusTab} onChange={setStatusTab} items={(['all', ...STATUSES] as const).map((s) => ({ id: s, label: STAGE_LABEL[s], dot: s !== 'all', count: counts[s] ?? 0 }))} />
-            <div className="v-search">
-              <input ref={search} value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search" placeholder={isLoop ? 'Search: dark, 140+ bpm, unsent, sent, Cm…   ( / )' : 'Search: dark, 140+ bpm, unsold, finished, Cm…   ( / )'} spellCheck={false} />
-              {query && <button onClick={() => setQuery('')} aria-label="Clear search"><X size={14} strokeWidth={1.75} aria-hidden="true" /></button>}
-            </div>
-            <button className="v-btn" onClick={() => setPalette(true)}>Search everything <kbd>⌘K</kbd></button>
+      <section className="x-beats">
+        <header className="x-b-top">
+          <h2><ShinyText text={isLoop ? 'Loops' : 'Beats'} /></h2>
+          <div className="x-b-search">
+            <input ref={search} value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search" placeholder={isLoop ? 'Search: dark, 140+ bpm, unsent, sent, Cm…   ( / )' : 'Search: dark, 140+ bpm, unsold, finished, Cm…   ( / )'} spellCheck={false} />
+            {query && <button onClick={() => setQuery('')} aria-label="Clear search"><X size={16} strokeWidth={1.75} aria-hidden="true" /></button>}
+            <button className="x-b-all" onClick={() => setPalette(true)}>Search everything <kbd>⌘K</kbd></button>
           </div>
-          <div className="v-opts">
-            <Seg label="View" value={vaultView} onChange={setVaultView} items={[{ id: 'list', label: 'List' }, { id: 'cards', label: 'Cards' }]} />
-            <div className="chips-inline">{parsed.chips.map((c, i) => <span key={i} className="qchip">{c}</span>)}</div>
-            {query.trim() && !colls.some((c) => c.q === query) && (naming == null
-              ? <button className="v-btn" onClick={() => setNaming(query.length > 24 ? '' : query)} title="Keep this search in the sidebar">Save search</button>
-              : <span className="savesearch"><input autoFocus aria-label="Search name" value={naming} placeholder="Name it" onChange={(e) => setNaming(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && naming.trim()) { setColls([...colls, { name: naming.trim(), q: query }]); setNaming(null) } if (e.key === 'Escape') setNaming(null) }} />
-                <button className="v-btn primary" disabled={!naming.trim()} onClick={() => { setColls([...colls, { name: naming.trim(), q: query }]); setNaming(null) }}>Save</button></span>)}
-            <label className="v-check"><input type="checkbox" checked={collapse} onChange={(e) => setCollapse(e.target.checked)} /> Group versions</label>
-            {isLoop && (
-              <>
-                <label className="v-check">Group by <select value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupBy)}><option value="folder">Folder</option><option value="bpm">BPM</option><option value="key">Key</option><option value="none">None</option></select></label>
-                {grouped && <><button className="v-btn" onClick={() => setAllSecs(true)}>Collapse all</button><button className="v-btn" onClick={() => setAllSecs(false)}>Expand all</button></>}
-              </>
-            )}
-            <span className="v-gap" />
-            {!isLoop && <button className="v-btn" onClick={() => setCleanup(true)} title="Sift through FL projects and move the ones you don't want to the Trash">Clean up projects…</button>}
-            {!isLoop && <button className="v-btn" disabled={reindexing} onClick={() => reindexNow(true)} title="Look for new FL Studio projects now">{reindexing ? 'Scanning…' : 'Rescan FL projects'}</button>}
-          </div>
+        </header>
 
-          {vaultView === 'cards' && (
-            <div className="vgrid">
-              {sections.flatMap((sec) => (grouped && isShut(sec.key) ? [] : sec.rows)).map(({ beat: b, count }) => {
-                const isPlaying = player.id === b.id && player.playing
-                return (
-                  <div key={b.id} data-row={b.id} data-s={b.status} className={`vcard ${b.id === selectedId ? 'sel' : ''}`} {...clickable(() => { setSelectedId(b.id); setProfileId(b.id) })}>
-                    <div className="vc-art">
-                      <CoverArt beat={b} />
-                      <button className={`play ${isPlaying ? 'on' : ''}`} aria-label="play" onClick={(e) => { e.stopPropagation(); if (b.ext === 'flp' && !b.hasPreview) return toast('FL project with no preview yet. Play it once with Studio HQ Bridge on the Master and close it.'); player.id === b.id ? player.toggle() : playBeat(b.id) }}>{isPlaying ? <Pause size={14} strokeWidth={1.75} fill="currentColor" aria-hidden="true" /> : <Play size={14} strokeWidth={1.75} fill="currentColor" aria-hidden="true" />}</button>
-                    </div>
-                    <div className="vc-t">{b.title}</div>
-                    <div className="vc-m">{fmtBpm(b.bpm)} BPM · {displayKey(b.key) || '–'}{count > 1 ? ` · ${count} versions` : ''}</div>
-                    <div className="vc-p"><StatusPill status={b.status} />{b.tags.genre.slice(0, 1).concat(b.tags.vibe.slice(0, 1)).map((t, i) => <span key={`${t}-${i}`} className="spill mini">{t}</span>)}</div>
-                  </div>
-                )
-              })}
-              {loaded && !rows.length && <div className="empty">{list.length === 0 ? (scanning ? `Importing your ${isLoop ? 'loops' : 'beats'}…` : <>No {isLoop ? 'loops' : 'beats'} yet. Add a folder in <a onClick={() => setSettings(true)}>Settings</a>.</>) : `No ${isLoop ? 'loops' : 'beats'} match.`}</div>}
-            </div>
+        <nav className="x-b-stages" aria-label="Stage">
+          {(['all', ...STATUSES] as const).map((s) => (
+            <button key={s} className={`x-pill ${statusTab === s ? 'on' : ''}`} data-s={s} aria-pressed={statusTab === s} onClick={() => setStatusTab(s)}>
+              {STAGE_LABEL[s]}<b>{counts[s] ?? 0}</b>
+            </button>
+          ))}
+          <span className="x-b-gap" />
+          <button className={`x-pill ${vaultView === 'cards' ? 'on' : ''}`} onClick={() => setVaultView('cards')} aria-pressed={vaultView === 'cards'}>Wall</button>
+          <button className={`x-pill ${vaultView === 'list' ? 'on' : ''}`} onClick={() => setVaultView('list')} aria-pressed={vaultView === 'list'}>Crate</button>
+        </nav>
+
+        <div className="x-b-opts">
+          {parsed.chips.map((c, i) => <span key={i} className="x-chipq">{c}</span>)}
+          {query.trim() && !colls.some((c) => c.q === query) && (naming == null
+            ? <button onClick={() => setNaming(query.length > 24 ? '' : query)} title="Keep this search in the sidebar">Save search</button>
+            : <span className="x-b-save"><input autoFocus aria-label="Search name" value={naming} placeholder="Name it" onChange={(e) => setNaming(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && naming.trim()) { setColls([...colls, { name: naming.trim(), q: query }]); setNaming(null) } if (e.key === 'Escape') setNaming(null) }} />
+              <button disabled={!naming.trim()} onClick={() => { setColls([...colls, { name: naming.trim(), q: query }]); setNaming(null) }}>Save</button></span>)}
+          <label><input type="checkbox" checked={collapse} onChange={(e) => setCollapse(e.target.checked)} /> Group versions</label>
+          {isLoop && (
+            <>
+              <label>Group by <select value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupBy)}><option value="folder">Folder</option><option value="bpm">BPM</option><option value="key">Key</option><option value="none">None</option></select></label>
+              {grouped && <><button onClick={() => setAllSecs(true)}>Collapse all</button><button onClick={() => setAllSecs(false)}>Expand all</button></>}
+            </>
           )}
-          {vaultView === 'list' && <div className="vt">
-            <div className="vt-h">
-              <span /><span>{isLoop ? 'Loop' : 'Beat'}</span><span>Waveform</span><span className="r">BPM</span><span>Key</span><span>Status</span><span className="r">Touched</span>
-            </div>
-            <div className="vt-rows">
-              {sections.map((sec) => (
-                <Fragment key={sec.key}>
-                  {grouped && (
-                    <div className="secrow" {...clickable(() => toggleSec(sec.key))} title={isShut(sec.key) ? 'Click to open' : 'Click to fold'}>
-                      <span className={`caret ${isShut(sec.key) ? '' : 'open'}`}><ChevronRight size={14} strokeWidth={1.75} aria-hidden="true" /></span><b>{sec.label}</b><span className="dim">{sec.rows.length} {isLoop ? (sec.rows.length === 1 ? 'loop' : 'loops') : ''}</span>
-                    </div>
-                  )}
-                  {!isShut(sec.key) && sec.rows.map(({ beat: b, count }) => {
-                    const sel = b.id === selectedId || (collapse && selectedIdx >= 0 && rows[selectedIdx]?.beat.id === b.id)
-                    const isPlaying = player.id === b.id && player.playing
-                    return (
-                      <div key={b.id} data-row={b.id} data-s={b.status} className={`vt-row ${sel ? 'sel' : ''}`} {...clickable(() => setSelectedId(b.id))} onDoubleClick={() => playBeat(b.id)}>
-                        {b.ext === 'flp' && !b.hasPreview ? <span /> : <button className={`vt-play ${isPlaying ? 'on' : ''}`} onClick={(e) => { e.stopPropagation(); player.id === b.id ? player.toggle() : playBeat(b.id) }} aria-label={isPlaying ? 'pause' : 'play'}>{isPlaying ? <Pause size={12} strokeWidth={1.75} fill="currentColor" aria-hidden="true" /> : <Play size={12} strokeWidth={1.75} fill="currentColor" aria-hidden="true" />}</button>}
-                        <div className="vt-name">
-                          <div className="vt-t">{b.title}{b.ext === 'flp' && <span className="projthumb" title={b.hasPreview ? 'FL Studio project, preview loop' : 'FL Studio project, no audio yet'}>{b.hasPreview ? 'FL loop' : 'FL project'}</span>}{count > 1 && <em className="ver-badge">{count} versions</em>}{!collapse && b.versionLabel && <em className="ver-badge">{b.versionLabel}</em>}</div>
-                          {b.credits && <div className="vt-sub">{b.credits}</div>}
-                        </div>
-                        <div className="vt-wave">{b.ext === 'flp' && !b.hasPreview ? <span className="vt-none">No audio yet</span> : <Thumb data={b.thumb} />}</div>
-                        <span className={`r mono ${b.bpmConfidence === 'low' ? 'warn' : ''}`} title={b.bpmConfidence === 'low' ? 'Low confidence. Check half/double time.' : ''}>{fmtBpm(b.bpm)}{!b.analyzed && b.bpm == null ? '…' : ''}</span>
-                        <span className="mono keycell" style={b.key ? { color: keyColor(b.key) } : undefined} title={b.keyConfidence === 'low' ? 'Low confidence. Check this by ear.' : undefined}>{b.key && <i className="kdotc" style={{ background: keyColor(b.key) }} />}{displayKey(b.key) || (b.analyzed ? '–' : '…')}{b.keyConfidence === 'low' && '?'}</span>
-                        <span><StatusPill status={b.status} /></span>
-                        <span className="r mono vt-dim" title={ago(b.mtime)}>{agoShort(b.mtime)}</span>
-                      </div>
-                    )
-                  })}
-                </Fragment>
-              ))}
-              {loaded && !rows.length && (
-                <div className="empty">
-                  {list.length === 0 ? (scanning ? `Importing your ${isLoop ? 'loops' : 'beats'}…` : <>No {isLoop ? 'loops' : 'beats'} yet. Add a folder in <a onClick={() => setSettings(true)}>Settings</a>.</>) : `No ${isLoop ? 'loops' : 'beats'} match.`}
-                </div>
-              )}
-            </div>
-            <ProgressiveBlur position="bottom" height="44px" blurAmount="2px" backgroundColor="var(--bg)" className="vt-edge" />
-            <div className="vt-foot">
-              <span><b><Num value={rows.length} /></b> {isLoop ? 'loops' : 'beats'}</span>
-              <span><b><Num value={rows.filter((r) => r.beat.status === 'finished').length} /></b> finished</span>
-              {avgBpm != null && <span>Average <b><Num value={avgBpm} /></b> BPM</span>}
-              {topKey && <span>Most used key <b>{topKey}</b></span>}
-            </div>
-          </div>}
+          <span className="x-b-gap" />
+          {!isLoop && <button onClick={() => setCleanup(true)} title="Sift through FL projects and move the ones you don't want to the Trash">Clean up projects…</button>}
+          {!isLoop && <button disabled={reindexing} onClick={() => reindexNow(true)} title="Look for new FL Studio projects now">{reindexing ? 'Scanning…' : 'Rescan FL projects'}</button>}
         </div>
 
+        <div className="x-b-body">
+          <div className="x-b-scroll">
+            {vaultView === 'cards' && (
+              <div className="x-wall">
+                {sections.flatMap((sec) => (grouped && isShut(sec.key) ? [] : sec.rows)).map(({ beat: b, count }) => {
+                  const isPlaying = player.id === b.id && player.playing
+                  return (
+                    <div key={b.id} data-row={b.id} data-s={b.status} className={`x-tile ${b.id === selectedId ? 'sel' : ''} ${isPlaying ? 'live' : ''}`} {...clickable(() => { setSelectedId(b.id); setProfileId(b.id) })}>
+                      <SpotlightCard spotlightColor={b.key ? keyColor(b.key) : '#7c5cff'}>
+                        <div className="x-tile-art"><CoverArt beat={b} />
+                          <button className="x-play" aria-label="play" onClick={(e) => { e.stopPropagation(); if (b.ext === 'flp' && !b.hasPreview) return toast('FL project with no preview yet. Play it once with Studio HQ Bridge on the Master and close it.'); player.id === b.id ? player.toggle() : playBeat(b.id) }}>{isPlaying ? <Pause size={18} strokeWidth={1.75} fill="currentColor" aria-hidden="true" /> : <Play size={18} strokeWidth={1.75} fill="currentColor" aria-hidden="true" />}</button>
+                        </div>
+                        <div className="x-tile-bpm">{fmtBpm(b.bpm)}<small>BPM</small></div>
+                        <div className="x-tile-t">{b.title}</div>
+                        <div className="x-tile-m"><span style={b.key ? { color: keyColor(b.key) } : undefined}>{displayKey(b.key) || '–'}</span>{count > 1 && <span>{count} versions</span>}<StatusPill status={b.status} />{b.tags.genre.slice(0, 1).concat(b.tags.vibe.slice(0, 1)).map((t, i) => <span key={`${t}-${i}`}>{t}</span>)}</div>
+                      </SpotlightCard>
+                    </div>
+                  )
+                })}
+                {loaded && !rows.length && <div className="x-empty">{list.length === 0 ? (scanning ? `Importing your ${isLoop ? 'loops' : 'beats'}…` : <>No {isLoop ? 'loops' : 'beats'} yet. Add a folder in <a onClick={() => setSettings(true)}>Settings</a>.</>) : `No ${isLoop ? 'loops' : 'beats'} match.`}</div>}
+              </div>
+            )}
+            {vaultView === 'list' && (
+              <div className="x-crate">
+                {sections.map((sec) => (
+                  <Fragment key={sec.key}>
+                    {grouped && (
+                      <div className="x-sec" {...clickable(() => toggleSec(sec.key))} title={isShut(sec.key) ? 'Click to open' : 'Click to fold'}>
+                        <span className={`caret ${isShut(sec.key) ? '' : 'open'}`}><ChevronRight size={16} strokeWidth={1.75} aria-hidden="true" /></span><b>{sec.label}</b><span>{sec.rows.length} {isLoop ? (sec.rows.length === 1 ? 'loop' : 'loops') : ''}</span>
+                      </div>
+                    )}
+                    {!isShut(sec.key) && sec.rows.map(({ beat: b, count }) => {
+                      const sel = b.id === selectedId || (collapse && selectedIdx >= 0 && rows[selectedIdx]?.beat.id === b.id)
+                      const isPlaying = player.id === b.id && player.playing
+                      return (
+                        <div key={b.id} data-row={b.id} data-s={b.status} className={`x-row ${sel ? 'sel' : ''} ${isPlaying ? 'live' : ''}`} {...clickable(() => setSelectedId(b.id))} onDoubleClick={() => playBeat(b.id)}>
+                          <span className={`x-row-bpm ${b.bpmConfidence === 'low' ? 'warn' : ''}`} title={b.bpmConfidence === 'low' ? 'Low confidence. Check half/double time.' : ''}>{fmtBpm(b.bpm)}{!b.analyzed && b.bpm == null ? '…' : ''}</span>
+                          <div className="x-row-name">
+                            <b>{b.title}{b.ext === 'flp' && <em title={b.hasPreview ? 'FL Studio project, preview loop' : 'FL Studio project, no audio yet'}>{b.hasPreview ? 'FL loop' : 'FL project'}</em>}{count > 1 && <em>{count} versions</em>}{!collapse && b.versionLabel && <em>{b.versionLabel}</em>}</b>
+                            {b.credits && <small>{b.credits}</small>}
+                          </div>
+                          <div className="x-row-wave">{b.ext === 'flp' && !b.hasPreview ? <small>No audio yet</small> : <Thumb data={b.thumb} />}</div>
+                          <span className="x-row-key" style={b.key ? { color: keyColor(b.key) } : undefined} title={b.keyConfidence === 'low' ? 'Low confidence. Check this by ear.' : undefined}>{displayKey(b.key) || (b.analyzed ? '–' : '…')}{b.keyConfidence === 'low' && '?'}</span>
+                          <StatusPill status={b.status} />
+                          <small className="x-row-ago" title={ago(b.mtime)}>{agoShort(b.mtime)}</small>
+                          {b.ext === 'flp' && !b.hasPreview ? <span /> : <button className="x-play" onClick={(e) => { e.stopPropagation(); player.id === b.id ? player.toggle() : playBeat(b.id) }} aria-label={isPlaying ? 'pause' : 'play'}>{isPlaying ? <Pause size={16} strokeWidth={1.75} fill="currentColor" aria-hidden="true" /> : <Play size={16} strokeWidth={1.75} fill="currentColor" aria-hidden="true" />}</button>}
+                        </div>
+                      )
+                    })}
+                  </Fragment>
+                ))}
+                {loaded && !rows.length && (
+                  <div className="x-empty">
+                    {list.length === 0 ? (scanning ? `Importing your ${isLoop ? 'loops' : 'beats'}…` : <>No {isLoop ? 'loops' : 'beats'} yet. Add a folder in <a onClick={() => setSettings(true)}>Settings</a>.</>) : `No ${isLoop ? 'loops' : 'beats'} match.`}
+                  </div>
+                )}
+              </div>
+            )}
+            <footer className="x-b-foot">
+              <span><CountUp to={rows.length} duration={0.8} /> {isLoop ? 'loops' : 'beats'}</span>
+              <span><CountUp to={rows.filter((r) => r.beat.status === 'finished').length} duration={0.8} /> finished</span>
+              {avgBpm != null && <span>avg <CountUp to={avgBpm} duration={0.8} /> BPM</span>}
+              {topKey && <span>top key {topKey}</span>}
+            </footer>
+          </div>
+
+          <div className="x-b-drawer">
         {detail ? (
           <Detail beat={detail} kind={vaultKind} allTags={isLoop ? loopTags : allTags} onSelect={setSelectedId} onPlay={playBeat} refresh={reload} pitchedTo={pitchedTo} onPitch={() => setPitchDlg({ beatIds: [detail.id] })} onOpenContact={(id) => { setCrmSel(id); setView('crm') }}
             sales={salesData.sales.filter((x) => x.groupId === detail.groupId)} splitGroup={salesData.groups.find((g) => g.groupId === detail.groupId)}
@@ -614,8 +623,10 @@ export function App() {
             compatible={compatible} onFeedback={() => setFbDlg({ beatIds: [detail.id] })} posts={content.posts.filter((x) => x.beatId === detail.id || everything.find((b) => b.id === x.beatId)?.groupId === detail.groupId)} onContent={() => { setContentBeat(detail.id); setView('content') }}
             onError={toast} player={player} />
         ) : (
-          <aside className="insp insp-empty"><p>Select a {isLoop ? 'loop' : 'beat'}</p><p className="dim">↑ ↓ to move · Space to play · 1–5 sets status</p></aside>
+          <aside className="x-b-empty"><b>Select a {isLoop ? 'loop' : 'beat'}</b><span>↑ ↓ to move · Space to play · 1–5 sets status</span></aside>
         )}
+          </div>
+        </div>
       </section>
       )}
 

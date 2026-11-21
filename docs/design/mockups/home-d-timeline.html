@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Studio HQ - Home (timeline)</title>
+<style>
+:root{
+  --bg:#151714;
+  --ink:#ece8da;
+  --dim:#8b8e81;
+  --faint:rgba(236,232,218,.07);
+  --rule:rgba(236,232,218,.22);
+  --idea:#6a736c;
+  --wip:#e5c04e;
+  --fin:#ff5a36;
+  --pit:#49b9a4;
+  --sold:#f6f2e4;
+  --disp:"DIN Condensed","Avenir Next Condensed","Helvetica Neue Condensed","Arial Narrow",Impact,sans-serif;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);overflow-x:auto}
+body{font-family:var(--mono);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+:focus-visible{outline:1px solid var(--ink);outline-offset:3px}
+
+#stage{position:relative;height:100vh;min-height:780px;min-width:1040px;overflow:hidden;cursor:crosshair;outline:none;user-select:none}
+#bg,#wave,#flags{position:absolute;inset:0}
+#bg{pointer-events:none}
+#bg .abs,#flags .abs{position:absolute}
+
+/* masthead */
+#mast{position:absolute;left:72px;right:44px;top:20px;display:flex;justify-content:space-between;align-items:baseline;pointer-events:none}
+#mast b{font-family:var(--disp);font-weight:700;font-size:17px;letter-spacing:.02em}
+#mast span{font-size:10.5px;color:var(--dim)}
+
+/* ruler */
+.mo{position:absolute;font-family:var(--disp);font-weight:700;font-size:23px;line-height:1;transform:translateX(-1px)}
+.mo small{font-family:var(--mono);font-weight:400;font-size:9.5px;color:var(--dim);margin-left:6px;letter-spacing:.04em}
+.num{position:absolute;font-size:9px;color:var(--dim);transform:translateX(-50%)}
+.hl{position:absolute;height:1px;background:var(--rule)}
+.tk{position:absolute;width:1px;background:var(--rule)}
+.vl{position:absolute;width:1px;background:var(--faint)}
+.db{position:absolute;left:18px;font-size:9px;color:var(--dim);transform:translateY(-50%)}
+.dbl{position:absolute;height:1px;background:var(--faint)}
+.dbl.c{background:rgba(236,232,218,.16)}
+
+/* brackets: stats on the axis */
+.br{position:absolute;height:6px;border:1px solid var(--dim);border-top:0;opacity:.8}
+.brt{position:absolute;font-size:10.5px;line-height:1;color:var(--dim);white-space:nowrap}
+.brt b{color:var(--ink);font-weight:400}
+
+/* headline */
+#head{position:absolute;left:72px;top:92px;margin:0;font-family:var(--disp);font-weight:700;font-size:min(7.2vw,12.4vh);line-height:.86;letter-spacing:-.005em;pointer-events:none}
+#head span{display:block}
+#head .out{color:transparent;-webkit-text-stroke:1.5px var(--ink)}
+#sub{position:absolute;left:74px;margin:0;font-family:var(--serif);font-style:italic;font-size:19px;line-height:1.35;color:var(--ink);opacity:.86;pointer-events:none;max-width:34ch}
+
+/* waveform bars */
+.bar{position:absolute;pointer-events:none}
+.bar i{position:absolute;inset:0;display:block;border-radius:1.5px;background:var(--c);transform:scaleY(0);transition:transform .6s cubic-bezier(.16,.84,.24,1),opacity .25s}
+.bar.on i{transform:scaleY(1)}
+.st-idea{--c:var(--idea)} .st-idea i{opacity:.7}
+.st-wip{--c:var(--wip)}
+.st-fin{--c:var(--fin)}
+.st-pit{--c:var(--pit)}
+.st-sold{--c:var(--sold)}
+.st-sold::before{content:"";position:absolute;left:50%;top:-8px;width:5px;height:5px;margin-left:-2.5px;border-radius:50%;background:var(--sold)}
+.st-fin i::after{content:"";position:absolute;inset:0;border-radius:2px;box-shadow:0 0 14px 4px var(--fin);opacity:0;animation:breathe 4.2s ease-in-out infinite;animation-delay:var(--dl,0s)}
+@keyframes breathe{0%,100%{opacity:0}42%{opacity:.9}}
+.bar.dim i{opacity:.1!important}
+.bar.dim i::after{display:none}
+.bar.hot i{background:var(--ink)}
+.bar.sel::after{content:"";position:absolute;left:50%;top:calc(100% + 7px);width:6px;height:6px;margin-left:-3px;background:var(--ink);transform:rotate(45deg)}
+
+/* playhead */
+#ph{position:absolute;top:60px;left:0;width:0;pointer-events:none;will-change:transform}
+#ph i{position:absolute;left:0;top:0;width:1px;background:var(--ink);opacity:.9}
+#phl{position:absolute;left:0;top:-2px;transform:translateX(-50%);white-space:nowrap;background:var(--ink);color:var(--bg);font-size:10px;line-height:1;padding:4px 6px}
+
+/* tooltip: a label, not a card */
+#tip{position:absolute;pointer-events:none;opacity:0;transition:opacity .12s;border-left:2px solid var(--c,var(--ink));padding:1px 0 1px 9px;background:linear-gradient(90deg,rgba(21,23,20,.92),rgba(21,23,20,.6));z-index:5}
+#tip.r{border-left:0;border-right:2px solid var(--c,var(--ink));padding:1px 9px 1px 0;text-align:right;background:linear-gradient(270deg,rgba(21,23,20,.92),rgba(21,23,20,.6))}
+#tip.show{opacity:1}
+#tip b{display:block;font-family:var(--disp);font-weight:700;font-size:28px;line-height:1}
+#tip span{display:block;margin-top:4px;font-size:11px;color:var(--ink)}
+#tip em{display:block;margin-top:3px;font-family:var(--serif);font-size:13px;color:var(--c,var(--dim))}
+
+/* action flags on the marker lane */
+.flag{position:absolute;border-right:1px solid var(--rule);pointer-events:none;transition:border-color .2s;opacity:0}
+.flag.on{opacity:1;transition:opacity .4s}
+.flag button{pointer-events:auto;display:block;text-align:right;padding:0 9px 0 0;font-family:var(--disp);font-weight:700;font-size:25px;line-height:1;color:var(--ink);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:5px;text-decoration-color:transparent;transition:text-decoration-color .15s}
+.flag button:hover,.flag button:focus-visible{text-decoration-color:var(--ink)}
+.flag small{display:block;padding:5px 9px 0 0;text-align:right;font-size:10px;color:var(--dim);white-space:nowrap}
+.flag:hover{border-right-color:var(--ink)}
+
+/* transport */
+#tr{position:absolute;left:72px;right:44px;bottom:22px;display:flex;justify-content:space-between;align-items:flex-end;gap:32px;pointer-events:none}
+#tr>*{pointer-events:auto}
+#sel{min-width:0}
+#sel .t{font-family:var(--disp);font-weight:700;font-size:42px;line-height:.9}
+#sel .f{margin-top:7px;font-size:11px;color:var(--dim);display:flex;gap:18px;flex-wrap:wrap}
+#sel .f b{font-weight:400;color:var(--ink)}
+#sel .f u{text-decoration:none;color:var(--c)}
+#log{height:13px;margin-top:8px;font-family:var(--serif);font-style:italic;font-size:13px;color:var(--ink);opacity:0;transition:opacity .3s}
+#log.show{opacity:.9}
+#chips{display:flex;gap:22px;align-items:flex-end}
+.chip{display:flex;flex-direction:column;align-items:flex-start;gap:5px;font-size:10.5px;color:var(--dim);text-align:left;transition:color .15s;cursor:pointer}
+.chip .n{font-family:var(--disp);font-weight:700;font-size:30px;line-height:.9;color:var(--ink)}
+.chip .sw{display:block;width:100%;min-width:34px;height:3px;background:var(--c)}
+.chip:hover,.chip.active{color:var(--ink)}
+.chip.off{opacity:.4}
+.chip .sub{font-family:var(--serif);font-style:italic;font-size:12px;color:var(--dim);margin-top:-2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+@media (prefers-reduced-motion:reduce){
+  .st-fin i::after{animation:none;opacity:.55}
+  .bar i{transition:none}
+}
+</style>
+</head>
+<body>
+<main id="stage" tabindex="0" aria-label="Timeline of 79 beats, August to November. Use left and right arrow keys to move between beats.">
+  <div id="bg"></div>
+  <header id="mast"><b>Studio HQ</b><span>Sun 15 Nov 2026</span></header>
+  <h1 id="head"><span id="h1">46 finished.</span><span class="out">None pitched.</span></h1>
+  <p id="sub">Newest in progress is 2bass, touched today.</p>
+  <div id="wave"></div>
+  <div id="flags"></div>
+  <div id="ph"><i id="phi"></i><b id="phl">Sun 15 Nov</b></div>
+  <div id="tip" role="presentation"></div>
+  <footer id="tr">
+    <div id="sel" aria-live="polite"></div>
+    <div id="chips" role="group" aria-label="Filter by stage"></div>
+  </footer>
+  <div class="sr" id="srmsg" aria-live="polite"></div>
+</main>
+
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const stage = $('#stage'), bg = $('#bg'), wave = $('#wave'), flagsEl = $('#flags');
+const ph = $('#ph'), phi = $('#phi'), phl = $('#phl'), tip = $('#tip');
+const selEl = $('#sel'), chipsEl = $('#chips'), headEl = $('#head'), subEl = $('#sub');
+
+/* ---------- data (deterministic, matches the real totals) ---------- */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const rnd = mulberry32(20261115);
+const shuffle = a => { for(let i=a.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[a[i],a[j]]=[a[j],a[i]]} return a };
+const pick = a => a[Math.floor(rnd()*a.length)];
+
+const DAYS = 105, START = Date.UTC(2026,7,3);               // Aug 3 .. Nov 15
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const dt = d => new Date(START + d*864e5);
+const dlabel = d => { const x = dt(d); return `${DOW[x.getUTCDay()]} ${x.getUTCDate()} ${MON[x.getUTCMonth()]}` };
+
+const per = new Array(DAYS).fill(0);
+for (let d=100; d<105; d++) per[d] = 1;                     // 5-day streak, 5 beats this week
+let act = [], run = 0;
+for (let d=0; d<98; d++){
+  const dow = dt(d).getUTCDay();
+  const on = rnd() < (dow===0||dow===6 ? .3 : .52);
+  if (on && run<5){ act.push(d); run++ } else run = 0;      // never a streak longer than 5
+}
+while (act.length > 74) act.splice(Math.floor(rnd()*act.length),1);
+act.forEach(d => per[d] = 1);
+let rest = 74 - act.length;
+while (rest > 0){ const d = pick(act); if (per[d] < 5){ per[d]++; rest-- } }
+
+const A = ['Marble','Static','Ghost','Velvet','Lowlight','Paper','Cinder','Halogen','Dust','Tin','Orbit','Chalk','Salt','Mono','Rust','Fable','Hollow','Night','Copper','Slow','Glass','Kiln','Ember','Drift','Wire','Tape','Crow','Moth','Sable','Pearl'];
+const B = ['Hands','Bus','Season','Room','Signal','Rain','Tax','Lane','Tide','Smoke','Choir','Mile','Heat','Pages','Weather','Garden','Loop','Fever','Clock','Hymn','Gate','Ledger','Motel'];
+const used = new Set(['2bass']);
+function title(){ for(;;){ const t = rnd()<.22 ? pick(A) : `${pick(A)} ${pick(B)}`; if(!used.has(t)){used.add(t);return t} } }
+const KEYS = ['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
+
+const beats = [];
+for (let d=0; d<DAYS; d++) for (let i=0; i<per[d]; i++) beats.push({d,i,n:per[d]});
+const older = beats.filter(b => b.d <= 97);                 // 74
+const stages = new Array(older.length);
+const order = shuffle(older.map((_,i)=>i));
+let si = 0;
+const take = (n, ok) => { let c=0; for(let k=0;k<order.length&&c<n;k++){ const i=order[k]; if(stages[i]===undefined && ok(i)){ stages[i]=null; c++; stages[i]=null; } } };
+const assign = (n, st, ok) => { let c=0; for(const i of order){ if(c>=n) break; if(stages[i]===undefined && ok(i)){ stages[i]=st; c++ } } };
+assign(2,'sold',i=>i<50);
+assign(5,'pit',i=>i<68);
+const left = order.filter(i => stages[i]===undefined);
+left.slice(0,44).forEach(i=>stages[i]='fin');
+left.slice(44,61).forEach(i=>stages[i]='idea');
+left.slice(61).forEach(i=>stages[i]='wip');
+older.forEach((b,i)=> b.stage = stages[i]);
+const week = {100:'fin',101:'fin',102:'idea',103:'wip',104:'wip'};
+beats.forEach(b => { if(b.d>=100) b.stage = week[b.d]; });
+
+const HH = {idea:[.14,.26], wip:[.3,.4], fin:[.42,.58], pit:[.45,.5], sold:[.6,.4]};
+beats.forEach((b,k) => {
+  b.id = k;
+  b.title = title();
+  b.bpm = 128 + Math.floor(rnd()*42);
+  b.key = pick(KEYS) + (rnd()<.7 ? ' min' : ' maj');
+  const [lo,sp] = HH[b.stage];
+  b.hh = lo + rnd()*sp;
+  b.len = b.stage==='idea' ? 25+Math.floor(rnd()*50) : 95+Math.floor(rnd()*125);
+});
+const bt = beats[beats.length-1];
+Object.assign(bt,{title:'2bass',bpm:142,key:'F min',len:161,hh:.62});
+Object.assign(beats[beats.length-2],{hh:.5});
+Object.assign(beats[beats.length-4],{hh:.92});
+Object.assign(beats[beats.length-5],{hh:.78});
+used.delete('2bass');
+
+const STAGE = {
+  idea:{name:'idea',    note:'a sketch, not yet a beat'},
+  wip: {name:'in progress', note:'open in FL Studio'},
+  fin: {name:'finished',note:'never pitched, never posted'},
+  pit: {name:'pitched', note:'sent to an artist'},
+  sold:{name:'sold',    note:'sale logged'}
+};
+const count = s => beats.filter(b=>b.stage===s).length;
+const NFIN = count('fin');
+$('#h1').textContent = `${NFIN} finished.`;
+
+const mmss = s => `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+const ago = d => d===104 ? 'today' : `${104-d} days ago`;
+
+/* ---------- bars ---------- */
+beats.forEach(b => {
+  const el = document.createElement('div');
+  el.className = `bar st-${b.stage}`;
+  el.innerHTML = '<i></i>';
+  el.style.setProperty('--dl', `${-(b.id*0.11)%4.2}s`);
+  wave.appendChild(el);
+  b.el = el;
+});
+
+/* ---------- flags (actions as markers on the timeline) ---------- */
+const lastOf = s => [...beats].reverse().find(b=>b.stage===s);
+const FLAGS = [
+  {key:'open', label:'Open in FL Studio', target:bt},
+  {key:'pitch',label:'Pitch a beat',      target:lastOf('fin')},
+  {key:'video',label:'Make a video',      target:beats[beats.length-5]},
+  {key:'sale', label:'Log a sale',        target:lastOf('pit')}
+];
+FLAGS.forEach(f => {
+  const el = document.createElement('div');
+  el.className = 'flag';
+  el.innerHTML = `<button type="button">${f.label}</button><small>${f.key==='pitch' ? `${NFIN} waiting, start with ${f.target.title}` : f.target.title}</small>`;
+  flagsEl.appendChild(el);
+  f.el = el;
+  const btn = el.querySelector('button');
+  btn.addEventListener('mouseenter', () => spot(f));
+  btn.addEventListener('mouseleave', () => spot(null));
+  btn.addEventListener('focus', () => spot(f));
+  btn.addEventListener('blur', () => spot(null));
+  btn.addEventListener('click', e => { e.stopPropagation(); fire(f) });
+});
+function spot(f){
+  beats.forEach(b => {
+    let keep = true;
+    if (f) keep = f.key==='pitch' ? b.stage==='fin' : b===f.target;
+    b.el.classList.toggle('dim', !keep || (solo && b.stage!==solo));
+    b.el.classList.toggle('hot', !!f && f.key!=='pitch' && b===f.target);
+  });
+}
+let logT;
+function say(t){ const l=$('#log'); if(!l) return; l.textContent=t; l.classList.add('show'); clearTimeout(logT); logT=setTimeout(()=>l.classList.remove('show'),3200) }
+function fire(f){
+  select(f.target, true);
+  const t = f.target.title;
+  say({open:`Opening ${t} in FL Studio.`,pitch:`Pitch queue opened with ${NFIN} finished beats.`,video:`Video maker opened with ${t}.`,sale:`Sale form opened for ${t}.`}[f.key]);
+}
+
+/* ---------- chips (stage filter + counts) ---------- */
+let solo = null;
+['fin','wip','idea','pit','sold'].forEach(s => {
+  const c = document.createElement('button');
+  c.type='button'; c.className=`chip st-${s}`; c.dataset.s=s;
+  c.innerHTML = `<span class="n">${count(s)}</span><span class="sw"></span><span>${STAGE[s].name}</span>${s==='fin'?'<span class="sub">never pitched</span>':''}`;
+  c.addEventListener('click', e => { e.stopPropagation(); solo = solo===s ? null : s; applySolo() });
+  chipsEl.appendChild(c);
+});
+function applySolo(){
+  beats.forEach(b => b.el.classList.toggle('dim', !!solo && b.stage!==solo));
+  chipsEl.querySelectorAll('.chip').forEach(c => { c.classList.toggle('active', c.dataset.s===solo); c.classList.toggle('off', !!solo && c.dataset.s!==solo) });
+}
+
+/* ---------- layout ---------- */
+let W,H,L=72,R=44,dayW,cy,mh,axisY,cx=[];
+const xOf = d => L + d*dayW;
+function layout(){
+  W = stage.clientWidth; H = stage.clientHeight;
+  dayW = (W-L-R)/DAYS;
+  cy = H*.58; mh = H*.19; axisY = cy+mh+26;
+  const rulerY = 78;
+
+  /* ruler, week lines, dB lines, brackets */
+  let h = '';
+  h += `<div class="hl abs" style="left:${L}px;width:${W-L-R}px;top:${rulerY}px"></div>`;
+  h += `<div class="hl abs" style="left:${L}px;width:${W-L-R}px;top:${axisY}px"></div>`;
+  for (let d=0; d<DAYS; d++){
+    const x = xOf(d), D = dt(d), dow = D.getUTCDay(), dom = D.getUTCDate();
+    const first = dom===1 || d===0;
+    if (first){
+      h += `<div class="tk abs" style="left:${x}px;top:${rulerY-16}px;height:16px"></div>`;
+      h += `<span class="mo" style="left:${x+6}px;top:${rulerY-44}px">${MON[D.getUTCMonth()]}${d===0?'<small>2026</small>':''}</span>`;
+    }
+    if (dow===1){
+      h += `<div class="tk abs" style="left:${x}px;top:${rulerY-6}px;height:6px"></div>`;
+      if (!first) h += `<span class="num" style="left:${x}px;top:${rulerY-20}px">${dom}</span>`;
+      h += `<div class="vl abs" style="left:${x}px;top:${rulerY}px;height:${axisY-rulerY}px"></div>`;
+      h += `<div class="tk abs" style="left:${x}px;top:${axisY}px;height:5px"></div>`;
+    }
+  }
+  [[-1,'peak'],[-.5,'-6'],[0,'0 dB'],[.5,'-6'],[1,'peak']].forEach(([k,t]) => {
+    const y = cy + k*mh;
+    h += `<span class="db" style="top:${y}px">${t}</span>`;
+    h += `<div class="dbl abs ${k===0?'c':''}" style="left:${L}px;width:${W-L-R}px;top:${y}px"></div>`;
+  });
+  const wk = bt.d-6;
+  const rows = [
+    {a:0,  b:104, t:`<b>${beats.length}</b> beats since Aug 3`, al:'l'},
+    {a:90, b:104, t:`<b>$0</b> sales this month`, al:'r'},
+    {a:wk, b:104, t:`<b>5</b> beats made this week`, al:'r'},
+    {a:wk, b:104, t:`<b>0</b> posts this week`, al:'r'},
+    {a:100,b:104, t:`<b>5-day</b> streak, best 5`, al:'r'}
+  ];
+  rows.forEach((r,k) => {
+    const x1 = xOf(r.a), x2 = xOf(r.b+1)-2, y = axisY+16+k*19;
+    h += `<div class="br abs" style="left:${x1}px;width:${x2-x1}px;top:${y}px"></div>`;
+    h += r.al==='l'
+      ? `<span class="brt" style="left:${x1}px;top:${y+10}px">${r.t}</span>`
+      : `<span class="brt" style="right:${W-x2}px;top:${y+10}px">${r.t}</span>`;
+  });
+  bg.innerHTML = h;
+
+  /* headline sub position */
+  subEl.style.top = (headEl.offsetTop + headEl.offsetHeight + 18) + 'px';
+
+  /* bars */
+  cx = [];
+  beats.forEach(b => {
+    const slot = Math.max(2.8, (dayW-2)/b.n);
+    const x = xOf(b.d) + 1 + b.i*slot, w = slot-1;
+    const hp = mh*b.hh;
+    b.x = x + w/2; b.top = cy-hp; b.w = w;
+    const s = b.el.style;
+    s.left = x+'px'; s.width = w+'px'; s.top = (cy-hp)+'px'; s.height = (hp*2)+'px';
+    cx.push(b.x);
+  });
+
+  /* flags */
+  FLAGS.forEach((f,k) => {
+    const rowY = 100 + k*42;
+    const len = Math.max(30, f.target.top - 8 - rowY);
+    const s = f.el.style;
+    s.top = rowY+'px'; s.height = len+'px'; s.right = (W - f.target.x - .5)+'px';
+  });
+  moveTo(selected, true);
+}
+
+/* ---------- playhead ---------- */
+let phx = 0, tx = 0, swept = false, sweepStart = 0, onIdx = 0, flagIdx = 0;
+const SWEEP = 2600;
+function dayAt(x){ return Math.max(0, Math.min(DAYS-1, Math.floor((x-L)/dayW))) }
+function paintPH(){
+  ph.style.transform = `translate3d(${phx.toFixed(1)}px,0,0)`;
+  phi.style.height = (axisY - 60) + 'px';
+  const d = dayAt(phx), n = per[d];
+  phl.textContent = `${dlabel(d)}   ${n} ${n===1?'beat':'beats'}`;
+}
+function moveTo(b, snap){ tx = b.x; if (snap && swept) { phx = tx } }
+function frame(t){
+  if (!swept){
+    const k = Math.min(1, (t-sweepStart)/SWEEP);
+    const e = k<.5 ? 2*k*k : 1-Math.pow(-2*k+2,2)/2;
+    phx = L + e*(selected.x - L); tx = phx;
+    while (onIdx < beats.length && beats[onIdx].x <= phx) beats[onIdx++].el.classList.add('on');
+    while (flagIdx < FLAGS.length && FLAGS[flagIdx].target.x <= phx + 30) FLAGS[flagIdx++].el.classList.add('on');
+    if (k>=1) endSweep();
+  } else {
+    phx += (tx-phx)*.3;
+    if (Math.abs(tx-phx)<.1) phx = tx;
+  }
+  paintPH();
+  requestAnimationFrame(frame);
+}
+function endSweep(){
+  swept = true;
+  beats.forEach(b => b.el.classList.add('on'));
+  FLAGS.forEach(f => f.el.classList.add('on'));
+}
+
+/* ---------- selection + hover ---------- */
+let selected = bt, hover = null, inside = false;
+function select(b, quiet){
+  if (selected) selected.el.classList.remove('sel');
+  selected = b; b.el.classList.add('sel');
+  const st = STAGE[b.stage];
+  selEl.innerHTML =
+    `<div class="t">${b.title}</div>` +
+    `<div class="f" style="--c:var(--${b.stage==='fin'?'fin':b.stage==='wip'?'wip':b.stage==='pit'?'pit':b.stage==='sold'?'sold':'idea'})">` +
+    `<u>${st.name}</u><span><b>${b.bpm}</b> BPM</span><span><b>${b.key}</b></span><span><b>${mmss(b.len)}</b></span>` +
+    `<span>${b.d===104 ? 'touched today' : 'made ' + dlabel(b.d).toLowerCase() + ', ' + ago(b.d)}</span></div>` +
+    `<div id="log"></div>`;
+  $('#srmsg').textContent = `${b.title}, ${st.name}, ${b.bpm} BPM, ${b.key}`;
+  if (!inside || quiet) tx = b.x;
+}
+function nearest(mx,my){
+  if (my < 96 || my > axisY+4) return null;
+  let best=null, bd=9;
+  for (let k=0;k<beats.length;k++){ const dd = Math.abs(cx[k]-mx); if (dd<bd){bd=dd;best=beats[k]} }
+  return best;
+}
+function showTip(b){
+  const right = b.x > W-340;
+  tip.className = (right?'r ':'') + 'show';
+  tip.style.setProperty('--c', `var(--${b.stage==='fin'?'fin':b.stage==='wip'?'wip':b.stage==='pit'?'pit':b.stage==='sold'?'sold':'idea'})`);
+  tip.innerHTML = `<b>${b.title}</b><span>${b.bpm} BPM&nbsp;&nbsp;&nbsp;${b.key}&nbsp;&nbsp;&nbsp;${mmss(b.len)}</span><em>${STAGE[b.stage].name}, ${STAGE[b.stage].note}</em>`;
+  const tw = tip.offsetWidth, th = tip.offsetHeight;
+  let y = Math.min(b.top - th - 12, cy - th - 12);
+  y = Math.max(y, 330);
+  tip.style.top = y + 'px';
+  tip.style.left = right ? (b.x - tw - 10)+'px' : (b.x + 10)+'px';
+}
+stage.addEventListener('pointermove', e => {
+  const r = stage.getBoundingClientRect(), mx = e.clientX-r.left, my = e.clientY-r.top;
+  if (!swept) endSweep();
+  inside = true;
+  const h = (e.target.closest && e.target.closest('button')) ? null : nearest(mx,my);
+  if (h !== hover){
+    if (hover) hover.el.classList.remove('hot');
+    hover = h;
+    if (h) { h.el.classList.add('hot'); showTip(h) } else tip.classList.remove('show');
+  }
+  tx = h ? h.x : Math.max(L, Math.min(W-R, mx));
+});
+stage.addEventListener('pointerleave', () => {
+  inside = false;
+  if (hover){ hover.el.classList.remove('hot'); hover=null }
+  tip.classList.remove('show');
+  tx = selected.x;
+});
+stage.addEventListener('click', e => { if (hover && !e.target.closest('button')) select(hover) });
+stage.addEventListener('keydown', e => {
+  if (e.key!=='ArrowLeft' && e.key!=='ArrowRight') return;
+  e.preventDefault();
+  if (!swept) endSweep();
+  const i = beats.indexOf(selected) + (e.key==='ArrowRight' ? 1 : -1);
+  if (i>=0 && i<beats.length){ select(beats[i], true); tx = beats[i].x }
+});
+addEventListener('resize', layout);
+
+/* ---------- go ---------- */
+select(bt, true);
+layout();
+const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+if (still){ swept = true; endSweep(); phx = tx = bt.x }
+else { sweepStart = performance.now() + 250; }
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

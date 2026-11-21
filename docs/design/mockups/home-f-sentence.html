@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Studio HQ - Home (sentence)</title>
+<style>
+:root{
+  --paper:#E5E8E2;      /* cool lichen paper */
+  --ink:#141A17;        /* green-black */
+  --dim:#8A938D;        /* spoken-over text */
+  --quiet:#58625B;      /* small print, passes AA */
+  --tick:#B5BDB6;
+  --accent:#1F3FD1;     /* ultramarine, the only colour */
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+  --sans:"Avenir Next","Helvetica Neue",Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--paper);color:var(--ink)}
+body{
+  min-height:100vh;
+  font-family:var(--serif);
+  display:grid;
+  grid-template-rows:auto 1fr auto;
+  padding:clamp(24px,4.2vw,64px) clamp(22px,6vw,96px) clamp(22px,3vw,40px);
+  -webkit-font-smoothing:antialiased;
+}
+header{
+  font:400 13px/1 var(--sans);
+  color:var(--quiet);
+  display:flex;justify-content:space-between;
+  letter-spacing:.01em;
+}
+header b{font-weight:600;color:var(--ink)}
+
+main{align-self:center;padding:6vh 0 5vh;max-width:1320px}
+
+/* ---------- the sentence ---------- */
+.sentence{
+  margin:0;
+  font-size:clamp(34px,6.1vw,92px);
+  line-height:1.12;
+  letter-spacing:-.022em;
+  font-weight:400;
+  color:var(--dim);
+  text-wrap:pretty;
+  hanging-punctuation:first;
+}
+.sentence .say{color:var(--dim)}
+.sentence .say:first-child{color:var(--ink)}
+.pick .say{color:var(--quiet)}
+.sentence em{font-style:italic}
+
+/* live words */
+.live{
+  cursor:pointer;
+  color:var(--ink);
+  outline:none;
+  position:relative;
+  background-repeat:no-repeat;
+  background-position:0 100%;
+  transition:color .2s;
+  border-radius:2px;
+}
+.num{
+  font-style:italic;
+  font-weight:700;
+  letter-spacing:-.035em;
+  /* dotted underline = "this one has data under it" */
+  background-image:repeating-linear-gradient(90deg,var(--accent) 0 .09em,transparent .09em .2em);
+  background-size:100% .055em;
+  padding-bottom:.04em;
+}
+.act{
+  font-style:normal;
+  font-weight:400;
+  /* solid underline = "this one does something" */
+  background-image:linear-gradient(var(--accent),var(--accent));
+  background-size:100% .06em;
+  padding-bottom:.03em;
+}
+.act em{font-weight:400}
+.live:hover,.live:focus-visible,.live.on{color:var(--accent)}
+.act:hover,.act:focus-visible,.act.on{background-size:100% .5em;color:var(--paper)}
+.num:focus-visible{box-shadow:0 0 0 .08em var(--paper),0 0 0 .13em var(--accent)}
+.act:focus-visible{box-shadow:0 0 0 .08em var(--paper),0 0 0 .13em var(--accent)}
+
+/* load: one orchestrated moment, underlines draw left to right */
+@media (prefers-reduced-motion:no-preference){
+  .live{animation:draw .9s cubic-bezier(.2,.7,.1,1) both;animation-delay:calc(var(--i)*.14s + .25s)}
+  @keyframes draw{from{background-size:0 .06em}}
+  .act:hover,.act:focus-visible,.act.on{transition:background-size .22s cubic-bezier(.2,.7,.1,1),color .2s}
+}
+
+/* ---------- sparkline that grows out of the text ---------- */
+.spark{
+  display:inline-block;width:0;overflow:hidden;white-space:nowrap;
+  vertical-align:-.04em;
+  height:.78em;
+  font:400 14px/1 var(--sans);
+  letter-spacing:0;color:var(--quiet);
+  transition:width .55s cubic-bezier(.2,.8,.1,1);
+}
+.spark>span{display:inline-flex;align-items:flex-end;gap:.55em;height:100%;padding-left:.28em;padding-right:.18em}
+.spark svg{height:.7em;width:auto;overflow:visible;display:block}
+.spark small{font-size:13px;line-height:1.1;padding-bottom:.18em;white-space:nowrap;font-style:normal}
+.spark .ln{fill:none;stroke:var(--accent);stroke-width:1.6;vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round;stroke-dasharray:var(--len,300);stroke-dashoffset:var(--len,300);transition:stroke-dashoffset .9s .1s cubic-bezier(.3,.7,.2,1)}
+.spark.open .ln{stroke-dashoffset:0}
+.spark .bar{fill:var(--accent);transform-origin:50% 100%;transform:scaleY(0);transition:transform .5s cubic-bezier(.2,.8,.1,1);transition-delay:calc(var(--k)*.04s + .1s)}
+.spark.open .bar{transform:scaleY(1)}
+.spark .ghost{fill:var(--tick)}
+.spark .dot{fill:var(--accent)}
+.spark .tk{stroke-width:1.2;vector-effect:non-scaling-stroke;stroke:var(--tick);opacity:0;transition:opacity .3s;transition-delay:calc(var(--k)*.006s + .1s)}
+.spark .tk.hot{stroke:var(--accent);stroke-width:1.6}
+.spark.open .tk{opacity:1}
+.spark .dash{stroke:var(--accent);stroke-width:1.6;stroke-dasharray:1 4;vector-effect:non-scaling-stroke;stroke-linecap:round}
+.spark .hole{fill:none;stroke:var(--accent);stroke-width:1.4;vector-effect:non-scaling-stroke}
+
+/* ---------- inline expanders (text reflows around them) ---------- */
+.fold{
+  display:inline;
+}
+.fold[hidden]{display:none}
+.pick{
+  font-size:.62em;line-height:1.3;letter-spacing:-.012em;color:var(--ink);
+}
+.pick .opt{
+  font-style:italic;font-weight:600;cursor:pointer;color:var(--accent);outline:none;
+  text-decoration:underline;text-decoration-thickness:.07em;text-underline-offset:.16em;
+  border-radius:2px;
+}
+.pick .opt:hover,.pick .opt:focus-visible{background:var(--accent);color:var(--paper);text-decoration-color:transparent}
+.pick .opt:focus-visible{box-shadow:0 0 0 .1em var(--paper),0 0 0 .16em var(--accent)}
+.pick small{font:400 13px/1.2 var(--sans);letter-spacing:0;color:var(--quiet);margin-left:.45em;font-style:normal;white-space:nowrap}
+.pick .opt+small{margin-right:.15em}
+@media (prefers-reduced-motion:no-preference){
+  .fold:not([hidden]) .piece{animation:rise .5s cubic-bezier(.2,.8,.1,1) both;animation-delay:calc(var(--k)*.07s)}
+  @keyframes rise{from{opacity:0;transform:translateY(.25em)}}
+}
+.piece{display:inline}
+
+/* player */
+.player{
+  display:inline-flex;align-items:center;gap:.7em;vertical-align:middle;
+  font:400 14px/1 var(--sans);color:var(--quiet);letter-spacing:0;
+  margin:0 .25em;
+}
+.pbtn{
+  all:unset;cursor:pointer;font:600 15px/1 var(--serif);font-style:italic;color:var(--accent);
+  text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:4px;
+  min-width:3.1ch;
+}
+.pbtn:hover{color:var(--ink)}
+.pbtn:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
+.wave{display:block;width:clamp(150px,18vw,260px);height:36px;cursor:col-resize;touch-action:none}
+.wave rect{fill:var(--tick)}
+.wave rect.done{fill:var(--accent)}
+.wave:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.time{font-variant-numeric:tabular-nums;min-width:8.5ch}
+.sublink{
+  all:unset;cursor:pointer;color:var(--ink);
+  text-decoration:underline;text-decoration-color:var(--accent);text-decoration-thickness:1.5px;text-underline-offset:3px;
+}
+.sublink:hover{color:var(--accent)}
+.sublink:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+
+/* ---------- small print under the sentence ---------- */
+.aside{
+  margin:clamp(28px,5vh,56px) 0 0;
+  font:400 17px/1.55 var(--sans);
+  color:var(--quiet);
+  max-width:46ch;
+}
+.aside .sublink{font-weight:500}
+.aside .status{display:block;min-height:1.55em;margin-top:.7em;color:var(--accent);font-size:14px}
+
+/* ---------- streak ticks ---------- */
+footer{
+  display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap;
+  font:400 13px/1.2 var(--sans);color:var(--quiet);
+}
+.ticks{display:flex;align-items:flex-end;gap:7px;height:26px}
+.ticks i{display:block;width:1.5px;height:9px;background:var(--tick)}
+.ticks i.on{height:24px;background:var(--ink)}
+.ticks i.now{background:var(--accent)}
+.streak{display:flex;align-items:flex-end;gap:16px}
+.streak span{padding-bottom:1px}
+@media (prefers-reduced-motion:no-preference){
+  .ticks i{transform-origin:50% 100%;animation:tick .6s cubic-bezier(.2,.8,.1,1) both;animation-delay:calc(1.3s + var(--n)*.035s)}
+  @keyframes tick{from{transform:scaleY(.2);opacity:0}}
+}
+
+@media (max-width:640px){
+  .spark small{display:none}
+  .pick small{display:block;margin:0 0 .5em}
+}
+@media (prefers-reduced-motion:reduce){
+  *{transition:none!important;animation:none!important}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <b>Studio HQ</b>
+  <span id="today">Sunday</span>
+</header>
+
+<main>
+  <p class="sentence" id="sentence">
+    <span class="say">You have </span><span class="live num" style="--i:0" tabindex="0" role="button" aria-expanded="false" data-chart="beats">79</span><span class="spark" aria-hidden="true"></span><span class="say"> beats. </span><span class="live num" style="--i:1" tabindex="0" role="button" aria-expanded="false" data-chart="unheard">46</span><span class="spark" aria-hidden="true"></span><span class="say"> are finished and nobody&rsquo;s heard them. </span><span class="live num" style="--i:2" tabindex="0" role="button" aria-expanded="false" data-chart="week">5</span><span class="spark" aria-hidden="true"></span><span class="say"> were made this week, </span><span class="live num" style="--i:3" tabindex="0" role="button" aria-expanded="false" data-chart="posts">0</span><span class="spark" aria-hidden="true"></span><span class="say"> posts went out, and </span><span class="live num" style="--i:4" tabindex="0" role="button" aria-expanded="false" data-chart="sales">$0</span><span class="spark" aria-hidden="true"></span><span class="say"> came in. </span>
+    <span class="say">Today, </span><span class="live act" style="--i:5" tabindex="0" role="button" aria-expanded="false" aria-controls="fold-finish" id="w-finish">finish <em>2bass</em></span><span class="fold" id="fold-finish" hidden>
+      <span class="piece" style="--k:0">
+        <span class="player">
+          <button class="pbtn" id="play" type="button" aria-label="Play 2bass">play</button>
+          <svg class="wave" id="wave" viewBox="0 0 240 36" preserveAspectRatio="none" tabindex="0" role="slider" aria-label="2bass position" aria-valuemin="0" aria-valuemax="134" aria-valuenow="0"></svg>
+          <span class="time" id="time">0:00 of 2:14</span>
+          <button class="sublink" id="open-fl" type="button">open in FL Studio</button>
+        </span>
+      </span>
+    </span><span class="say">, or </span><span class="live act" style="--i:6" tabindex="0" role="button" aria-expanded="false" aria-controls="fold-pitch" id="w-pitch">pitch one</span><span class="fold pick" id="fold-pitch" hidden><span class="say">: </span><span class="piece" style="--k:0"><span class="opt" tabindex="0" role="button" data-beat="Gutter Hymn">Gutter Hymn</span><small>142 bpm, finished six weeks ago</small></span><span class="say">, </span><span class="piece" style="--k:1"><span class="opt" tabindex="0" role="button" data-beat="Nine Lives">Nine Lives</span><small>128 bpm, mixed, never sent</small></span><span class="say">, or </span><span class="piece" style="--k:2"><span class="opt" tabindex="0" role="button" data-beat="Slow Burn">Slow Burn</span><small>150 bpm, your longest-waiting</small></span></span><span class="say" id="end">.</span>
+  </p>
+
+  <p class="aside">
+    Or <button class="sublink" data-do="Opening FL Studio">open FL Studio</button>, <button class="sublink" data-do="Starting a video from your newest beat">make a video</button>, <button class="sublink" data-do="Opening the sales log">log a sale</button>.
+    <span class="status" id="status" role="status" aria-live="polite"></span>
+  </p>
+</main>
+
+<footer>
+  <div class="streak">
+    <div class="ticks" id="ticks" aria-hidden="true"></div>
+    <span>5 days running, your best so far</span>
+  </div>
+  <span>79 beats, 46 never pitched or posted</span>
+</footer>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const NS = 'http://www.w3.org/2000/svg';
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  $('#today').textContent = new Date().toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'});
+
+  /* ---- streak ticks: 15 days, last 5 lit ---- */
+  const tk = $('#ticks');
+  for (let n = 0; n < 15; n++) {
+    const i = document.createElement('i');
+    i.style.setProperty('--n', n);
+    if (n >= 10) i.className = 'on' + (n === 14 ? ' now' : '');
+    tk.appendChild(i);
+  }
+
+  /* ---- inline charts ---- */
+  const charts = {
+    beats() {
+      // cumulative beats over 12 weeks, ends at 79
+      const d = [57,59,60,62,63,65,67,69,71,72,74,79];
+      const mn = 55, mx = 80, w = 84, h = 24;
+      const pts = d.map((v,i) => [i*(w/11), h-((v-mn)/(mx-mn))*h]);
+      const path = 'M' + pts.map(p => p.map(n=>n.toFixed(1)).join(' ')).join(' L');
+      const [lx,ly] = pts[pts.length-1];
+      return {svg:`<svg viewBox="-2 -3 ${w+6} ${h+6}" width="${(w+6)*0.74}"><path class="ln" style="--len:200" d="${path}"/><circle class="dot" cx="${lx}" cy="${ly}" r="2.6"/></svg>`, note:'up 22 in twelve weeks'};
+    },
+    unheard() {
+      // 79 ticks, 46 lit
+      let s = '';
+      for (let i = 0; i < 79; i++) {
+        const x = i*1.55;
+        s += `<line class="tk ${i<46?'hot':''}" style="--k:${i}" x1="${x}" x2="${x}" y1="${i<46?2:9}" y2="24"/>`;
+      }
+      return {svg:`<svg viewBox="-1 0 124 26" width="${124*0.74}">${s}</svg>`, note:'46 of 79'};
+    },
+    week() {
+      // Mon..Sun, one a day since Wednesday
+      const d = [0,0,1,1,1,1,1];
+      let s = '';
+      d.forEach((v,i) => {
+        const x = i*11;
+        s += v ? `<rect class="bar" style="--k:${i}" x="${x}" y="2" width="6" height="22"/>` : `<rect class="ghost" x="${x}" y="22" width="6" height="2"/>`;
+      });
+      return {svg:`<svg viewBox="0 0 72 26" width="${72*0.74}">${s}</svg>`, note:'one a day since Wednesday'};
+    },
+    posts() {
+      let s = '<line class="dash" x1="0" x2="72" y1="22" y2="22"/>';
+      for (let i = 0; i < 7; i++) s += `<circle class="hole" cx="${i*11+3}" cy="22" r="2.6"/>`;
+      return {svg:`<svg viewBox="-2 8 78 20" width="${78*0.74}">${s}</svg>`, note:'nothing out this week'};
+    },
+    sales() {
+      return {svg:`<svg viewBox="0 8 72 20" width="${72*0.74}"><line class="dash" x1="0" x2="72" y1="22" y2="22"/></svg>`, note:'nothing yet this month'};
+    }
+  };
+
+  const nums = $$('.num');
+  let pinned = null;
+
+  function openSpark(el) {
+    const sp = el.nextElementSibling;
+    if (!sp.firstChild) {
+      const c = charts[el.dataset.chart]();
+      sp.innerHTML = `<span>${c.svg}<small>${c.note}</small></span>`;
+      const l = sp.querySelector('.ln'); if (l) { const len = l.getTotalLength(); sp.style.setProperty('--len', len); l.style.setProperty('--len', len); }
+    }
+    sp.style.width = sp.firstChild.scrollWidth + 'px';
+    requestAnimationFrame(() => sp.classList.add('open'));
+    el.setAttribute('aria-expanded', 'true');
+  }
+  function closeSpark(el) {
+    const sp = el.nextElementSibling;
+    sp.style.width = '0px';
+    sp.classList.remove('open');
+    el.setAttribute('aria-expanded', 'false');
+  }
+  nums.forEach(el => {
+    el.addEventListener('mouseenter', () => openSpark(el));
+    el.addEventListener('mouseleave', () => { if (pinned !== el) closeSpark(el); });
+    el.addEventListener('focus', () => openSpark(el));
+    el.addEventListener('blur', () => { if (pinned !== el) closeSpark(el); });
+    const toggle = () => {
+      if (pinned === el) { pinned = null; closeSpark(el); el.classList.remove('on'); }
+      else { if (pinned) { closeSpark(pinned); pinned.classList.remove('on'); } pinned = el; el.classList.add('on'); openSpark(el); }
+    };
+    el.addEventListener('click', toggle);
+    el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+  });
+
+  /* ---- folds ---- */
+  const wFinish = $('#w-finish'), fFinish = $('#fold-finish');
+  const wPitch = $('#w-pitch'), fPitch = $('#fold-pitch');
+  function setFold(w, f, open) {
+    f.hidden = !open;
+    w.classList.toggle('on', open);
+    w.setAttribute('aria-expanded', String(open));
+  }
+  function bind(w, f, other, otherF, onClose) {
+    const go = () => {
+      const open = f.hidden;
+      setFold(other, otherF, false);
+      if (other === wFinish) stop();
+      setFold(w, f, open);
+      if (!open && onClose) onClose();
+    };
+    w.addEventListener('click', go);
+    w.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+  }
+  bind(wFinish, fFinish, wPitch, fPitch);
+  bind(wPitch, fPitch, wFinish, fFinish);
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      setFold(wFinish, fFinish, false); setFold(wPitch, fPitch, false); stop();
+      if (pinned) { closeSpark(pinned); pinned.classList.remove('on'); pinned = null; }
+    }
+  });
+
+  /* ---- pitch picker: choosing rewrites the sentence ---- */
+  $$('.opt').forEach(o => {
+    const choose = () => {
+      const name = o.dataset.beat;
+      wPitch.innerHTML = `pitch <em>${name}</em>`;
+      setFold(wPitch, fPitch, false);
+      say(`${name} is queued to pitch. Pick who gets it next.`);
+      wPitch.focus();
+    };
+    o.addEventListener('click', choose);
+    o.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(); } });
+  });
+
+  /* ---- status line + secondary actions ---- */
+  const status = $('#status'); let st;
+  function say(t) { status.textContent = t; clearTimeout(st); st = setTimeout(() => status.textContent = '', 4200); }
+  $$('[data-do]').forEach(b => b.addEventListener('click', () => say(b.dataset.do + '. (mockup)')));
+  $('#open-fl').addEventListener('click', () => say('Opening 2bass in FL Studio. (mockup)'));
+
+  /* ---- waveform + tiny synth for 2bass ---- */
+  const DUR = 134, wave = $('#wave'), N = 60;
+  let seed = 7; const rnd = () => (seed = (seed*16807) % 2147483647) / 2147483647;
+  const bars = [];
+  for (let i = 0; i < N; i++) {
+    const env = i < 6 ? .35 + i*.1 : (i % 16 > 11 ? .45 : .95) * (.55 + .45*Math.sin(i*.9));
+    const hgt = Math.max(3, Math.abs(env) * 30 * (.7 + rnd()*.3));
+    const r = document.createElementNS(NS, 'rect');
+    r.setAttribute('x', i*4 + .5); r.setAttribute('width', 2.4);
+    r.setAttribute('y', (36 - hgt)/2); r.setAttribute('height', hgt); r.setAttribute('rx', 1.2);
+    wave.appendChild(r); bars.push(r);
+  }
+  let ctx, t0 = 0, pos = 0, playing = false, raf, beat;
+  const fmt = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+  function paint() {
+    const k = Math.floor(pos / DUR * N);
+    bars.forEach((r, i) => r.classList.toggle('done', i < k));
+    $('#time').textContent = `${fmt(pos)} of ${fmt(DUR)}`;
+    wave.setAttribute('aria-valuenow', Math.floor(pos));
+  }
+  function thump(step) {
+    if (!ctx) return;
+    const t = ctx.currentTime, o = ctx.createOscillator(), g = ctx.createGain();
+    const f = [49, 49, 58.3, 49][step % 4];
+    o.type = 'sine'; o.frequency.setValueAtTime(f*2.2, t); o.frequency.exponentialRampToValueAtTime(f, t + .06);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(.35, t + .01); g.gain.exponentialRampToValueAtTime(.0001, t + .42);
+    o.connect(g).connect(ctx.destination); o.start(t); o.stop(t + .45);
+  }
+  function loop(now) {
+    pos = (now - t0) / 1000;
+    if (pos >= DUR) { stop(); pos = 0; paint(); return; }
+    paint(); raf = requestAnimationFrame(loop);
+  }
+  function play() {
+    ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
+    if (ctx.state === 'suspended') ctx.resume();
+    playing = true; t0 = performance.now() - pos*1000;
+    let s = 0; thump(s++); beat = setInterval(() => thump(s++), 60000/140/1);
+    $('#play').textContent = 'pause'; $('#play').setAttribute('aria-label', 'Pause 2bass');
+    raf = requestAnimationFrame(loop);
+  }
+  function stop() {
+    if (!playing) return;
+    playing = false; clearInterval(beat); cancelAnimationFrame(raf);
+    $('#play').textContent = 'play'; $('#play').setAttribute('aria-label', 'Play 2bass');
+  }
+  $('#play').addEventListener('click', () => playing ? stop() : play());
+  function seek(clientX) {
+    const r = wave.getBoundingClientRect();
+    pos = Math.min(1, Math.max(0, (clientX - r.left) / r.width)) * DUR;
+    if (playing) t0 = performance.now() - pos*1000;
+    paint();
+  }
+  let drag = false;
+  wave.addEventListener('pointerdown', e => { drag = true; wave.setPointerCapture(e.pointerId); seek(e.clientX); });
+  wave.addEventListener('pointermove', e => drag && seek(e.clientX));
+  wave.addEventListener('pointerup', () => drag = false);
+  wave.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight') { pos = Math.min(DUR, pos + 5); }
+    else if (e.key === 'ArrowLeft') { pos = Math.max(0, pos - 5); }
+    else return;
+    e.preventDefault(); if (playing) t0 = performance.now() - pos*1000; paint();
+  });
+  paint();
+})();
+</script>
+</body>
+</html>

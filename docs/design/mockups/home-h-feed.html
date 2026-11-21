@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Studio HQ — Home (feed)</title>
+<style>
+:root{
+  --paper:#ECEDE7;      /* photo-paper grey-white */
+  --paper-2:#E2E4DC;
+  --ink:#141B33;        /* near-black blue */
+  --ink-soft:#4B5470;
+  --ink-faint:#8A90A4;
+  --blue:#1F3DBF;       /* the one accent: ink-blue */
+  --rule:#C9CCC0;
+  --serif:"New York","Iowan Old Style","Charter","Georgia",serif;
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;
+  --gutter:132px;
+}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{background:var(--paper);color:var(--ink);font-family:var(--serif);font-size:19px;line-height:1.5;-webkit-font-smoothing:antialiased;overflow:hidden}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
+
+/* scroll surface */
+#scroll{position:fixed;inset:0 56px 0 0;overflow-y:auto;padding:56px 0 190px}
+.feed{max-width:calc(var(--gutter) + 640px);margin:0 auto;padding:0 28px 0 28px}
+.masthead{display:grid;grid-template-columns:var(--gutter) minmax(0,1fr);margin-bottom:34px}
+.masthead h1{grid-column:2;font-weight:400;font-size:15px;font-family:var(--sans);color:var(--ink-faint);letter-spacing:.01em}
+.masthead h1 b{color:var(--ink);font-weight:600}
+
+/* entries */
+.day{display:grid;grid-template-columns:var(--gutter) minmax(0,1fr);padding:0;position:relative}
+.day-label{font-family:var(--sans);font-size:13px;color:var(--ink-faint);text-align:right;padding:9px 26px 0 0;font-variant-numeric:tabular-nums;position:relative}
+.day-label strong{display:block;color:var(--ink);font-weight:600;font-size:14px}
+.day-label::after{content:"";position:absolute;right:-4px;top:15px;width:7px;height:7px;border-radius:50%;background:var(--paper);border:1.5px solid var(--ink-soft);z-index:2}
+.day.key .day-label::after{background:var(--blue);border-color:var(--blue)}
+.day::before{content:"";position:absolute;left:calc(var(--gutter) - 1px);top:0;bottom:0;width:1px;background:var(--rule)}
+.body{padding:0 0 38px 30px;max-width:620px}
+.body p.line{font-size:21px;line-height:1.42;letter-spacing:-.005em}
+.body p.line em{font-style:italic}
+.body p.sub{color:var(--ink-soft);font-size:17px;margin-top:4px}
+.num{font-variant-numeric:lining-nums tabular-nums}
+
+/* slide in */
+.enter{opacity:0;transform:translateY(14px)}
+.enter.in{opacity:1;transform:none;transition:opacity .7s cubic-bezier(.2,.7,.2,1),transform .7s cubic-bezier(.2,.7,.2,1)}
+
+/* chips */
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.chip{font-family:var(--sans);font-size:14px;font-weight:550;background:transparent;border:1.5px solid var(--ink);border-radius:999px;padding:5px 14px 6px;cursor:pointer;transition:background .15s,color .15s,border-color .15s}
+.chip:hover{background:var(--ink);color:var(--paper)}
+.chip[aria-expanded="true"]{background:var(--blue);border-color:var(--blue);color:var(--paper)}
+.chip.quiet{border-color:var(--rule);color:var(--ink-soft);font-weight:500}
+.chip.quiet:hover{border-color:var(--ink);color:var(--paper)}
+
+/* inline expansion */
+.more{display:grid;grid-template-rows:0fr;transition:grid-template-rows .35s cubic-bezier(.2,.7,.2,1)}
+.more.open{grid-template-rows:1fr}
+.more>div{overflow:hidden}
+.more .inner{margin-top:14px;padding:2px 0 2px 16px;border-left:2px solid var(--blue);font-size:17px;color:var(--ink-soft)}
+.more .inner p+p{margin-top:6px}
+.more ol{list-style:none;padding:0}
+.more li{display:flex;justify-content:space-between;gap:20px;padding:5px 0;border-bottom:1px solid var(--rule)}
+.more li:last-child{border:0}
+.more li span:last-child{font-family:var(--sans);font-size:13px;color:var(--ink-faint);padding-top:3px}
+.more .go{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+
+/* mini visuals */
+.mini{display:block;margin-top:14px}
+svg.mini{max-width:100%;height:auto}
+svg.spark path.s{fill:none;stroke:var(--ink);stroke-width:1.5;stroke-linejoin:round;stroke-dasharray:var(--len);stroke-dashoffset:var(--len)}
+.in svg.spark path.s{animation:draw 1.6s .4s ease forwards}
+svg.spark .fill{fill:var(--blue);opacity:.12}
+svg.spark text,svg.wave text{font-family:var(--sans);font-size:11px;fill:var(--ink-faint)}
+svg.wave rect{fill:var(--ink)}
+svg.wave rect.dim{fill:var(--ink-faint);opacity:.45}
+@keyframes draw{to{stroke-dashoffset:0}}
+svg.ticks .t{fill:none;stroke:var(--blue);stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:22;stroke-dashoffset:22}
+.in svg.ticks .t{animation:draw 0.5s ease forwards}
+svg.ticks .t:nth-of-type(1){animation-delay:.5s}
+svg.ticks .t:nth-of-type(2){animation-delay:.75s}
+svg.ticks .t:nth-of-type(3){animation-delay:1s}
+svg.ticks .t:nth-of-type(4){animation-delay:1.25s}
+svg.ticks .t:nth-of-type(5){animation-delay:1.5s}
+svg.ticks .box{fill:none;stroke:var(--rule);stroke-width:1.5}
+svg.ticks text{font-family:var(--sans);font-size:11px;fill:var(--ink-faint);text-anchor:middle}
+.empty-week{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
+.empty-week i{width:28px;height:28px;border:1.5px dashed var(--rule);display:block}
+
+.endnote{display:grid;grid-template-columns:var(--gutter) minmax(0,1fr)}
+.endnote p{grid-column:2;padding-left:30px;color:var(--ink-faint);font-size:17px;font-style:italic}
+
+/* rail */
+.rail{position:fixed;right:0;top:0;bottom:0;width:56px;border-left:1px solid var(--rule);background:var(--paper);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:34px;z-index:5}
+.rail span{writing-mode:vertical-rl;transform:rotate(180deg);font-family:var(--sans);font-size:14px;color:var(--ink-soft);white-space:nowrap}
+.rail span b{font-family:var(--serif);font-size:26px;font-weight:400;color:var(--ink);margin-bottom:6px;font-variant-numeric:lining-nums}
+.rail span.hot b{color:var(--blue)}
+
+/* command bar */
+.dock{position:fixed;left:0;right:56px;bottom:0;padding:0 28px 24px;background:linear-gradient(to top,var(--paper) 70%,rgba(236,237,231,0));z-index:6;pointer-events:none}
+.dock-in{max-width:calc(var(--gutter) + 640px);margin:0 auto;padding-left:var(--gutter);position:relative;pointer-events:auto}
+.bar{display:flex;align-items:center;gap:12px;border-top:2px solid var(--ink);padding-top:12px}
+.bar label{font-family:var(--sans);font-size:13px;font-weight:600;color:var(--blue);white-space:nowrap}
+.bar input{flex:1;border:0;background:transparent;font-family:var(--serif);font-size:21px;padding:4px 0;outline:none;min-width:0}
+.bar input::placeholder{color:var(--ink-faint)}
+.bar kbd{font-family:var(--sans);font-size:12px;color:var(--ink-faint);border:1px solid var(--rule);border-radius:4px;padding:1px 6px}
+.sugg{position:absolute;left:var(--gutter);right:0;bottom:100%;margin-bottom:6px;background:var(--paper);border:1.5px solid var(--ink);list-style:none;padding:4px 0;display:none}
+.sugg.show{display:block}
+.sugg li{display:flex;justify-content:space-between;gap:16px;padding:7px 16px;cursor:pointer;font-size:18px}
+.sugg li small{font-family:var(--sans);font-size:13px;color:var(--ink-faint);padding-top:3px}
+.sugg li.on{background:var(--ink);color:var(--paper)}
+.sugg li.on small{color:var(--paper);opacity:.7}
+.sugg li mark{background:none;color:inherit;border-bottom:2px solid var(--blue)}
+.sugg li.on mark{border-color:var(--paper)}
+
+@media (max-width:760px){
+  :root{--gutter:74px}
+  body{font-size:17px}
+  .body p.line{font-size:18px}
+  .day-label{padding-right:16px;font-size:12px}
+  .feed{padding:0 14px}
+  .dock{padding:0 14px 16px}
+  .bar kbd{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  .enter{opacity:1;transform:none}
+  .enter.in,.more{transition:none}
+  svg.spark path.s,svg.ticks .t{stroke-dashoffset:0!important;animation:none!important}
+}
+</style>
+</head>
+<body>
+
+<div id="scroll">
+  <main class="feed" id="feed">
+    <header class="masthead enter"><h1><b>Studio HQ</b> &nbsp;Saturday night. Here is what happened.</h1></header>
+
+    <!-- 1 -->
+    <section class="day enter" data-key>
+      <div class="day-label"><strong>Today</strong><span class="num">9:41pm</span></div>
+      <div class="body">
+        <p class="line">You touched <em>2bass</em> (<span class="num">140</span>bpm, F#m) for <span class="num">54</span> minutes.</p>
+        <p class="sub">Longest push was the last twenty, after the break.</p>
+        <svg class="spark mini" width="420" height="58" viewBox="0 0 420 58" aria-label="Activity over the 54 minute session">
+          <path class="fill" d="M0 52 L14 50 L30 44 L48 46 L66 34 L84 38 L102 24 L120 40 L138 52 L156 52 L174 50 L190 42 L210 30 L228 36 L246 18 L264 22 L282 12 L300 20 L318 8 L336 14 L354 10 L372 22 L390 40 L420 52 Z"/>
+          <path class="s" style="--len:560" d="M0 52 L14 50 L30 44 L48 46 L66 34 L84 38 L102 24 L120 40 L138 52 L156 52 L174 50 L190 42 L210 30 L228 36 L246 18 L264 22 L282 12 L300 20 L318 8 L336 14 L354 10 L372 22 L390 40 L420 52"/>
+          <text x="0" y="57" dy="0">8:47</text><text x="396" y="57">9:41</text>
+        </svg>
+        <div class="chips">
+          <button class="chip" data-open="p-fl" aria-expanded="false">Open in FL Studio</button>
+          <button class="chip quiet" data-open="p-2b" aria-expanded="false">Where it stands</button>
+        </div>
+        <div class="more" id="p-fl"><div><div class="inner"><p>Opens <em>2bass.flp</em> where you left it. Nothing else changes.</p><div class="go"><button class="chip">Open now</button></div></div></div></div>
+        <div class="more" id="p-2b"><div><div class="inner"><p>In progress. Touched <span class="num">3</span> times since Thursday. No drums bounced yet.</p></div></div></div>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section class="day enter">
+      <div class="day-label"><strong>Today</strong><span class="num">all day</span></div>
+      <div class="body">
+        <p class="line">Nothing posted this week.</p>
+        <p class="sub">Five beats made, none shown to anyone.</p>
+        <div class="empty-week" aria-label="Seven days, no posts"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="chips"><button class="chip" data-open="p-vid" aria-expanded="false">Make a video</button></div>
+        <div class="more" id="p-vid"><div><div class="inner"><p>Pick a beat and I will cut a 20 second clip around its best bar.</p><ol><li><span>night shift</span><span>finished yesterday</span></li><li><span>2bass</span><span>not finished</span></li></ol><div class="go"><button class="chip">Start with night shift</button></div></div></div></div>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section class="day enter" data-key>
+      <div class="day-label"><strong>Yesterday</strong><span class="num">11:20pm</span></div>
+      <div class="body">
+        <p class="line">Finished <em>&lsquo;night shift&rsquo;</em>. Nobody has heard it yet.</p>
+        <svg class="wave mini" id="wave" width="420" height="44" viewBox="0 0 420 44" aria-label="Waveform of night shift"></svg>
+        <div class="chips">
+          <button class="chip" data-open="p-pitch" aria-expanded="false">Pitch it</button>
+          <button class="chip quiet" data-open="p-note" aria-expanded="false">Add a note</button>
+        </div>
+        <div class="more" id="p-pitch"><div><div class="inner"><p>One send, one listener. Choose where it goes first.</p><ol><li><span>An artist you have emailed before</span><span>needs a name</span></li><li><span>A playlist curator</span><span>needs a link</span></li><li><span>Keep it for a video first</span><span>no send</span></li></ol><div class="go"><button class="chip">Choose a listener</button></div></div></div></div>
+        <div class="more" id="p-note"><div><div class="inner"><p>A line for later: why this one works, who it is for.</p></div></div></div>
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section class="day enter" data-key>
+      <div class="day-label"><strong>Mon</strong><span class="num">any time</span></div>
+      <div class="body">
+        <p class="line"><span class="num">5</span>-day streak reached.</p>
+        <p class="sub">That is your best so far. It was also your first.</p>
+        <svg class="ticks mini" width="260" height="44" viewBox="0 0 260 44" aria-label="Five days in a row">
+          <rect class="box" x="1" y="4" width="40" height="28"/><rect class="box" x="55" y="4" width="40" height="28"/><rect class="box" x="109" y="4" width="40" height="28"/><rect class="box" x="163" y="4" width="40" height="28"/><rect class="box" x="217" y="4" width="40" height="28"/>
+          <path class="t" d="M12 19 L19 26 L31 11"/><path class="t" d="M66 19 L73 26 L85 11"/><path class="t" d="M120 19 L127 26 L139 11"/><path class="t" d="M174 19 L181 26 L193 11"/><path class="t" d="M228 19 L235 26 L247 11"/>
+          <text x="21" y="43">Mon</text><text x="75" y="43">Tue</text><text x="129" y="43">Wed</text><text x="183" y="43">Thu</text><text x="237" y="43">Fri</text>
+        </svg>
+      </div>
+    </section>
+
+    <!-- 5 -->
+    <section class="day enter">
+      <div class="day-label"><strong>Sun</strong><span class="num">&nbsp;</span></div>
+      <div class="body">
+        <p class="line">Posted nothing.</p>
+        <p class="sub">Made one beat. It is still on your drive.</p>
+      </div>
+    </section>
+
+    <!-- 6 -->
+    <section class="day enter">
+      <div class="day-label"><strong>Sat</strong><span class="num">&nbsp;</span></div>
+      <div class="body">
+        <p class="line"><span class="num">46</span> finished beats have never been pitched or posted.</p>
+        <p class="sub">That is more than half of the <span class="num">79</span>.</p>
+        <div class="chips"><button class="chip" data-open="p-old" aria-expanded="false">Show the oldest five</button></div>
+        <div class="more" id="p-old"><div><div class="inner"><ol><li><span>velvet rope</span><span>finished 14 months ago</span></li><li><span>glass &amp; gin</span><span>13 months</span></li><li><span>moth</span><span>12 months</span></li><li><span>tall order</span><span>12 months</span></li><li><span>half sleep</span><span>11 months</span></li></ol><div class="go"><button class="chip">Pitch velvet rope</button></div></div></div></div>
+      </div>
+    </section>
+
+    <!-- 7 -->
+    <section class="day enter">
+      <div class="day-label"><strong>This month</strong><span class="num">&nbsp;</span></div>
+      <div class="body">
+        <p class="line"><span class="num">$0</span> in sales.</p>
+        <div class="chips"><button class="chip" data-open="p-sale" aria-expanded="false">Log a sale</button></div>
+        <div class="more" id="p-sale"><div><div class="inner"><p>Sold something off the books? Say which beat and for how much.</p><div class="go"><button class="chip">Log it</button></div></div></div></div>
+      </div>
+    </section>
+
+    <div class="endnote enter"><p>That is the whole thread. Start of the log is <span class="num">79</span> beats ago.</p></div>
+  </main>
+</div>
+
+<aside class="rail" aria-label="Totals">
+  <span><b>79</b>beats</span>
+  <span class="hot"><b>46</b>never pitched</span>
+  <span><b>5</b>this week</span>
+</aside>
+
+<div class="dock">
+  <div class="dock-in">
+    <ul class="sugg" id="sugg" role="listbox" aria-label="Suggestions"></ul>
+    <form class="bar" id="form" autocomplete="off">
+      <label for="cmd">What next?</label>
+      <input id="cmd" type="text" placeholder="type &lsquo;pitch&rsquo;, &lsquo;video&rsquo;, &lsquo;sale&rsquo;, or a beat name" role="combobox" aria-expanded="false" aria-controls="sugg">
+      <kbd>return</kbd>
+    </form>
+  </div>
+</div>
+
+<script>
+(function(){
+  // staggered entry
+  var els=[].slice.call(document.querySelectorAll('.enter'));
+  var reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  els.forEach(function(el,i){ setTimeout(function(){el.classList.add('in')}, reduce?0:200+i*260); });
+
+  // waveform thumbnail
+  var w=document.getElementById('wave'),ns='http://www.w3.org/2000/svg',h=44,s=7;
+  for(var i=0;i<60;i++){
+    var env=Math.sin(i/60*Math.PI)*.55+.35;
+    var v=Math.abs(Math.sin(i*1.7)*Math.cos(i*.45))*env+.08;
+    var bh=Math.max(3,v*h);
+    var r=document.createElementNS(ns,'rect');
+    r.setAttribute('x',i*s);r.setAttribute('y',(h-bh)/2);r.setAttribute('width',4);r.setAttribute('height',bh);
+    if(i>38) r.setAttribute('class','dim');
+    w.appendChild(r);
+  }
+
+  // chips expand inline
+  document.getElementById('feed').addEventListener('click',function(e){
+    var c=e.target.closest('[data-open]'); if(!c) return;
+    var t=document.getElementById(c.getAttribute('data-open'));
+    var open=!t.classList.contains('open');
+    t.classList.toggle('open',open); c.setAttribute('aria-expanded',open);
+  });
+
+  // command bar
+  var items=[
+    {k:'pitch',d:'Send a finished beat to someone',type:'cmd'},
+    {k:'video',d:'Cut a short clip from a beat',type:'cmd'},
+    {k:'sale',d:'Log money you were paid',type:'cmd'},
+    {k:'open',d:'Open the newest beat in FL Studio',type:'cmd'},
+    {k:'2bass',d:'140bpm, F#m, in progress',type:'beat'},
+    {k:'night shift',d:'finished yesterday',type:'beat'},
+    {k:'velvet rope',d:'finished, never pitched',type:'beat'},
+    {k:'glass & gin',d:'finished, never pitched',type:'beat'},
+    {k:'moth',d:'finished, never pitched',type:'beat'},
+    {k:'half sleep',d:'finished, never pitched',type:'beat'}
+  ];
+  var inp=document.getElementById('cmd'),box=document.getElementById('sugg'),form=document.getElementById('form');
+  var cur=-1,list=[];
+  function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;')}
+  function render(){
+    var q=inp.value.trim().toLowerCase();
+    list=items.filter(function(it){return !q||it.k.toLowerCase().indexOf(q)>-1}).slice(0,5);
+    if(!list.length&&q) list=[{k:inp.value.trim(),d:'no beat by that name yet',type:'none'}];
+    cur=list.length?0:-1;
+    box.innerHTML=list.map(function(it,i){
+      var k=esc(it.k),p=q?it.k.toLowerCase().indexOf(q):-1;
+      if(p>-1&&it.type!=='none') k=esc(it.k.slice(0,p))+'<mark>'+esc(it.k.slice(p,p+q.length))+'</mark>'+esc(it.k.slice(p+q.length));
+      return '<li role="option" data-i="'+i+'" class="'+(i===cur?'on':'')+'"><span>'+k+'</span><small>'+esc(it.d)+'</small></li>';
+    }).join('');
+    var show=document.activeElement===inp&&list.length>0;
+    box.classList.toggle('show',show); inp.setAttribute('aria-expanded',show);
+  }
+  function mark(){[].forEach.call(box.children,function(li,i){li.classList.toggle('on',i===cur)})}
+  inp.addEventListener('input',render);
+  inp.addEventListener('focus',render);
+  inp.addEventListener('blur',function(){setTimeout(function(){box.classList.remove('show');inp.setAttribute('aria-expanded',false)},120)});
+  inp.addEventListener('keydown',function(e){
+    if(e.key==='ArrowUp'){e.preventDefault();cur=(cur-1+list.length)%list.length;mark()}
+    else if(e.key==='ArrowDown'){e.preventDefault();cur=(cur+1)%list.length;mark()}
+    else if(e.key==='Escape'){box.classList.remove('show');inp.blur()}
+  });
+  box.addEventListener('mousedown',function(e){var li=e.target.closest('li');if(li){e.preventDefault();pick(list[+li.dataset.i])}});
+  form.addEventListener('submit',function(e){e.preventDefault();if(list[cur])pick(list[cur])});
+
+  var replies={
+    pitch:'Pitching. Which finished beat, and to whom?',
+    video:'Making a video. Which beat should it be built around?',
+    sale:'Logging a sale. Which beat, and how much?',
+    open:'Opening 2bass in FL Studio.'
+  };
+  function pick(it){
+    var line;
+    if(it.type==='cmd') line=replies[it.k];
+    else if(it.type==='beat') line='<em>'+esc(it.k)+'</em> &mdash; '+esc(it.d)+'. Pitch it, make a video, or open it?';
+    else line='No beat called <em>'+esc(it.k)+'</em> yet.';
+    var now=new Date(),t=now.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}).toLowerCase().replace(' ','');
+    var s=document.createElement('section');
+    s.className='day enter'; s.setAttribute('data-key','');
+    s.innerHTML='<div class="day-label"><strong>Just now</strong><span class="num">'+t+'</span></div><div class="body"><p class="line">'+line+'</p></div>';
+    var feed=document.getElementById('feed'),first=feed.querySelector('.day');
+    feed.insertBefore(s,first);
+    requestAnimationFrame(function(){requestAnimationFrame(function(){s.classList.add('in')})});
+    document.getElementById('scroll').scrollTo({top:0,behavior:reduce?'auto':'smooth'});
+    inp.value='';render();
+  }
+})();
+</script>
+</body>
+</html>

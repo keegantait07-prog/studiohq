@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Studio HQ - Home (constellation)</title>
+<style>
+  /* Palette: deep sea-chart. Ink teal-black, bone line work, signal colours by stage. */
+  :root{
+    --ink:#071418;
+    --ink2:#0b1e24;
+    --line:#5f9a98;
+    --bone:#d9e4d6;
+    --dim:#7fa3a0;
+    --amber:#f0b33c;   /* in progress */
+    --foam:#8fe3cf;    /* finished, unpitched */
+    --coral:#ff6b57;   /* pitched / posted */
+    --sketch:#9db6b4;  /* sketch, hollow */
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+    --mono:ui-monospace,"SF Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--ink);color:var(--bone);font-family:var(--serif);overflow:hidden}
+  #map{position:fixed;inset:0;width:100%;height:100%;display:block;cursor:grab;touch-action:none}
+  #map.drag{cursor:grabbing}
+  #map.hot{cursor:pointer}
+
+  .ann{position:fixed;pointer-events:none;font-size:13px;line-height:1.45;color:var(--bone)}
+  .ann i{color:var(--dim)}
+  .ann b{font-weight:600}
+  .ann .n{font-family:var(--mono);font-size:12px;color:var(--bone)}
+
+  #title{left:28px;top:22px;font-size:15px}
+  #title .big{font-size:22px;font-style:italic;letter-spacing:.01em}
+  #notes{left:28px;top:70px;color:var(--dim);font-size:12.5px;max-width:240px}
+  #notes .zero{color:var(--coral)}
+
+  #compass{right:34px;top:20px;width:150px;text-align:center}
+  #compass svg{display:block;margin:0 auto}
+  #compass .cap{font-size:12px;color:var(--dim);margin-top:2px}
+
+  #legend{left:28px;bottom:62px;font-size:12.5px}
+  #legend .row{display:flex;align-items:center;gap:9px;height:20px}
+  #legend svg{flex:none}
+  #legend .c{font-family:var(--mono);color:var(--dim);font-size:11.5px;margin-left:auto;padding-left:14px}
+  #legend .sz{margin-top:8px;color:var(--dim);font-size:12px}
+
+  #scale{left:50%;bottom:62px;transform:translateX(-50%);text-align:center}
+  #scale svg{display:block;margin:0 auto 3px}
+  #scale .cap{font-size:12px;color:var(--dim)}
+
+  /* transit line of actions */
+  #route{right:30px;bottom:64px;pointer-events:auto}
+  #route svg{display:block;overflow:visible}
+  #route a{position:absolute;right:30px;white-space:nowrap;color:var(--bone);text-decoration:none;font-size:14px;cursor:pointer;
+    transform:translateY(-50%);padding:4px 2px;border-bottom:1px solid transparent;font-style:italic}
+  #route a:hover,#route a:focus-visible{border-bottom-color:var(--coral);outline:none}
+  #route a small{font-style:normal;color:var(--dim);font-size:11.5px;margin-right:8px}
+
+  #tip{position:fixed;pointer-events:none;font-size:12.5px;background:var(--ink);border:1px solid var(--line);padding:5px 9px;
+    transform:translate(14px,-130%);opacity:0;transition:opacity .08s;white-space:nowrap;z-index:5}
+  #tip b{font-style:italic;font-weight:500;font-size:14px}
+  #tip span{color:var(--dim);font-family:var(--mono);font-size:11.5px}
+
+  #insp{position:fixed;left:0;right:0;bottom:0;height:40px;border-top:1px solid #1f3a3e;display:flex;align-items:center;
+    padding:0 28px;gap:22px;font-size:13px;background:linear-gradient(var(--ink2),var(--ink));z-index:4}
+  #insp .k{color:var(--dim);font-style:italic}
+  #insp .name{font-size:16px;font-style:italic}
+  #insp .m{font-family:var(--mono);font-size:12px;color:var(--bone)}
+  #insp .sp{flex:1}
+  #insp .hint{color:var(--dim);font-size:12px}
+  #insp .st{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;vertical-align:-1px}
+  #insp button{all:unset;cursor:pointer;color:var(--bone);border-bottom:1px solid var(--line);font-style:italic}
+  #insp button:hover,#insp button:focus-visible{border-color:var(--coral);color:#fff}
+
+  @media (max-width:900px){
+    #notes,#scale,#compass .cap{display:none}
+    #legend{bottom:56px}
+    #route a small{display:none}
+    #insp .hint{display:none}
+  }
+  @media (prefers-reduced-motion:reduce){#tip{transition:none}}
+</style>
+</head>
+<body>
+<canvas id="map" aria-label="Map of 79 beats by tempo and key"></canvas>
+
+<div class="ann" id="title"><div class="big">Studio HQ</div><i>79 beats surveyed. Chart updated today.</i></div>
+
+<div class="ann" id="notes">
+  Newest in progress is <b>2bass</b>, touched today.<br>
+  46 finished beats have never been pitched or posted.<br>
+  <span class="zero">0 posts</span> this week. <span class="zero">$0</span> in sales this month.
+</div>
+
+<div class="ann" id="compass">
+  <svg width="104" height="104" viewBox="-52 -52 104 104" aria-hidden="true">
+    <circle r="40" fill="none" stroke="#5f9a98" stroke-width=".7"/>
+    <circle r="31" fill="none" stroke="#2c5459" stroke-width=".7" stroke-dasharray="1.5 3"/>
+    <g id="ticks"></g>
+    <path d="M0,-46 L4,0 L0,46 L-4,0Z" fill="none" stroke="#d9e4d6" stroke-width=".8"/>
+    <path d="M-46,0 L0,3 L46,0 L0,-3Z" fill="none" stroke="#5f9a98" stroke-width=".6"/>
+    <path d="M0,-46 L4,0 L-4,0Z" fill="#ff6b57"/>
+    <text y="-48" text-anchor="middle" font-size="0"></text>
+    <text x="0" y="5" text-anchor="middle" font-family="Georgia,serif" font-style="italic" font-size="21" fill="#d9e4d6" stroke="#071418" stroke-width="4" paint-order="stroke">5</text>
+  </svg>
+  <div class="cap">5-day streak. Best is 5.<br><i>North is toward finished.</i></div>
+</div>
+
+<div class="ann" id="legend">
+  <div class="row"><svg width="18" height="18"><circle cx="9" cy="9" r="5" fill="none" stroke="#9db6b4" stroke-width="1.2" stroke-dasharray="2 2"/></svg>Sketch<span class="c" id="c-sk"></span></div>
+  <div class="row"><svg width="18" height="18"><circle cx="9" cy="9" r="5" fill="#f0b33c"/></svg>In progress<span class="c" id="c-ip"></span></div>
+  <div class="row"><svg width="18" height="18"><circle cx="9" cy="9" r="5" fill="#8fe3cf"/></svg>Finished, never pitched<span class="c" id="c-fin"></span></div>
+  <div class="row"><svg width="18" height="18"><circle cx="9" cy="9" r="5" fill="#ff6b57"/></svg>Pitched or posted<span class="c" id="c-pit"></span></div>
+  <div class="sz">Bigger dot, more finished. Across is tempo, up and down is key.</div>
+</div>
+
+<div class="ann" id="scale">
+  <svg width="196" height="22" viewBox="0 0 196 22" aria-hidden="true">
+    <path d="M1,16 H195" stroke="#5f9a98" stroke-width=".8"/>
+    <g id="wk"></g>
+  </svg>
+  <div class="cap">5 beats made this week</div>
+</div>
+
+<nav class="ann" id="route" aria-label="Actions">
+  <svg id="routeSvg" width="40" height="190" viewBox="0 0 40 190"></svg>
+</nav>
+
+<div id="tip"></div>
+
+<div id="insp" role="status" aria-live="polite">
+  <span class="k">Selected</span><span class="name" id="i-name">2bass</span>
+  <span class="m" id="i-meta"></span>
+  <span class="sp"></span>
+  <span class="hint" id="i-hint">Drag to pan. Scroll to zoom. Click a dot to select.</span>
+  <button id="i-reset" type="button">Re-centre on 2bass</button>
+</div>
+
+<script>
+(() => {
+  /* ---------- data ---------- */
+  let seed = 7919;
+  const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
+  const W = 1600, H = 900;
+  const BPM0 = 60, BPM1 = 180, X0 = 120, X1 = 1480;
+  const Y0 = 70, YS = 70;                               // camelot band height
+  const bx = bpm => X0 + (bpm - BPM0) / (BPM1 - BPM0) * (X1 - X0);
+  const by = (n, mode) => Y0 + (n - 1) * YS + (mode === 'B' ? 22 : 48);  // B (major) above A (minor) in each band
+  const OUT = { x: 1620, y: 250 };
+
+  const words1 = ['Velvet','Rust','Ghost','Night','Static','Paper','Glass','Slow','Cold','Harbor','Salt','Neon','Lowlight','Amber','Dust','Mirror','Tin','Orbit','Cedar','Wire','Ash','Moth','Halo','Drift','Copper','Tape','Hollow','Late','Pale','Rain'];
+  const words2 = ['Run','Room','Season','Loop','Hours','Signal','Keys','Lane','Weather','Tide','Bounce','Vault','Bloom','Strings','Gate','Bus','Chain','Sky','Bell','Door','Cut','Walk','Pool','Choir'];
+  const used = new Set(['2bass']);
+  const name = () => { let s; do { s = words1[(rnd()*words1.length)|0] + ' ' + words2[(rnd()*words2.length)|0]; } while (used.has(s)); used.add(s); return s.toLowerCase(); };
+
+  const KEYS_A = ['A-flat min','E-flat min','B-flat min','F min','C min','G min','D min','A min','E min','B min','F-sharp min','D-flat min'];
+  const KEYS_B = ['B maj','F-sharp maj','D-flat maj','A-flat maj','E-flat maj','B-flat maj','F maj','C maj','G maj','D maj','A maj','E maj'];
+  // camelot 1..12 -> A (minor) / B (major) names
+  const keyName = (n, m) => (m === 'A' ? KEYS_A : KEYS_B)[n - 1];
+
+  const beats = [];
+  function mk(stage, count) {
+    for (let i = 0; i < count; i++) {
+      // tempo clusters around boom-bap, trap and drill ranges
+      const c = rnd();
+      let bpm = c < .34 ? 82 + rnd()*16 : c < .66 ? 130 + rnd()*20 : c < .86 ? 62 + rnd()*20 : 100 + rnd()*30;
+      bpm = Math.round(Math.max(61, Math.min(179, bpm)));
+      const n = 1 + ((rnd() * 12) | 0), m = rnd() < .62 ? 'A' : 'B';
+      const jx = (rnd() - .5) * 10, jy = (rnd() - .5) * 18;
+      const fin = stage === 'sk' ? .08 + rnd()*.25 : stage === 'ip' ? .35 + rnd()*.4 : .8 + rnd()*.2;
+      beats.push({ id: beats.length, name: name(), stage, bpm, n, m,
+        x: bx(bpm) + jx, y: by(n, m) + jy, fin, days: Math.round(rnd()*200) });
+    }
+  }
+  mk('sk', 11); mk('ip', 13); mk('fin', 46); mk('pit', 8);
+  // the one that matters
+  const hero = { id: beats.length, name: '2bass', stage: 'ip', bpm: 120, n: 6, m: 'A', x: bx(120), y: by(6,'A') - 8, fin: .78, days: 0, hero: true };
+  beats.push(hero);
+  hero.x = bx(120); hero.y = 430;
+  // keep neighbours from stacking directly on the hero
+  beats.forEach(b => { if (!b.hero && Math.hypot(b.x - hero.x, b.y - hero.y) < 26) { b.x += 34; b.y += 20; } });
+
+  const R = b => 2.6 + b.fin * 5.4;
+  const COL = { sk:'#9db6b4', ip:'#f0b33c', fin:'#8fe3cf', pit:'#ff6b57' };
+  const STN = { sk:'Sketch', ip:'In progress', fin:'Finished, never pitched', pit:'Pitched or posted' };
+  const unpitched = beats.filter(b => b.stage === 'fin');
+  // 2bass counts toward the 79; counts: 11 + 14 + 46 + 8 = 79
+  const cnt = s => beats.filter(b => b.stage === s).length;
+  document.getElementById('c-sk').textContent = cnt('sk');
+  document.getElementById('c-ip').textContent = cnt('ip');
+  document.getElementById('c-fin').textContent = cnt('fin');
+  document.getElementById('c-pit').textContent = cnt('pit');
+  // fixed edge links: 46 unpitched -> out
+  const links = unpitched.map(b => {
+    const mx = (b.x + OUT.x) / 2, bend = (b.y < OUT.y ? -1 : 1) * (30 + (b.x < 700 ? 40 : 10));
+    return { b, cx: mx, cy: (b.y + OUT.y) / 2 + bend };
+  });
+
+  /* ---------- static annotation svg ---------- */
+  const ticks = document.getElementById('ticks');
+  for (let i = 0; i < 12; i++) {
+    const a = i / 12 * Math.PI * 2, r1 = 40, r2 = i % 3 === 0 ? 34 : 37;
+    const l = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    l.setAttribute('d', `M${Math.sin(a)*r1},${-Math.cos(a)*r1} L${Math.sin(a)*r2},${-Math.cos(a)*r2}`);
+    l.setAttribute('stroke', '#5f9a98'); l.setAttribute('stroke-width', '.7'); ticks.appendChild(l);
+  }
+  // streak: five filled notch dots around the ring
+  for (let i = 0; i < 5; i++) {
+    const a = (-60 + i * 30) * Math.PI / 180 + Math.PI * .5 + Math.PI;
+    const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    c.setAttribute('cx', Math.sin(a) * 40); c.setAttribute('cy', -Math.cos(a) * 40); c.setAttribute('r', 2.6);
+    c.setAttribute('fill', '#8fe3cf'); c.setAttribute('stroke', '#071418'); c.setAttribute('stroke-width', '1.2'); ticks.appendChild(c);
+  }
+  const wk = document.getElementById('wk'), days = ['M','T','W','T','F','S','S'];
+  for (let i = 0; i < 7; i++) {
+    const x = 3 + i * 31.5, on = i < 5;
+    wk.insertAdjacentHTML('beforeend',
+      `<rect x="${x}" y="${on ? 8 : 13}" width="26" height="${on ? 8 : 3}" fill="${on ? '#8fe3cf' : 'none'}" stroke="${on ? 'none' : '#5f9a98'}" stroke-width=".7"/>` +
+      `<text x="${x+13}" y="${on ? 5 : 10}" text-anchor="middle" font-size="9" fill="#7fa3a0" font-family="Georgia,serif" font-style="italic">${days[i]}</text>`);
+  }
+  // transit route: four stops
+  const acts = [
+    ['Open in FL Studio', 'finish 2bass'],
+    ['Pitch a beat', '46 waiting'],
+    ['Make a video', 'any beat'],
+    ['Log a sale', '$0 so far']
+  ];
+  const rs = document.getElementById('routeSvg'), route = document.getElementById('route');
+  let rsvg = `<path d="M20,14 V150 Q20,170 36,184" fill="none" stroke="#ff6b57" stroke-width="2.4" stroke-linecap="round"/>`;
+  acts.forEach((a, i) => {
+    const y = 14 + i * 44.5;
+    rsvg += `<circle cx="20" cy="${y}" r="5.5" fill="#071418" stroke="#d9e4d6" stroke-width="1.6"/>`;
+    const link = document.createElement('a'); link.tabIndex = 0; link.dataset.i = i;
+    link.style.top = (y) + 'px'; link.innerHTML = `<small>${a[1]}</small>${a[0]}`;
+    route.appendChild(link);
+  });
+  rsvg += `<circle cx="20" cy="${14+3*44.5}" r="2" fill="#d9e4d6"/>`;
+  rs.innerHTML = rsvg;
+
+  /* ---------- canvas + camera ---------- */
+  const cv = document.getElementById('map'), ctx = cv.getContext('2d');
+  let dpr = 1, vw = 0, vh = 0;
+  const cam = { x: hero.x, y: hero.y, z: 1 };
+  const target = { x: cam.x, y: cam.y, z: cam.z };
+  function fitZoom() { return Math.min(vw / 2150, vh / 1130); }
+  function resize() {
+    dpr = Math.min(2, window.devicePixelRatio || 1); vw = innerWidth; vh = innerHeight;
+    cv.width = vw * dpr; cv.height = vh * dpr; cv.style.width = vw + 'px'; cv.style.height = vh + 'px';
+  }
+  addEventListener('resize', resize); resize();
+  cam.z = target.z = Math.max(.5, fitZoom());
+  // shift so hero sits at screen centre, with room for the out-node to the right
+  const sx = x => (x - cam.x) * cam.z + vw / 2, sy = y => (y - cam.y) * cam.z + vh / 2;
+  const wx = x => (x - vw / 2) / cam.z + cam.x, wy = y => (y - vh / 2) / cam.z + cam.y;
+
+  /* ---------- interaction ---------- */
+  let drag = null, hover = null, selected = hero, mouse = { x: -1, y: -1 };
+  const tip = document.getElementById('tip');
+  function pick(px, py) {
+    let best = null, bd = 1e9;
+    for (const b of beats) {
+      const d = Math.hypot(sx(b.x) - px, sy(b.y) - py), rr = Math.max(9, R(b) * cam.z + 4);
+      if (d < rr && d < bd) { best = b; bd = d; }
+    }
+    if (!best && Math.hypot(sx(OUT.x) - px, sy(OUT.y) - py) < 18) return 'out';
+    return best;
+  }
+  cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); drag = { x: e.clientX, y: e.clientY, cx: target.x, cy: target.y, moved: 0 }; cv.classList.add('drag'); });
+  cv.addEventListener('pointermove', e => {
+    mouse.x = e.clientX; mouse.y = e.clientY;
+    if (drag) {
+      const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.moved = Math.max(drag.moved, Math.hypot(dx, dy));
+      target.x = drag.cx - dx / cam.z; target.y = drag.cy - dy / cam.z; cam.x = target.x; cam.y = target.y;
+    }
+  });
+  cv.addEventListener('pointerup', e => {
+    cv.classList.remove('drag');
+    if (drag && drag.moved < 4) {
+      const p = pick(e.clientX, e.clientY);
+      if (p === 'out') { target.x = OUT.x - 160 / cam.z; target.y = OUT.y; setInsp(null, 'out'); }
+      else if (p) { select(p); }
+    }
+    drag = null;
+  });
+  cv.addEventListener('pointerleave', () => { hover = null; tip.style.opacity = 0; });
+  cv.addEventListener('wheel', e => {
+    e.preventDefault();
+    const f = Math.exp(-e.deltaY * 0.0016), nz = Math.max(.45, Math.min(5, target.z * f));
+    // zoom about cursor
+    const wxx = wx(e.clientX), wyy = wy(e.clientY);
+    cam.z = target.z = nz;
+    cam.x = target.x = wxx - (e.clientX - vw / 2) / nz;
+    cam.y = target.y = wyy - (e.clientY - vh / 2) / nz;
+  }, { passive: false });
+
+  const insp = { name: document.getElementById('i-name'), meta: document.getElementById('i-meta'), hint: document.getElementById('i-hint') };
+  function select(b) {
+    selected = b; setInsp(b);
+  }
+  function setInsp(b, mode) {
+    if (mode === 'out') { insp.name.textContent = 'pitch these'; insp.meta.innerHTML = '46 finished beats link here. None pitched yet.'; return; }
+    insp.name.textContent = b.name;
+    insp.meta.innerHTML = `<span class="st" style="background:${COL[b.stage]};${b.stage==='sk'?'background:none;border:1px solid '+COL.sk:''}"></span>${STN[b.stage]} &nbsp; ${b.bpm} bpm &nbsp; ${b.n}${b.m} ${keyName(b.n,b.m)} &nbsp; ${Math.round(b.fin*100)}% finished &nbsp; ${b.days === 0 ? 'touched today' : 'touched ' + b.days + ' days ago'}`;
+  }
+  setInsp(hero);
+  document.getElementById('i-reset').addEventListener('click', () => { select(hero); target.x = hero.x; target.y = hero.y; target.z = Math.max(.5, fitZoom()); });
+  addEventListener('keydown', e => { if (e.key === 'Escape') { select(hero); } });
+  route.addEventListener('click', e => {
+    const a = e.target.closest('a'); if (!a) return;
+    const i = +a.dataset.i;
+    if (i === 0) { select(hero); target.x = hero.x; target.y = hero.y; target.z = 2.2; insp.meta.innerHTML += ' &nbsp; opening 2bass.flp in FL Studio'; }
+    if (i === 1) { target.x = OUT.x - 380; target.y = OUT.y; target.z = Math.max(.9, fitZoom()); setInsp(null, 'out'); }
+    if (i === 2) { insp.name.textContent = selected.name; insp.meta.innerHTML = 'Making a video from ' + selected.name; }
+    if (i === 3) { insp.name.textContent = 'Log a sale'; insp.meta.innerHTML = '$0 this month. Pick a beat on the map to attach it to.'; }
+  });
+  route.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches('a')) e.target.click(); });
+
+  /* typed label */
+  const phrase = 'finish this first';
+  let typed = 0, typeT = 0, typeHold = 0;
+
+  /* ---------- draw ---------- */
+  function axisLabels() {
+    ctx.font = 'italic 11px Georgia, serif'; ctx.textBaseline = 'middle';
+    // camelot rows on left margin
+    ctx.textAlign = 'left'; ctx.fillStyle = '#7fa3a0';
+    for (let n = 1; n <= 12; n++) {
+      const yB = sy(by(n,'B')), yA = sy(by(n,'A'));
+      if (yB < 40 || yA > vh - 50) continue;
+      ctx.fillText(n + 'B', 8, yB); ctx.fillText(n + 'A', 8, yA);
+    }
+    // bpm along the bottom edge, above the inspector
+    ctx.textAlign = 'center';
+    for (let b = 60; b <= 180; b += 10) {
+      const x = sx(bx(b)); if (x < 50 || x > vw - 20) continue;
+      ctx.fillStyle = '#7fa3a0'; ctx.fillText(b, x, vh - 52);
+      ctx.strokeStyle = '#5f9a98'; ctx.lineWidth = .8; ctx.beginPath(); ctx.moveTo(x, vh - 44); ctx.lineTo(x, vh - 40); ctx.stroke();
+    }
+  }
+  function frame(t) {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = '#071418'; ctx.fillRect(0, 0, vw, vh);
+    // soft vignette-free field: just a tonal map plate for the surveyed area
+    const x0 = sx(bx(60) - 40), x1 = sx(bx(180) + 40), y0 = sy(Y0 - 40), y1 = sy(Y0 + 11 * YS + 80);
+    ctx.fillStyle = '#0a1c21'; ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+    // fine graticule
+    ctx.lineWidth = 1;
+    for (let b = 60; b <= 180; b += 10) {
+      const x = sx(bx(b)); ctx.strokeStyle = b % 30 === 0 ? 'rgba(95,154,152,.34)' : 'rgba(95,154,152,.14)';
+      ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y1); ctx.stroke();
+    }
+    for (let n = 1; n <= 12; n++) {
+      const y = sy(Y0 + (n - 1) * YS + 35 - 35); ctx.strokeStyle = 'rgba(95,154,152,.2)';
+      ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
+      // minor/major mid-line, dotted
+      ctx.setLineDash([2, 6]); ctx.strokeStyle = 'rgba(95,154,152,.14)';
+      const ym = sy(Y0 + (n - 1) * YS + 35); ctx.beginPath(); ctx.moveTo(x0, ym); ctx.lineTo(x1, ym); ctx.stroke(); ctx.setLineDash([]);
+    }
+    // plate border w/ registration ticks
+    ctx.strokeStyle = 'rgba(217,228,214,.5)'; ctx.lineWidth = 1; ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
+
+    // links to out node
+    const hovOut = hover === 'out';
+    for (const L of links) {
+      const hot = hovOut || (hover && hover.id === L.b.id) || (selected && selected.id === L.b.id);
+      ctx.strokeStyle = hot ? 'rgba(255,107,87,.85)' : 'rgba(255,107,87,.17)';
+      ctx.lineWidth = hot ? 1.1 : .7;
+      ctx.beginPath(); ctx.moveTo(sx(L.b.x), sy(L.b.y)); ctx.quadraticCurveTo(sx(L.cx), sy(L.cy), sx(OUT.x), sy(OUT.y)); ctx.stroke();
+    }
+    // out node
+    {
+      const ox = sx(OUT.x), oy = sy(OUT.y);
+      ctx.strokeStyle = '#ff6b57'; ctx.lineWidth = 1.3;
+      ctx.beginPath(); ctx.arc(ox, oy, 11, 0, 7); ctx.stroke();
+      ctx.beginPath(); ctx.arc(ox, oy, 4, 0, 7); ctx.fillStyle = '#ff6b57'; ctx.fill();
+      // out chevrons
+      ctx.beginPath(); ctx.moveTo(ox + 16, oy - 5); ctx.lineTo(ox + 21, oy); ctx.lineTo(ox + 16, oy + 5); ctx.stroke();
+      ctx.fillStyle = '#d9e4d6'; ctx.font = 'italic 15px Georgia, serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+      ctx.fillText('out', ox - 18, oy - 20);
+      ctx.fillStyle = '#ff6b57'; ctx.font = 'italic 13px Georgia, serif';
+      ctx.fillText('pitch these', ox - 18, oy - 4);
+      ctx.fillStyle = '#7fa3a0'; ctx.font = '11px Georgia, serif';
+      ctx.fillText('46 beats link here', ox - 18, oy + 12);
+    }
+
+    // beats
+    const order = beats.slice().sort((a, b) => R(b) - R(a));
+    for (const b of order) {
+      const x = sx(b.x), y = sy(b.y), r = R(b) * Math.sqrt(cam.z);
+      if (x < -20 || x > vw + 20 || y < -20 || y > vh + 20) continue;
+      const isSel = selected === b, isHov = hover === b;
+      if (b.stage === 'sk') {
+        ctx.strokeStyle = COL.sk; ctx.lineWidth = 1.1; ctx.setLineDash([2, 2]);
+        ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+      } else {
+        ctx.fillStyle = COL[b.stage]; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+        // a thin ring of ink so crowded dots separate without glow
+        ctx.strokeStyle = '#071418'; ctx.lineWidth = 1; ctx.stroke();
+      }
+      if (isSel || isHov) {
+        ctx.strokeStyle = '#d9e4d6'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, r + 5, 0, 7); ctx.stroke();
+        // crosshair ticks
+        ctx.beginPath();
+        ctx.moveTo(x - r - 10, y); ctx.lineTo(x - r - 5, y); ctx.moveTo(x + r + 5, y); ctx.lineTo(x + r + 10, y);
+        ctx.moveTo(x, y - r - 10); ctx.lineTo(x, y - r - 5); ctx.moveTo(x, y + r + 5); ctx.lineTo(x, y + r + 10); ctx.stroke();
+      }
+    }
+
+    // hero: pulsing ring + typed label
+    {
+      const x = sx(hero.x), y = sy(hero.y), r = R(hero) * Math.sqrt(cam.z);
+      const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const p = reduce ? .4 : (t / 1900) % 1;
+      ctx.strokeStyle = `rgba(240,179,60,${(1 - p) * .9})`; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.arc(x, y, r + 6 + p * 34, 0, 7); ctx.stroke();
+      const p2 = reduce ? .7 : ((t / 1900) + .5) % 1;
+      ctx.strokeStyle = `rgba(240,179,60,${(1 - p2) * .6})`;
+      ctx.beginPath(); ctx.arc(x, y, r + 6 + p2 * 34, 0, 7); ctx.stroke();
+      ctx.strokeStyle = '#f0b33c'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(x, y, r + 5, 0, 7); ctx.stroke();
+
+      // leader line + label
+      const lx = x + 60, ly = y - 58;
+      ctx.strokeStyle = '#f0b33c'; ctx.lineWidth = .9;
+      ctx.beginPath(); ctx.moveTo(x + (r + 6) * .7, y - (r + 6) * .7); ctx.lineTo(lx, ly); ctx.lineTo(lx + 150, ly); ctx.stroke();
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = '#d9e4d6'; ctx.font = 'italic 19px Georgia, serif'; ctx.fillText('2bass', lx + 2, ly - 22);
+      ctx.fillStyle = '#7fa3a0'; ctx.font = '11.5px Georgia, serif'; ctx.fillText('120 bpm, 6A. Touched today.', lx + 2, ly - 7);
+      // typing
+      if (t - typeT > 85 && typed < phrase.length) { typed++; typeT = t; if (typed === phrase.length) typeHold = t; }
+      if (typed === phrase.length && t - typeHold > 9000) { typed = 0; typeT = t; }
+      const txt = phrase.slice(0, typed);
+      ctx.fillStyle = '#f0b33c'; ctx.font = 'italic 14px Georgia, serif';
+      ctx.fillText(txt, lx + 2, ly + 17);
+      const tw = ctx.measureText(txt).width;
+      if (Math.floor(t / 450) % 2 === 0 || typed < phrase.length) { ctx.fillRect(lx + 4 + tw, ly + 6, 1.5, 15); }
+    }
+
+    axisLabels();
+    // cursor-position readout, like a chart's coordinate tick
+    if (mouse.x > 0 && !drag) {
+      const bpm = BPM0 + (wx(mouse.x) - X0) / (X1 - X0) * (BPM1 - BPM0);
+      if (bpm >= 55 && bpm <= 185) {
+        ctx.strokeStyle = 'rgba(217,228,214,.28)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(mouse.x, vh - 44); ctx.lineTo(mouse.x, vh - 38); ctx.stroke();
+        ctx.fillStyle = '#d9e4d6'; ctx.font = '10.5px ui-monospace, Menlo, monospace'; ctx.textAlign = 'center';
+        ctx.fillText(Math.round(bpm) + ' bpm', mouse.x, vh - 62);
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // hover loop (cheap)
+  setInterval(() => {
+    if (drag) { tip.style.opacity = 0; return; }
+    const p = mouse.x > 0 ? pick(mouse.x, mouse.y) : null;
+    hover = p;
+    cv.classList.toggle('hot', !!p);
+    if (p && p !== 'out') {
+      tip.innerHTML = `<b>${p.name}</b> <span>${p.bpm} bpm &nbsp; ${p.n}${p.m} ${keyName(p.n,p.m)}</span>`;
+      tip.style.left = mouse.x + 'px'; tip.style.top = mouse.y + 'px'; tip.style.opacity = 1;
+    } else if (p === 'out') {
+      tip.innerHTML = `<b>out</b> <span>46 finished, never pitched</span>`;
+      tip.style.left = mouse.x + 'px'; tip.style.top = mouse.y + 'px'; tip.style.opacity = 1;
+    } else tip.style.opacity = 0;
+  }, 40);
+
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

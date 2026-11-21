@@ -4,9 +4,19 @@
       {
         "matcher": "Write|Edit|NotebookEdit|Bash",
         "hooks": [
-          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/no-claude-app-writes.sh" }
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/no-claude-app-writes.sh"
+          }
         ]
       }
     ]
+  },
+  "enabledPlugins": {
+    "ecc@ecc": false,
+    "zizi-skills@synced": false,
+    "adobe-for-creativity@synced": false,
+    "vercel@synced": false,
+    "claude-mem@thedotmack": false
   }
 }
